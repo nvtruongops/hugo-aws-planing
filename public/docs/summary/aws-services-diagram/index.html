@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Sơ Đồ Kiến Trúc Dịch Vụ AWS#
+Kiến Trúc Hệ Thống#
+graph TB
+    subgraph &#34;Tầng Client&#34;
+        WebApp[Web App&lt;br/&gt;Next.js]
+        MobileApp[Mobile App&lt;br/&gt;React Native - Tương lai]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CloudFront[Amazon CloudFront&lt;br/&gt;CDN]
+        Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]
+    end
+
+    subgraph &#34;Tầng API Gateway&#34;
+        APIGateway[Amazon API Gateway&lt;br/&gt;REST API]
+        WSGateway[API Gateway&lt;br/&gt;WebSocket - Tương lai]
+    end
+
+    subgraph &#34;Xác Thực&#34;
+        CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]
+        CognitoIdentity[Cognito Identity Pool]
+    end
+
+    subgraph &#34;Tầng Compute&#34;
+        LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]
+        LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]
+        LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
+        LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
+        LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+    end
+
+    subgraph &#34;Dịch Vụ AI&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]
+    end
+
+    subgraph &#34;Tầng Database&#34;
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]
+    end
+
+    subgraph &#34;Lưu Trữ&#34;
+        S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]
+    end
+
+    subgraph &#34;Giám Sát &amp; Logging&#34;
+        CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]
+        XRay[AWS X-Ray&lt;br/&gt;Tracing]
+    end
+
+    subgraph &#34;Bảo Mật&#34;
+        WAF[AWS WAF&lt;br/&gt;Web Application Firewall]
+        Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]
+    end
+
+    WebApp --&gt; CloudFront
+    CloudFront --&gt; Amplify
+    WebApp --&gt; APIGateway
+    APIGateway --&gt; CognitoUser
+    CognitoUser --&gt; LambdaAuth
+    CognitoIdentity --&gt; S3
+
+    APIGateway --&gt; LambdaRecipe
+    APIGateway --&gt; LambdaAI
+    APIGateway --&gt; LambdaProfile
+    APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaAdmin
+
+    LambdaAI --&gt; Bedrock
+
+    LambdaRecipe --&gt; DynamoDB
+    LambdaAI --&gt; DynamoDB
+    LambdaProfile --&gt; DynamoDB
+    LambdaSocial --&gt; DynamoDB
+    LambdaAdmin --&gt; DynamoDB
+
+    LambdaRecipe --&gt; S3
+
+    LambdaAuth --&gt; CloudWatch
+    LambdaRecipe --&gt; CloudWatch
+    LambdaAI --&gt; CloudWatch
+
+    APIGateway --&gt; WAFPhân Tích Chi Tiết Các Dịch Vụ#
+1. Frontend &amp; CDN#
+AWS Amplify:">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/aws-services-diagram/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="AWS Services Architecture Diagram">
+  <meta property="og:description" content="Sơ Đồ Kiến Trúc Dịch Vụ AWS#Kiến Trúc Hệ Thống#graph TBsubgraph &#34;Tầng Client&#34;WebApp[Web App&lt;br/&gt;Next.js]MobileApp[Mobile App&lt;br/&gt;React Native - Tương lai]endsubgraph &#34;CDN &amp; Hosting&#34;CloudFront[Amazon CloudFront&lt;br/&gt;CDN]Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]endsubgraph &#34;Tầng API Gateway&#34;APIGateway[Amazon API Gateway&lt;br/&gt;REST API]WSGateway[API Gateway&lt;br/&gt;WebSocket - Tương lai]endsubgraph &#34;Xác Thực&#34;CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]CognitoIdentity[Cognito Identity Pool]endsubgraph &#34;Tầng Compute&#34;LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]endsubgraph &#34;Dịch Vụ AI&#34;Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]endsubgraph &#34;Tầng Database&#34;DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]endsubgraph &#34;Lưu Trữ&#34;S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]endsubgraph &#34;Giám Sát &amp; Logging&#34;CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]XRay[AWS X-Ray&lt;br/&gt;Tracing]endsubgraph &#34;Bảo Mật&#34;WAF[AWS WAF&lt;br/&gt;Web Application Firewall]Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]endWebApp --&gt; CloudFrontCloudFront --&gt; AmplifyWebApp --&gt; APIGatewayAPIGateway --&gt; CognitoUserCognitoUser --&gt; LambdaAuthCognitoIdentity --&gt; S3APIGateway --&gt; LambdaRecipeAPIGateway --&gt; LambdaAIAPIGateway --&gt; LambdaProfileAPIGateway --&gt; LambdaSocialAPIGateway --&gt; LambdaAdminLambdaAI --&gt; BedrockLambdaRecipe --&gt; DynamoDBLambdaAI --&gt; DynamoDBLambdaProfile --&gt; DynamoDBLambdaSocial --&gt; DynamoDBLambdaAdmin --&gt; DynamoDBLambdaRecipe --&gt; S3LambdaAuth --&gt; CloudWatchLambdaRecipe --&gt; CloudWatchLambdaAI --&gt; CloudWatchAPIGateway --&gt; WAFPhân Tích Chi Tiết Các Dịch Vụ#1. Frontend &amp; CDN#AWS Amplify:">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>AWS Services Architecture Diagram | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/summary/aws-services-diagram/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.aaea68bdd9a9b12aedcf86c752b21fa6a3095dc2401d7024a6670dccab3e29fb.js" integrity="sha256-qupovdmpsSrtz4bHUrIfpqMJXcJAHXAkpmcNzKs&#43;Kfs=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="active">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>AWS Services Architecture Diagram</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#kiến-trúc-hệ-thống">Kiến Trúc Hệ Thống</a></li>
+    <li><a href="#phân-tích-chi-tiết-các-dịch-vụ">Phân Tích Chi Tiết Các Dịch Vụ</a>
+      <ul>
+        <li><a href="#1-frontend--cdn">1. Frontend &amp; CDN</a></li>
+        <li><a href="#2-xác-thực--phân-quyền">2. Xác Thực &amp; Phân Quyền</a></li>
+        <li><a href="#3-tầng-api">3. Tầng API</a></li>
+        <li><a href="#4-lambda-functions">4. Lambda Functions</a></li>
+        <li><a href="#5-dịch-vụ-aiml">5. Dịch Vụ AI/ML</a></li>
+        <li><a href="#6-database">6. Database</a></li>
+        <li><a href="#7-lưu-trữ">7. Lưu Trữ</a></li>
+        <li><a href="#8-bảo-mật">8. Bảo Mật</a></li>
+        <li><a href="#9-giám-sát--logging">9. Giám Sát &amp; Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="sơ-đồ-kiến-trúc-dịch-vụ-aws">Sơ Đồ Kiến Trúc Dịch Vụ AWS<a class="anchor" href="#s%c6%a1-%c4%91%e1%bb%93-ki%e1%ba%bfn-tr%c3%bac-d%e1%bb%8bch-v%e1%bb%a5-aws">#</a></h1>
+<h2 id="kiến-trúc-hệ-thống">Kiến Trúc Hệ Thống<a class="anchor" href="#ki%e1%ba%bfn-tr%c3%bac-h%e1%bb%87-th%e1%bb%91ng">#</a></h2>
+<pre class="mermaid">graph TB
+    subgraph &#34;Tầng Client&#34;
+        WebApp[Web App&lt;br/&gt;Next.js]
+        MobileApp[Mobile App&lt;br/&gt;React Native - Tương lai]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CloudFront[Amazon CloudFront&lt;br/&gt;CDN]
+        Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]
+    end
+
+    subgraph &#34;Tầng API Gateway&#34;
+        APIGateway[Amazon API Gateway&lt;br/&gt;REST API]
+        WSGateway[API Gateway&lt;br/&gt;WebSocket - Tương lai]
+    end
+
+    subgraph &#34;Xác Thực&#34;
+        CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]
+        CognitoIdentity[Cognito Identity Pool]
+    end
+
+    subgraph &#34;Tầng Compute&#34;
+        LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]
+        LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]
+        LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
+        LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
+        LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+    end
+
+    subgraph &#34;Dịch Vụ AI&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]
+    end
+
+    subgraph &#34;Tầng Database&#34;
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]
+    end
+
+    subgraph &#34;Lưu Trữ&#34;
+        S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]
+    end
+
+    subgraph &#34;Giám Sát &amp; Logging&#34;
+        CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]
+        XRay[AWS X-Ray&lt;br/&gt;Tracing]
+    end
+
+    subgraph &#34;Bảo Mật&#34;
+        WAF[AWS WAF&lt;br/&gt;Web Application Firewall]
+        Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]
+    end
+
+    WebApp --&gt; CloudFront
+    CloudFront --&gt; Amplify
+    WebApp --&gt; APIGateway
+    APIGateway --&gt; CognitoUser
+    CognitoUser --&gt; LambdaAuth
+    CognitoIdentity --&gt; S3
+
+    APIGateway --&gt; LambdaRecipe
+    APIGateway --&gt; LambdaAI
+    APIGateway --&gt; LambdaProfile
+    APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaAdmin
+
+    LambdaAI --&gt; Bedrock
+
+    LambdaRecipe --&gt; DynamoDB
+    LambdaAI --&gt; DynamoDB
+    LambdaProfile --&gt; DynamoDB
+    LambdaSocial --&gt; DynamoDB
+    LambdaAdmin --&gt; DynamoDB
+
+    LambdaRecipe --&gt; S3
+
+    LambdaAuth --&gt; CloudWatch
+    LambdaRecipe --&gt; CloudWatch
+    LambdaAI --&gt; CloudWatch
+
+    APIGateway --&gt; WAF</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h2 id="phân-tích-chi-tiết-các-dịch-vụ">Phân Tích Chi Tiết Các Dịch Vụ<a class="anchor" href="#ph%c3%a2n-t%c3%adch-chi-ti%e1%ba%bft-c%c3%a1c-d%e1%bb%8bch-v%e1%bb%a5">#</a></h2>
+<h3 id="1-frontend--cdn">1. Frontend &amp; CDN<a class="anchor" href="#1-frontend--cdn">#</a></h3>
+<p><strong>AWS Amplify:</strong></p>
+<ul>
+<li>Host ứng dụng Next.js</li>
+<li>Pipeline CI/CD (tự động deploy từ GitHub)</li>
+<li>Custom domain &amp; SSL certificates</li>
+<li>Chi phí: ~$15/tháng</li>
+</ul>
+<p><strong>Amazon CloudFront:</strong></p>
+<ul>
+<li>CDN toàn cầu cho phân phối nội dung nhanh chóng</li>
+<li>Cache các static assets</li>
+<li>Chi phí: ~$5-10/tháng (1TB data transfer)</li>
+</ul>
+<h3 id="2-xác-thực--phân-quyền">2. Xác Thực &amp; Phân Quyền<a class="anchor" href="#2-x%c3%a1c-th%e1%bb%b1c--ph%c3%a2n-quy%e1%bb%81n">#</a></h3>
+<p><strong>Amazon Cognito User Pool:</strong></p>
+<ul>
+<li>Đăng ký &amp; đăng nhập người dùng</li>
+<li>Xác minh email</li>
+<li>Khôi phục mật khẩu</li>
+<li>Hỗ trợ MFA (tương lai)</li>
+<li>Chi phí: MIỄN PHÍ (&lt; 50,000 )</li>
+</ul>
+<p><strong>Cognito Identity Pool:</strong></p>
+<ul>
+<li>Thông tin xác thực AWS tạm thời để truy cập S3</li>
+<li>Quyền IAM chi tiết</li>
+</ul>
+<h3 id="3-tầng-api">3. Tầng API<a class="anchor" href="#3-t%e1%ba%a7ng-api">#</a></h3>
+<p><strong>Amazon API Gateway (REST):</strong></p>
+<ul>
+<li>RESTful API endpoints</li>
+<li>Validation request</li>
+<li>Quản lý API key</li>
+<li>Throttling &amp; rate limiting</li>
+<li>Cấu hình CORS</li>
+<li>Chi phí: ~$3.50 trên triệu requests</li>
+</ul>
+<h4 id="api-endpoints">API Endpoints<a class="anchor" href="#api-endpoints">#</a></h4>
+<pre tabindex="0"><code>POST   /auth/register
+POST   /auth/login
+GET    /user/profile
+PUT    /user/profile
+POST   /user/ingredients
+GET    /user/ingredients
+DELETE /user/ingredients/{id}
+PUT    /user/privacy
+GET    /user/privacy
+
+POST   /friends/request
+GET    /friends
+PUT    /friends/{id}/accept
+PUT    /friends/{id}/reject
+DELETE /friends/{id}
+
+POST   /recipes
+GET    /recipes/{id}
+PUT    /recipes/{id}
+DELETE /recipes/{id}
+GET    /recipes/search
+
+POST   /ai/suggest
+GET    /ai/suggestions
+POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<a class="anchor" href="#4-lambda-functions">#</a></h3>
+<h4 id="lambda-1-auth-handler">Lambda 1: Auth Handler<a class="anchor" href="#lambda-1-auth-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: Cognito Post-Authentication</li>
+<li>Mục đích: Tạo profile người dùng khi đăng nhập lần đầu</li>
+</ul>
+<h4 id="lambda-2-recipe-crud">Lambda 2: Recipe CRUD<a class="anchor" href="#lambda-2-recipe-crud">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 512MB</li>
+<li>Timeout: 30s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Tạo, đọc, cập nhật, xóa recipes</li>
+<li>Upload ảnh recipe lên S3</li>
+<li>Query DynamoDB</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-3-ai-suggestion-engine-">Lambda 3: AI Suggestion Engine ⭐<a class="anchor" href="#lambda-3-ai-suggestion-engine-">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 1024MB</li>
+<li>Timeout: 60s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Gọi Amazon Bedrock (Claude 3.5)</li>
+<li>Tạo gợi ý công thức</li>
+<li>Phân tích nguyên liệu người dùng</li>
+<li>Lưu gợi ý vào DynamoDB</li>
+</ul>
+</li>
+<li>Chi phí: Lambda tốn kém nhất (~70% chi phí compute)</li>
+</ul>
+<h4 id="lambda-4-user-profile-manager">Lambda 4: User Profile Manager<a class="anchor" href="#lambda-4-user-profile-manager">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Quản lý profile &amp; preferences người dùng</li>
+<li>Cập nhật danh sách nguyên liệu</li>
+<li>Xử lý upload avatar</li>
+<li>Quản lý cài đặt riêng tư</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-5-socialfriends-handler">Lambda 5: Social/Friends Handler<a class="anchor" href="#lambda-5-socialfriends-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Quản lý yêu cầu kết bạn</li>
+<li>Chấp nhận/từ chối yêu cầu kết bạn</li>
+<li>Liệt kê danh sách bạn bè</li>
+<li>Lọc dữ liệu theo privacy settings</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-6-admin-operations">Lambda 6: Admin Operations<a class="anchor" href="#lambda-6-admin-operations">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 512MB</li>
+<li>Timeout: 30s</li>
+<li>Triggers: API Gateway (Chỉ Admin)</li>
+<li>Mục đích:
+<ul>
+<li>Quản lý người dùng (ban/unban)</li>
+<li>Kiểm duyệt nội dung</li>
+<li>Thống kê hệ thống</li>
+<li>Phê duyệt/từ chối recipes</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-dịch-vụ-aiml">5. Dịch Vụ AI/ML<a class="anchor" href="#5-d%e1%bb%8bch-v%e1%bb%a5-aiml">#</a></h3>
+<h4 id="amazon-bedrock-claude-35">Amazon Bedrock (Claude 3.5)<a class="anchor" href="#amazon-bedrock-claude-35">#</a></h4>
+<ul>
+<li>Model: Claude 3.5 Sonnet (hoặc Haiku để tiết kiệm chi phí)</li>
+<li>Use Case: AI agent gợi ý công thức</li>
+<li>Input: Profile người dùng + preferences + nguyên liệu</li>
+<li>Output: Gợi ý công thức với hướng dẫn</li>
+<li>Chi phí:
+<ul>
+<li>Sonnet: $3 trên triệu input tokens, $15 trên triệu output tokens</li>
+<li>Haiku: $0.25 trên triệu input tokens, $1.25 trên triệu output tokens</li>
+<li>Ước tính: $25-50/tháng (1,000 users, 10 suggestions/user/tháng)</li>
+<li>Với Haiku: $3-7/tháng (tiết kiệm 70%)</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-database">6. Database<a class="anchor" href="#6-database">#</a></h3>
+<h4 id="amazon-dynamodb-nosql-database">Amazon DynamoDB (NoSQL Database)<a class="anchor" href="#amazon-dynamodb-nosql-database">#</a></h4>
+<p>Các bảng:</p>
+<ul>
+<li><strong>Users</strong> (PK: user_id) - Tài khoản người dùng &amp; roles</li>
+<li><strong>UserData</strong> (PK: user_id, SK: data_type) - Preferences, nguyên liệu</li>
+<li><strong>PrivacySettings</strong> (PK: user_id) - Cấu hình riêng tư</li>
+<li><strong>Friendships</strong> (PK: user_id, SK: friend_id) - Kết nối mạng xã hội</li>
+<li><strong>Recipes</strong> (PK: recipe_id, GSI: user_id) - Dữ liệu công thức</li>
+<li><strong>AISuggestions</strong> (PK: user_id, SK: timestamp) - Lịch sử AI</li>
+</ul>
+<p>Tính năng:</p>
+<ul>
+<li>Auto-scaling (on-demand mode)</li>
+<li>Point-in-time recovery (PITR)</li>
+<li>DynamoDB Streams (cho cập nhật real-time)</li>
+<li>Global Secondary Indexes (GSI) cho truy vấn</li>
+<li>Mã hóa at rest</li>
+<li>Chi phí: $15-25/tháng (on-demand pricing)</li>
+</ul>
+<p><strong>Tại sao chọn DynamoDB thay vì RDS?</strong></p>
+<ul>
+<li>✅ Serverless (không cần quản lý server)</li>
+<li>✅ Auto-scaling về zero cost khi idle</li>
+<li>✅ Tích hợp tốt hơn với Lambda</li>
+<li>✅ Độ trễ thấp hơn cho key-value access</li>
+<li>✅ Tiết kiệm chi phí cho MVP ($15 vs $30+ cho RDS)</li>
+</ul>
+<h3 id="7-lưu-trữ">7. Lưu Trữ<a class="anchor" href="#7-l%c6%b0u-tr%e1%bb%af">#</a></h3>
+<h4 id="amazon-s3">Amazon S3<a class="anchor" href="#amazon-s3">#</a></h4>
+<p>Buckets:</p>
+<ul>
+<li><code>recipe-images-prod</code>: Ảnh công thức</li>
+<li><code>user-avatars-prod</code>: Ảnh đại diện</li>
+<li><code>static-assets-prod</code>: Assets ứng dụng</li>
+</ul>
+<p>Tính năng:</p>
+<ul>
+<li>Versioning enabled</li>
+<li>Lifecycle policies (xóa sau 90 ngày cho temp files)</li>
+<li>S3 Transfer Acceleration</li>
+<li>Chi phí: ~$5/tháng (50GB storage)</li>
+</ul>
+<h3 id="8-bảo-mật">8. Bảo Mật<a class="anchor" href="#8-b%e1%ba%a3o-m%e1%ba%adt">#</a></h3>
+<h4 id="aws-waf">AWS WAF<a class="anchor" href="#aws-waf">#</a></h4>
+<p>Bảo vệ:</p>
+<ul>
+<li>SQL injection</li>
+<li>XSS attacks</li>
+<li>Rate limiting (1000 requests/5min mỗi IP)</li>
+<li>Geographic restrictions (tùy chọn)</li>
+<li>Chi phí: $5/tháng + $1 trên triệu requests</li>
+</ul>
+<h4 id="aws-secrets-manager">AWS Secrets Manager<a class="anchor" href="#aws-secrets-manager">#</a></h4>
+<p>Secrets:</p>
+<ul>
+<li>Database credentials (nếu dùng RDS)</li>
+<li>Third-party API keys (nếu cần)</li>
+<li>Chi phí: $0.40 mỗi secret mỗi tháng</li>
+</ul>
+<h3 id="9-giám-sát--logging">9. Giám Sát &amp; Logging<a class="anchor" href="#9-gi%c3%a1m-s%c3%a1t--logging">#</a></h3>
+<h4 id="amazon-cloudwatch">Amazon CloudWatch<a class="anchor" href="#amazon-cloudwatch">#</a></h4>
+<ul>
+<li>Logs: Tất cả logs của Lambda functions</li>
+<li>Metrics: Metrics của API Gateway, Lambda, DynamoDB</li>
+<li>Alarms:
+<ul>
+<li>Lambda errors &gt; 1%</li>
+<li>API Gateway 5xx errors</li>
+<li>DynamoDB throttling</li>
+</ul>
+</li>
+<li>Chi phí: ~$5-10/tháng</li>
+</ul>
+<h4 id="aws-x-ray">AWS X-Ray<a class="anchor" href="#aws-x-ray">#</a></h4>
+<ul>
+<li>Tracing: Tracing request từ đầu đến cuối</li>
+<li>Performance: Xác định bottlenecks</li>
+<li>Chi phí: $5 trên triệu traces (100k đầu miễn phí)</li>
+</ul>
+<h2 id="sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu<a class="anchor" href="#s%c6%a1-%c4%91%e1%bb%93-lu%e1%bb%93ng-d%e1%bb%af-li%e1%bb%87u">#</a></h2>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant CloudFront
+    participant Next.js
+    participant APIGateway
+    participant Cognito
+    participant Lambda
+    participant Bedrock
+    participant DynamoDB
+
+    User-&gt;&gt;CloudFront: Truy cập website
+    CloudFront-&gt;&gt;Next.js: Phục vụ nội dung tĩnh
+    Next.js-&gt;&gt;User: Hiển thị UI
+
+    User-&gt;&gt;APIGateway: Yêu cầu đăng nhập
+    APIGateway-&gt;&gt;Cognito: Xác thực
+    Cognito-&gt;&gt;APIGateway: JWT Token
+    APIGateway-&gt;&gt;User: Trả về token
+
+    User-&gt;&gt;APIGateway: Yêu cầu gợi ý AI
+    APIGateway-&gt;&gt;Cognito: Xác minh token
+    APIGateway-&gt;&gt;Lambda: Gọi AI Lambda
+    Lambda-&gt;&gt;DynamoDB: Lấy profile người dùng
+    Lambda-&gt;&gt;DynamoDB: Lấy nguyên liệu người dùng
+    Lambda-&gt;&gt;Bedrock: Gọi Claude 3.5
+    Bedrock-&gt;&gt;Lambda: Gợi ý công thức
+    Lambda-&gt;&gt;DynamoDB: Lưu gợi ý
+    Lambda-&gt;&gt;APIGateway: Trả về kết quả
+    APIGateway-&gt;&gt;User: Hiển thị gợi ý</pre></article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="Summary" />
+        <span>Summary</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/summary/ai-agent-implementation/" class="flex align-center">
+        <span>Kế Hoạch Triển Khai AI Agent</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="Kế Hoạch Triển Khai AI Agent" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#kiến-trúc-hệ-thống">Kiến Trúc Hệ Thống</a></li>
+    <li><a href="#phân-tích-chi-tiết-các-dịch-vụ">Phân Tích Chi Tiết Các Dịch Vụ</a>
+      <ul>
+        <li><a href="#1-frontend--cdn">1. Frontend &amp; CDN</a></li>
+        <li><a href="#2-xác-thực--phân-quyền">2. Xác Thực &amp; Phân Quyền</a></li>
+        <li><a href="#3-tầng-api">3. Tầng API</a></li>
+        <li><a href="#4-lambda-functions">4. Lambda Functions</a></li>
+        <li><a href="#5-dịch-vụ-aiml">5. Dịch Vụ AI/ML</a></li>
+        <li><a href="#6-database">6. Database</a></li>
+        <li><a href="#7-lưu-trữ">7. Lưu Trữ</a></li>
+        <li><a href="#8-bảo-mật">8. Bảo Mật</a></li>
+        <li><a href="#9-giám-sát--logging">9. Giám Sát &amp; Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

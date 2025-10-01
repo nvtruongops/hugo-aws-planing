@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="KẾ HOẠCH TRIỂN KHAI AI AGENT#
+Hệ Thống Gợi Ý Công Thức Thông Minh
+📋 TỔNG QUAN#
+Tính năng: AI Agent gợi ý món ăn thông minh dựa trên:
+
+Thông tin cá nhân (giới tính, tuổi, quốc gia)
+Sở thích ẩm thực (món canh, món chiên, món hấp…)
+Nguyên liệu nhập đơn giản (chỉ tên, không quản lý số lượng/hạn dùng)
+
+Phạm vi:
+
+✅ User chỉ nhập danh sách nguyên liệu có sẵn
+✅ AI tạo công thức phù hợp với user profile
+
+Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/ai-agent-implementation/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="Kế Hoạch Triển Khai AI Agent">
+  <meta property="og:description" content="KẾ HOẠCH TRIỂN KHAI AI AGENT#Hệ Thống Gợi Ý Công Thức Thông Minh
+📋 TỔNG QUAN#Tính năng: AI Agent gợi ý món ăn thông minh dựa trên:
+Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực (món canh, món chiên, món hấp…) Nguyên liệu nhập đơn giản (chỉ tên, không quản lý số lượng/hạn dùng) Phạm vi:
+✅ User chỉ nhập danh sách nguyên liệu có sẵn ✅ AI tạo công thức phù hợp với user profile Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>Kế Hoạch Triển Khai AI Agent | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/summary/ai-agent-implementation/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.aaea68bdd9a9b12aedcf86c752b21fa6a3095dc2401d7024a6670dccab3e29fb.js" integrity="sha256-qupovdmpsSrtz4bHUrIfpqMJXcJAHXAkpmcNzKs&#43;Kfs=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="active">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>Kế Hoạch Triển Khai AI Agent</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#-tổng-quan">📋 TỔNG QUAN</a></li>
+    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a></li>
+    <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
+      <ul>
+        <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>
+        <li><a href="#cơ-sở-dữ-liệu-amazon-dynamodb">Cơ Sở Dữ Liệu: Amazon DynamoDB</a></li>
+        <li><a href="#api-endpoints">API Endpoints</a></li>
+      </ul>
+    </li>
+    <li><a href="#-quyền-riêng-tư--bảo-mật">🔒 QUYỀN RIÊNG TƯ &amp; BẢO MẬT</a>
+      <ul>
+        <li><a href="#các-mức-quyền-riêng-tư">Các Mức Quyền Riêng Tư</a></li>
+        <li><a href="#thuộc-tính-được-kiểm-soát-quyền-riêng-tư">Thuộc Tính Được Kiểm Soát Quyền Riêng Tư</a></li>
+        <li><a href="#kiểm-soát-truy-cập-theo-vai-trò">Kiểm Soát Truy Cập Theo Vai Trò</a></li>
+      </ul>
+    </li>
+    <li><a href="#thời-gian--mốc-quan-trọng">Thời Gian &amp; Mốc Quan Trọng</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="kế-hoạch-triển-khai-ai-agent">KẾ HOẠCH TRIỂN KHAI AI AGENT<a class="anchor" href="#k%e1%ba%bf-ho%e1%ba%a1ch-tri%e1%bb%83n-khai-ai-agent">#</a></h1>
+<p>Hệ Thống Gợi Ý Công Thức Thông Minh</p>
+<h2 id="-tổng-quan">📋 TỔNG QUAN<a class="anchor" href="#-t%e1%bb%95ng-quan">#</a></h2>
+<p><strong>Tính năng</strong>: AI Agent gợi ý món ăn thông minh dựa trên:</p>
+<ul>
+<li>Thông tin cá nhân (giới tính, tuổi, quốc gia)</li>
+<li>Sở thích ẩm thực (món canh, món chiên, món hấp…)</li>
+<li>Nguyên liệu nhập đơn giản (chỉ tên, không quản lý số lượng/hạn dùng)</li>
+</ul>
+<p><strong>Phạm vi:</strong></p>
+<ul>
+<li>✅ User chỉ nhập danh sách nguyên liệu có sẵn</li>
+<li>✅ AI tạo công thức phù hợp với user profile</li>
+</ul>
+<p><strong>Thời gian</strong>: 2 tuần (Tuần 3-4 trong deployment plan)</p>
+<h2 id="-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG<a class="anchor" href="#-lu%e1%bb%93ng-ng%c6%b0%e1%bb%9di-d%c3%b9ng">#</a></h2>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────┐
+│                    ĐẦU VÀO NGƯỜI DÙNG                   │
+├─────────────────────────────────────────────────────────┤
+│  Người dùng A:                                          │
+│  • Nam, 1990 (34 tuổi), Vietnam                        │
+│  • Thích ăn: canh, món hấp                             │
+│  • Nguyên liệu: Cá rô, bông súng, gừng, hành           │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              XỬ LÝ AI AGENT                             │
+├─────────────────────────────────────────────────────────┤
+│  1. Lấy thông tin từ user_preferences                  │
+│  2. Lấy nguyên liệu từ user_ingredients                │
+│  3. Xây dựng prompt tùy chỉnh:                         │
+│     &#34;Tạo món ăn với:                                   │
+│      - Nguyên liệu: Cá rô, bông súng                  │
+│      - Cho: nam, trung niên                            │
+│      - Món: Việt Nam                                   │
+│      - Loại: có thể có canh hoặc món hấp&#34;             │
+│  4. Gọi Bedrock Claude API                             │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              PHẢN HỒI AI &amp; KẾT QUẢ CUỐI CÙNG           │
+├─────────────────────────────────────────────────────────┤
+│  Gợi ý: &#34;Canh cá rô nấu bông súng&#34;                    │
+│  • Phù hợp: nam trung niên, món Việt, có canh         │
+│  • Nguyên liệu match: 4/4                              │
+│  • Độ khó: Dễ                                          │
+│  • Thời gian: 30 phút                                  │
+│                                                         │
+│  📝 Công thức chi tiết (từ AI)                          │
+│  🥘 Thông tin dinh dưỡng                               │
+│  ⭐ Lưu vào favorites                                   │
+└─────────────────────────────────────────────────────────┘</code></pre><h2 id="-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT<a class="anchor" href="#-tri%e1%bb%83n-khai-k%e1%bb%b9-thu%e1%ba%adt">#</a></h2>
+<h3 id="backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions<a class="anchor" href="#backend-nodejs-20-lambda-functions">#</a></h3>
+<p><strong>Lambda Gợi Ý AI:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Sử dụng AWS SDK v3 cho Bedrock
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">BedrockRuntimeClient</span>, <span style="color:#a6e22e">InvokeModelCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-bedrock-runtime&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Model: Claude 3 Haiku (tiết kiệm chi phí)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Đầu vào: Sở thích người dùng + nguyên liệu
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Đầu ra: JSON gợi ý công thức
+</span></span></span></code></pre></div><p><strong>Dịch Vụ Chính:</strong></p>
+<ul>
+<li><strong>Amazon Bedrock</strong>: Claude 3 Haiku model</li>
+<li><strong>DynamoDB</strong>: Lưu trữ dữ liệu người dùng &amp; gợi ý AI</li>
+<li><strong>Lambda</strong>: Serverless compute (Node.js 20)</li>
+<li><strong>API Gateway</strong>: REST API endpoints</li>
+</ul>
+<h3 id="cơ-sở-dữ-liệu-amazon-dynamodb">Cơ Sở Dữ Liệu: Amazon DynamoDB<a class="anchor" href="#c%c6%a1-s%e1%bb%9f-d%e1%bb%af-li%e1%bb%87u-amazon-dynamodb">#</a></h3>
+<p><strong>Các Bảng Sử Dụng:</strong></p>
+<ul>
+<li><code>Users</code> (PK: user_id) - Hồ sơ &amp; vai trò</li>
+<li><code>UserData</code> (PK: user_id, SK: PREFERENCES | INGREDIENTS) - Cài đặt người dùng</li>
+<li><code>PrivacySettings</code> (PK: user_id) - Cấu hình quyền riêng tư</li>
+<li><code>Friendships</code> (PK: user_id, SK: friend_id) - Kết nối xã hội</li>
+<li><code>AISuggestions</code> (PK: user_id, SK: timestamp) - Lịch sử AI</li>
+</ul>
+<p><strong>Triển Khai Quyền Riêng Tư:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Bộ lọc quyền riêng tư áp dụng trước khi trả về dữ liệu người dùng
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">privacy</span>.<span style="color:#a6e22e">ingredients_visibility</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;friends&#39;</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span><span style="color:#a6e22e">isFriend</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">userProfile</span>.<span style="color:#a6e22e">ingredients</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="api-endpoints">API Endpoints<a class="anchor" href="#api-endpoints">#</a></h3>
+<p><strong>Luồng Gợi Ý AI:</strong></p>
+<pre tabindex="0"><code>POST /ai/suggest
+Authorization: Bearer &lt;JWT&gt;
+Body: {
+  &#34;request&#34;: &#34;Something light for dinner&#34;,
+  &#34;dietary_preferences&#34;: [&#34;no pork&#34;]
+}
+
+Response:
+{
+  &#34;suggestion_id&#34;: &#34;uuid&#34;,
+  &#34;recipe&#34;: {
+    &#34;name&#34;: &#34;Canh cá rô nấu bông súng&#34;,
+    &#34;ingredients&#34;: [...],
+    &#34;instructions&#34;: [...],
+    &#34;nutrition&#34;: {...}
+  }
+}</code></pre><p><strong>Endpoints Quyền Riêng Tư &amp; Xã Hội:</strong></p>
+<pre tabindex="0"><code>PUT /user/privacy - Cập nhật cài đặt quyền riêng tư
+GET /user/profile/{userId} - Lấy hồ sơ (đã lọc quyền riêng tư)
+POST /friends/request - Gửi yêu cầu kết bạn
+GET /friends - Danh sách bạn bè</code></pre><p><strong>Endpoints Quản Trị:</strong></p>
+<pre tabindex="0"><code>GET /admin/users - Danh sách tất cả người dùng (chỉ admin)
+PUT /admin/users/{id}/ban - Cấm người dùng (chỉ admin)
+GET /admin/statistics - Thống kê hệ thống (chỉ admin)</code></pre><h2 id="-quyền-riêng-tư--bảo-mật">🔒 QUYỀN RIÊNG TƯ &amp; BẢO MẬT<a class="anchor" href="#-quy%e1%bb%81n-ri%c3%aang-t%c6%b0--b%e1%ba%a3o-m%e1%ba%adt">#</a></h2>
+<h3 id="các-mức-quyền-riêng-tư">Các Mức Quyền Riêng Tư<a class="anchor" href="#c%c3%a1c-m%e1%bb%a9c-quy%e1%bb%81n-ri%c3%aang-t%c6%b0">#</a></h3>
+<ul>
+<li><strong>Public</strong>: Mọi người có thể xem</li>
+<li><strong>Friends</strong>: Chỉ bạn bè đã chấp nhận có thể xem</li>
+<li><strong>Private</strong>: Chỉ người dùng có thể xem</li>
+</ul>
+<h3 id="thuộc-tính-được-kiểm-soát-quyền-riêng-tư">Thuộc Tính Được Kiểm Soát Quyền Riêng Tư<a class="anchor" href="#thu%e1%bb%99c-t%c3%adnh-%c4%91%c6%b0%e1%bb%a3c-ki%e1%bb%83m-so%c3%a1t-quy%e1%bb%81n-ri%c3%aang-t%c6%b0">#</a></h3>
+<ul>
+<li>Email (mặc định: private)</li>
+<li>Ngày sinh (mặc định: friends)</li>
+<li>Giới tính (mặc định: public)</li>
+<li>Quốc gia (mặc định: public)</li>
+<li>Công thức (mặc định: public)</li>
+<li>Nguyên liệu (mặc định: friends)</li>
+<li>Sở thích (mặc định: friends)</li>
+</ul>
+<h3 id="kiểm-soát-truy-cập-theo-vai-trò">Kiểm Soát Truy Cập Theo Vai Trò<a class="anchor" href="#ki%e1%bb%83m-so%c3%a1t-truy-c%e1%ba%adp-theo-vai-tr%c3%b2">#</a></h3>
+<ul>
+<li><strong>User</strong>: Truy cập thông thường</li>
+<li><strong>Admin</strong>: Truy cập đầy đủ + công cụ quản trị</li>
+</ul>
+<h2 id="thời-gian--mốc-quan-trọng">Thời Gian &amp; Mốc Quan Trọng<a class="anchor" href="#th%e1%bb%9di-gian--m%e1%bb%91c-quan-tr%e1%bb%8dng">#</a></h2>
+<p>Xem <a href="../customer-deployment-guide">Hướng Dẫn Triển Khai Khách Hàng</a> để biết thời gian chi tiết.</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/aws-services-diagram/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="AWS Services Architecture Diagram" />
+        <span>AWS Services Architecture Diagram</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/summary/database-diagram/" class="flex align-center">
+        <span>Database Schema Diagram</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="Database Schema Diagram" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#-tổng-quan">📋 TỔNG QUAN</a></li>
+    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a></li>
+    <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
+      <ul>
+        <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>
+        <li><a href="#cơ-sở-dữ-liệu-amazon-dynamodb">Cơ Sở Dữ Liệu: Amazon DynamoDB</a></li>
+        <li><a href="#api-endpoints">API Endpoints</a></li>
+      </ul>
+    </li>
+    <li><a href="#-quyền-riêng-tư--bảo-mật">🔒 QUYỀN RIÊNG TƯ &amp; BẢO MẬT</a>
+      <ul>
+        <li><a href="#các-mức-quyền-riêng-tư">Các Mức Quyền Riêng Tư</a></li>
+        <li><a href="#thuộc-tính-được-kiểm-soát-quyền-riêng-tư">Thuộc Tính Được Kiểm Soát Quyền Riêng Tư</a></li>
+        <li><a href="#kiểm-soát-truy-cập-theo-vai-trò">Kiểm Soát Truy Cập Theo Vai Trò</a></li>
+      </ul>
+    </li>
+    <li><a href="#thời-gian--mốc-quan-trọng">Thời Gian &amp; Mốc Quan Trọng</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

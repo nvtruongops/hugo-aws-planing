@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AWS Services Architecture Diagram#
+System Architecture#
+graph TB
+    subgraph &#34;Client Layer&#34;
+        WebApp[Web App&lt;br/&gt;Next.js]
+        MobileApp[Mobile App&lt;br/&gt;React Native - Future]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CloudFront[Amazon CloudFront&lt;br/&gt;CDN]
+        Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]
+    end
+
+    subgraph &#34;API Gateway Layer&#34;
+        APIGateway[Amazon API Gateway&lt;br/&gt;REST API]
+        WSGateway[API Gateway&lt;br/&gt;WebSocket - Future]
+    end
+
+    subgraph &#34;Authentication&#34;
+        CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]
+        CognitoIdentity[Cognito Identity Pool]
+    end
+
+    subgraph &#34;Compute Layer&#34;
+        LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]
+        LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]
+        LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
+        LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
+        LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+    end
+
+    subgraph &#34;AI Services&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]
+    end
+
+    subgraph &#34;Database Layer&#34;
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Table: Users&lt;br/&gt;Table: UserData&lt;br/&gt;Table: Recipes&lt;br/&gt;Table: AI_Suggestions&lt;br/&gt;Table: Privacy&lt;br/&gt;Table: Friendships]
+    end
+
+    subgraph &#34;Storage&#34;
+        S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]
+    end
+
+    subgraph &#34;Monitoring &amp; Logging&#34;
+        CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]
+        XRay[AWS X-Ray&lt;br/&gt;Tracing]
+    end
+
+    subgraph &#34;Security&#34;
+        WAF[AWS WAF&lt;br/&gt;Web Application Firewall]
+        Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]
+    end
+
+    WebApp --&gt; CloudFront
+    CloudFront --&gt; Amplify
+    WebApp --&gt; APIGateway
+    APIGateway --&gt; CognitoUser
+    CognitoUser --&gt; LambdaAuth
+    CognitoIdentity --&gt; S3
+
+    APIGateway --&gt; LambdaRecipe
+    APIGateway --&gt; LambdaAI
+    APIGateway --&gt; LambdaProfile
+    APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaAdmin
+
+    LambdaAI --&gt; Bedrock
+
+    LambdaRecipe --&gt; DynamoDB
+    LambdaAI --&gt; DynamoDB
+    LambdaProfile --&gt; DynamoDB
+    LambdaSocial --&gt; DynamoDB
+    LambdaAdmin --&gt; DynamoDB
+
+    LambdaRecipe --&gt; S3
+
+    LambdaAuth --&gt; CloudWatch
+    LambdaRecipe --&gt; CloudWatch
+    LambdaAI --&gt; CloudWatch
+
+    APIGateway --&gt; WAFDetailed Service Breakdown#
+1. Frontend &amp; CDN#
+AWS Amplify:">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/docs/summary/aws-services-diagram-old/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="AWS Services Architecture Diagram">
+  <meta property="og:description" content="AWS Services Architecture Diagram#
+System Architecture#
+graph TB
+subgraph &#34;Client Layer&#34;
+WebApp[Web App&lt;br/&gt;Next.js]
+MobileApp[Mobile App&lt;br/&gt;React Native - Future]
+end
+subgraph &#34;CDN &amp; Hosting&#34;
+CloudFront[Amazon CloudFront&lt;br/&gt;CDN]
+Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]
+end
+subgraph &#34;API Gateway Layer&#34;
+APIGateway[Amazon API Gateway&lt;br/&gt;REST API]
+WSGateway[API Gateway&lt;br/&gt;WebSocket - Future]
+end
+subgraph &#34;Authentication&#34;
+CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]
+CognitoIdentity[Cognito Identity Pool]
+end
+subgraph &#34;Compute Layer&#34;
+LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]
+LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]
+LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
+LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
+LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+end
+subgraph &#34;AI Services&#34;
+Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]
+end
+subgraph &#34;Database Layer&#34;
+DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Table: Users&lt;br/&gt;Table: UserData&lt;br/&gt;Table: Recipes&lt;br/&gt;Table: AI_Suggestions&lt;br/&gt;Table: Privacy&lt;br/&gt;Table: Friendships]
+end
+subgraph &#34;Storage&#34;
+S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]
+end
+subgraph &#34;Monitoring &amp; Logging&#34;
+CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]
+XRay[AWS X-Ray&lt;br/&gt;Tracing]
+end
+subgraph &#34;Security&#34;
+WAF[AWS WAF&lt;br/&gt;Web Application Firewall]
+Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]
+end
+WebApp --&gt; CloudFront
+CloudFront --&gt; Amplify
+WebApp --&gt; APIGateway
+APIGateway --&gt; CognitoUser
+CognitoUser --&gt; LambdaAuth
+CognitoIdentity --&gt; S3
+APIGateway --&gt; LambdaRecipe
+APIGateway --&gt; LambdaAI
+APIGateway --&gt; LambdaProfile
+APIGateway --&gt; LambdaSocial
+APIGateway --&gt; LambdaAdmin
+LambdaAI --&gt; Bedrock
+LambdaRecipe --&gt; DynamoDB
+LambdaAI --&gt; DynamoDB
+LambdaProfile --&gt; DynamoDB
+LambdaSocial --&gt; DynamoDB
+LambdaAdmin --&gt; DynamoDB
+LambdaRecipe --&gt; S3
+LambdaAuth --&gt; CloudWatch
+LambdaRecipe --&gt; CloudWatch
+LambdaAI --&gt; CloudWatch
+APIGateway --&gt; WAFDetailed Service Breakdown#
+1. Frontend &amp; CDN#
+AWS Amplify:">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>AWS Services Architecture Diagram | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="http://localhost:1313/docs/summary/aws-services-diagram-old/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.dc79e87ece49ead0043d7d917a48fc120c6d10718d56b3bc7e867528f68648ba.js" integrity="sha256-3Hnofs5J6tAEPX2Rekj8EgxtEHGNVrO8foZ1KPaGSLo=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram-old/" class="active">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      AI Agent Implementation Plan</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>AWS Services Architecture Diagram</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#system-architecture">System Architecture</a></li>
+    <li><a href="#detailed-service-breakdown">Detailed Service Breakdown</a>
+      <ul>
+        <li><a href="#1-frontend--cdn">1. Frontend &amp; CDN</a></li>
+        <li><a href="#2-authentication--authorization">2. Authentication &amp; Authorization</a></li>
+        <li><a href="#3-api-layer">3. API Layer</a></li>
+        <li><a href="#4-lambda-functions">4. Lambda Functions</a></li>
+        <li><a href="#5-aiml-services">5. AI/ML Services</a></li>
+        <li><a href="#6-database">6. Database</a></li>
+        <li><a href="#7-storage">7. Storage</a></li>
+        <li><a href="#8-security">8. Security</a></li>
+        <li><a href="#9-monitoring--logging">9. Monitoring &amp; Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-flow-diagram">Data Flow Diagram</a></li>
+    <li><a href="#cost-breakdown-monthly">Cost Breakdown (Monthly)</a></li>
+    <li><a href="#cost-optimization-tips">Cost Optimization Tips</a></li>
+    <li><a href="#security-best-practices">Security Best Practices</a></li>
+    <li><a href="#scalability">Scalability</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="aws-services-architecture-diagram">AWS Services Architecture Diagram<a class="anchor" href="#aws-services-architecture-diagram">#</a></h1>
+<h2 id="system-architecture">System Architecture<a class="anchor" href="#system-architecture">#</a></h2>
+<pre class="mermaid">graph TB
+    subgraph &#34;Client Layer&#34;
+        WebApp[Web App&lt;br/&gt;Next.js]
+        MobileApp[Mobile App&lt;br/&gt;React Native - Future]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CloudFront[Amazon CloudFront&lt;br/&gt;CDN]
+        Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]
+    end
+
+    subgraph &#34;API Gateway Layer&#34;
+        APIGateway[Amazon API Gateway&lt;br/&gt;REST API]
+        WSGateway[API Gateway&lt;br/&gt;WebSocket - Future]
+    end
+
+    subgraph &#34;Authentication&#34;
+        CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]
+        CognitoIdentity[Cognito Identity Pool]
+    end
+
+    subgraph &#34;Compute Layer&#34;
+        LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]
+        LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]
+        LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
+        LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
+        LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+    end
+
+    subgraph &#34;AI Services&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]
+    end
+
+    subgraph &#34;Database  r&#34;
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Table: Users&lt;br/&gt;Table: UserData&lt;br/&gt;Table: Recipes&lt;br/&gt;Table: AI_Suggestions&lt;br/&gt;Table: Privacy&lt;br/&gt;Table: Friendships]
+    end
+
+    subgraph &#34;Storage&#34;
+        S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]
+    end
+
+    subgraph &#34;Monitoring &amp; Logging&#34;
+        CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]
+        XRay[AWS X-Ray&lt;br/&gt;Tracing]
+    end
+
+    subgraph &#34;Security&#34;
+        WAF[AWS WAF&lt;br/&gt;Web Application Firewall]
+        Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]
+    end
+
+    WebApp --&gt; CloudFront
+    CloudFront --&gt; Amplify
+    WebApp --&gt; APIGateway
+    APIGateway --&gt; CognitoUser
+    CognitoUser --&gt; LambdaAuth
+    CognitoIdentity --&gt; S3
+
+    APIGateway --&gt; LambdaRecipe
+    APIGateway --&gt; LambdaAI
+    APIGateway --&gt; LambdaProfile
+    APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaAdmin
+
+    LambdaAI --&gt; Bedrock
+
+    LambdaRecipe --&gt; DynamoDB
+    LambdaAI --&gt; DynamoDB
+    LambdaProfile --&gt; DynamoDB
+    LambdaSocial --&gt; DynamoDB
+    LambdaAdmin --&gt; DynamoDB
+
+    LambdaRecipe --&gt; S3
+
+    LambdaAuth --&gt; CloudWatch
+    LambdaRecipe --&gt; CloudWatch
+    LambdaAI --&gt; CloudWatch
+
+    APIGateway --&gt; WAF</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h2 id="detailed-service-breakdown">Detailed Service Breakdown<a class="anchor" href="#detailed-service-breakdown">#</a></h2>
+<h3 id="1-frontend--cdn">1. Frontend &amp; CDN<a class="anchor" href="#1-frontend--cdn">#</a></h3>
+<p><strong>AWS Amplify:</strong></p>
+<ul>
+<li>Hosts Next.js application</li>
+<li>CI/CD pipeline (auto-deploy from GitHub)</li>
+<li>Custom domain &amp; SSL certificates</li>
+<li>Cost: ~$15/month</li>
+</ul>
+<p><strong>Amazon CloudFront:</strong></p>
+<ul>
+<li>Global CDN for fast content delivery</li>
+<li>Caches static assets</li>
+<li>Cost: ~$5-10/month (1TB data transfer)</li>
+</ul>
+<h3 id="2-authentication--authorization">2. Authentication &amp; Authorization<a class="anchor" href="#2-authentication--authorization">#</a></h3>
+<p><strong>Amazon Cognito User Pool:</strong></p>
+<ul>
+<li>User registration &amp; login</li>
+<li>Email verification</li>
+<li>Password recovery</li>
+<li>MFA support (future)</li>
+<li>Cost: FREE (&lt; 50,000 MAU)</li>
+</ul>
+<p><strong>Cognito Identity Pool:</strong></p>
+<ul>
+<li>Temporary AWS credentials for S3 access</li>
+<li>Fine-grained IAM permissions</li>
+</ul>
+<h3 id="3-api-layer">3. API Layer<a class="anchor" href="#3-api-layer">#</a></h3>
+<p><strong>Amazon API Gateway (REST):</strong></p>
+<ul>
+<li>RESTful API endpoints</li>
+<li>Request validation</li>
+<li>API key management</li>
+<li>Throttling &amp; rate limiting</li>
+<li>CORS configuration</li>
+<li>Cost: ~$3.50 per million requests</li>
+</ul>
+<h4 id="api-endpoints">API Endpoints<a class="anchor" href="#api-endpoints">#</a></h4>
+<pre tabindex="0"><code>POST   /auth/register
+POST   /auth/login
+GET    /user/profile
+PUT    /user/profile
+POST   /user/ingredients
+GET    /user/ingredients
+DELETE /user/ingredients/{id}
+PUT    /user/privacy
+GET    /user/privacy
+
+POST   /friends/request
+GET    /friends
+PUT    /friends/{id}/accept
+PUT    /friends/{id}/reject
+DELETE /friends/{id}
+
+POST   /recipes
+GET    /recipes/{id}
+PUT    /recipes/{id}
+DELETE /recipes/{id}
+GET    /recipes/search
+
+POST   /ai/suggest
+GET    /ai/suggestions
+POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<a class="anchor" href="#4-lambda-functions">#</a></h3>
+<h4 id="lambda-1-auth-handler">Lambda 1: Auth Handler<a class="anchor" href="#lambda-1-auth-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: Cognito Post-Authentication</li>
+<li>Purpose: Create user profile on first login</li>
+</ul>
+<h4 id="lambda-2-recipe-crud">Lambda 2: Recipe CRUD<a class="anchor" href="#lambda-2-recipe-crud">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 512MB</li>
+<li>Timeout: 30s</li>
+<li>Triggers: API Gateway</li>
+<li>Purpose:
+<ul>
+<li>Create, read, update, delete recipes</li>
+<li>Upload recipe images to S3</li>
+<li>Query DynamoDB</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-3-ai-suggestion-engine-">Lambda 3: AI Suggestion Engine ⭐<a class="anchor" href="#lambda-3-ai-suggestion-engine-">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 1024MB</li>
+<li>Timeout: 60s</li>
+<li>Triggers: API Gateway</li>
+<li>Purpose:
+<ul>
+<li>Call Amazon Bedrock (Claude 3.5)</li>
+<li>Generate recipe suggestions</li>
+<li>Parse user ingredients</li>
+<li>Save suggestions to DynamoDB</li>
+</ul>
+</li>
+<li>Cost: Most expensive lambda (~70% of compute costs)</li>
+</ul>
+<h4 id="lambda-4-user-profile-manager">Lambda 4: User Profile Manager<a class="anchor" href="#lambda-4-user-profile-manager">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Purpose:
+<ul>
+<li>Manage user profile &amp; preferences</li>
+<li>Update ingredients list</li>
+<li>Handle avatar uploads</li>
+<li>Manage privacy settings</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-5-socialfriends-handler">Lambda 5: Social/Friends Handler<a class="anchor" href="#lambda-5-socialfriends-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Purpose:
+<ul>
+<li>Friend request management</li>
+<li>Accept/reject friend requests</li>
+<li>List friends</li>
+<li>Privacy-aware data filtering</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-6-admin-operations">Lambda 6: Admin Operations<a class="anchor" href="#lambda-6-admin-operations">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 512MB</li>
+<li>Timeout: 30s</li>
+<li>Triggers: API Gateway (Admin only)</li>
+<li>Purpose:
+<ul>
+<li>User management (ban/unban)</li>
+<li>Content moderation</li>
+<li>System statistics</li>
+<li>Recipe approval/rejection</li>
+</ul>
+</li>
+</ul>
+<h3 id="5-aiml-services">5. AI/ML Services<a class="anchor" href="#5-aiml-services">#</a></h3>
+<h4 id="amazon-bedrock-claude-35">Amazon Bedrock (Claude 3.5)<a class="anchor" href="#amazon-bedrock-claude-35">#</a></h4>
+<ul>
+<li>Model: Claude 3.5 Sonnet (or Haiku for cost savings)</li>
+<li>Use Case: Recipe suggestion AI agent</li>
+<li>Input: User profile + preferences + ingredients</li>
+<li>Output: Recipe suggestions with instructions</li>
+<li>Cost:
+<ul>
+<li>Sonnet: $3 per million input tokens, $15 per million output tokens</li>
+<li>Haiku: $0.25 per million input tokens, $1.25 per million output tokens</li>
+<li>Estimated: $25-50/month (1,000 users, 10 suggestions/user/month)</li>
+<li>With Haiku: $3-7/month (70% savings)</li>
+</ul>
+</li>
+</ul>
+<h3 id="6-database">6. Database<a class="anchor" href="#6-database">#</a></h3>
+<h4 id="amazon-dynamodb-nosql-database">Amazon DynamoDB (NoSQL Database)<a class="anchor" href="#amazon-dynamodb-nosql-database">#</a></h4>
+<p>Tables:</p>
+<ul>
+<li><strong>Users</strong> (PK: user_id) - User accounts &amp; roles</li>
+<li><strong>UserData</strong> (PK: user_id, SK: data_type) - Preferences, ingredients</li>
+<li><strong>PrivacySettings</strong> (PK: user_id) - Privacy configurations</li>
+<li><strong>Friendships</strong> (PK: user_id, SK: friend_id) - Social connections</li>
+<li><strong>Recipes</strong> (PK: recipe_id, GSI: user_id) - Recipe data</li>
+<li><strong>AISuggestions</strong> (PK: user_id, SK: timestamp) - AI history</li>
+</ul>
+<p>Features:</p>
+<ul>
+<li>Auto-scaling (on-demand mode)</li>
+<li>Point-in-time recovery (PITR)</li>
+<li>DynamoDB Streams (for real-time updates)</li>
+<li>Global Secondary Indexes (GSI) for querying</li>
+<li>Encryption at rest</li>
+<li>Cost: $15-25/month (on-demand pricing)</li>
+</ul>
+<p><strong>Why DynamoDB over RDS?</strong></p>
+<ul>
+<li>✅ Serverless (no server management)</li>
+<li>✅ Auto-scaling to zero cost when idle</li>
+<li>✅ Better integration with Lambda</li>
+<li>✅ Lower latency for key-value access</li>
+<li>✅ Cost-effective for MVP ($15 vs $30+ for RDS)</li>
+</ul>
+<h3 id="7-storage">7. Storage<a class="anchor" href="#7-storage">#</a></h3>
+<h4 id="amazon-s3">Amazon S3<a class="anchor" href="#amazon-s3">#</a></h4>
+<p>Buckets:</p>
+<ul>
+<li><code>recipe-images-prod</code>: Recipe photos</li>
+<li><code>user-avatars-prod</code>: Profile pictures</li>
+<li><code>static-assets-prod</code>: App assets</li>
+</ul>
+<p>Features:</p>
+<ul>
+<li>Versioning enabled</li>
+<li>Lifecycle policies (delete after 90 days for temp files)</li>
+<li>S3 Transfer Acceleration</li>
+<li>Cost: ~$5/month (50GB storage)</li>
+</ul>
+<h3 id="8-security">8. Security<a class="anchor" href="#8-security">#</a></h3>
+<h4 id="aws-waf">AWS WAF<a class="anchor" href="#aws-waf">#</a></h4>
+<p>Protection:</p>
+<ul>
+<li>SQL injection</li>
+<li>XSS attacks</li>
+<li>Rate limiting (1000 requests/5min per IP)</li>
+<li>Geographic restrictions (optional)</li>
+<li>Cost: $5/month + $1 per million requests</li>
+</ul>
+<h4 id="aws-secrets-manager">AWS Secrets Manager<a class="anchor" href="#aws-secrets-manager">#</a></h4>
+<p>Secrets:</p>
+<ul>
+<li>Database credentials (if RDS)</li>
+<li>Third-party API keys (if needed)</li>
+<li>Cost: $0.40 per secret per month</li>
+</ul>
+<h3 id="9-monitoring--logging">9. Monitoring &amp; Logging<a class="anchor" href="#9-monitoring--logging">#</a></h3>
+<h4 id="amazon-cloudwatch">Amazon CloudWatch<a class="anchor" href="#amazon-cloudwatch">#</a></h4>
+<ul>
+<li>Logs: All Lambda function logs</li>
+<li>Metrics: API Gateway, Lambda, DynamoDB metrics</li>
+<li>Alarms:
+<ul>
+<li>Lambda errors &gt; 1%</li>
+<li>API Gateway 5xx errors</li>
+<li>DynamoDB throttling</li>
+</ul>
+</li>
+<li>Cost: ~$5-10/month</li>
+</ul>
+<h4 id="aws-x-ray">AWS X-Ray<a class="anchor" href="#aws-x-ray">#</a></h4>
+<ul>
+<li>Tracing: End-to-end request tracing</li>
+<li>Performance: Identify bottlenecks</li>
+<li>Cost: $5 per million traces (first 100k free)</li>
+</ul>
+<h2 id="data-flow-diagram">Data Flow Diagram<a class="anchor" href="#data-flow-diagram">#</a></h2>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant CloudFront
+    participant Next.js
+    participant APIGateway
+    participant Cognito
+    participant Lambda
+    participant Bedrock
+    participant DynamoDB
+
+    User-&gt;&gt;CloudFront: Access website
+    CloudFront-&gt;&gt;Next.js: Serve static content
+    Next.js-&gt;&gt;User: Display UI
+
+    User-&gt;&gt;APIGateway: Login request
+    APIGateway-&gt;&gt;Cognito: Authenticate
+    Cognito-&gt;&gt;APIGateway: JWT Token
+    APIGateway-&gt;&gt;User: Return token
+
+    User-&gt;&gt;APIGateway: Request AI suggestion
+    APIGateway-&gt;&gt;Cognito: Verify token
+    APIGateway-&gt;&gt;Lambda: Invoke AI Lambda
+    Lambda-&gt;&gt;DynamoDB: Get user profile
+    Lambda-&gt;&gt;DynamoDB: Get user ingredients
+    Lambda-&gt;&gt;Bedrock: Call Claude 3.5
+    Bedrock-&gt;&gt;Lambda: Recipe suggestion
+    Lambda-&gt;&gt;DynamoDB: Save suggestion
+    Lambda-&gt;&gt;APIGateway: Return result
+    APIGateway-&gt;&gt;User: Display suggestion</pre><h2 id="cost-breakdown-monthly">Cost Breakdown (Monthly)<a class="anchor" href="#cost-breakdown-monthly">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Service</th>
+          <th>Estimated Cost</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>AWS Amplify</td>
+          <td>$15</td>
+      </tr>
+      <tr>
+          <td>CloudFront</td>
+          <td>$8</td>
+      </tr>
+      <tr>
+          <td>API Gateway</td>
+          <td>$5</td>
+      </tr>
+      <tr>
+          <td>Lambda Functions</td>
+          <td>$15</td>
+      </tr>
+      <tr>
+          <td>Amazon Bedrock (Sonnet)</td>
+          <td>$40</td>
+      </tr>
+      <tr>
+          <td>Amazon Bedrock (Haiku)</td>
+          <td>$5</td>
+      </tr>
+      <tr>
+          <td>DynamoDB</td>
+          <td>$15</td>
+      </tr>
+      <tr>
+          <td>S3 Storage</td>
+          <td>$5</td>
+      </tr>
+      <tr>
+          <td>Cognito</td>
+          <td>FREE</td>
+      </tr>
+      <tr>
+          <td>CloudWatch</td>
+          <td>$8</td>
+      </tr>
+      <tr>
+          <td>WAF</td>
+          <td>$6</td>
+      </tr>
+      <tr>
+          <td>Secrets Manager</td>
+          <td>$2</td>
+      </tr>
+      <tr>
+          <td><strong>Total (with Sonnet)</strong></td>
+          <td><strong>~$119</strong></td>
+      </tr>
+      <tr>
+          <td><strong>Total (with Haiku)</strong></td>
+          <td><strong>~$84</strong></td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="cost-optimization-tips">Cost Optimization Tips<a class="anchor" href="#cost-optimization-tips">#</a></h2>
+<ul>
+<li>✅ Use Claude 3 Haiku instead of Sonnet → Save $35/month</li>
+<li>✅ Use DynamoDB on-demand → Pay only for usage</li>
+<li>✅ Enable CloudFront caching → Reduce API calls</li>
+<li>✅ Set Lambda reserved concurrency → Prevent runaway costs</li>
+<li>✅ Use S3 Intelligent-Tiering → Auto-optimize storage costs</li>
+</ul>
+<h2 id="security-best-practices">Security Best Practices<a class="anchor" href="#security-best-practices">#</a></h2>
+<ul>
+<li><strong>API Gateway</strong>: Enable throttling (1000 req/sec burst)</li>
+<li><strong>Lambda</strong>: Use least-privilege IAM roles</li>
+<li><strong>Cognito</strong>: Enforce strong password policy</li>
+<li><strong>DynamoDB</strong>: Enable encryption at rest</li>
+<li><strong>S3</strong>: Enable versioning &amp; MFA delete</li>
+<li><strong>CloudWatch</strong>: Set up billing alarms</li>
+<li><strong>WAF</strong>: Enable managed rule groups</li>
+</ul>
+<h2 id="scalability">Scalability<a class="anchor" href="#scalability">#</a></h2>
+<table>
+  <thead>
+      <tr>
+          <th>Metric</th>
+          <th>Current</th>
+          <th>Target (1 year)</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Users</td>
+          <td>1,000</td>
+          <td>10,000</td>
+      </tr>
+      <tr>
+          <td>Requests/month</td>
+          <td>100K</td>
+          <td>1M</td>
+      </tr>
+      <tr>
+          <td>Storage</td>
+          <td>100MB</td>
+          <td>2GB</td>
+      </tr>
+      <tr>
+          <td>Cost</td>
+          <td>$84-119</td>
+          <td>$200-300</td>
+      </tr>
+  </tbody>
+</table>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="Summary" />
+        <span>Summary</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/summary/ai-agent-implementation/" class="flex align-center">
+        <span>AI Agent Implementation Plan</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="AI Agent Implementation Plan" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#system-architecture">System Architecture</a></li>
+    <li><a href="#detailed-service-breakdown">Detailed Service Breakdown</a>
+      <ul>
+        <li><a href="#1-frontend--cdn">1. Frontend &amp; CDN</a></li>
+        <li><a href="#2-authentication--authorization">2. Authentication &amp; Authorization</a></li>
+        <li><a href="#3-api-layer">3. API Layer</a></li>
+        <li><a href="#4-lambda-functions">4. Lambda Functions</a></li>
+        <li><a href="#5-aiml-services">5. AI/ML Services</a></li>
+        <li><a href="#6-database">6. Database</a></li>
+        <li><a href="#7-storage">7. Storage</a></li>
+        <li><a href="#8-security">8. Security</a></li>
+        <li><a href="#9-monitoring--logging">9. Monitoring &amp; Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-flow-diagram">Data Flow Diagram</a></li>
+    <li><a href="#cost-breakdown-monthly">Cost Breakdown (Monthly)</a></li>
+    <li><a href="#cost-optimization-tips">Cost Optimization Tips</a></li>
+    <li><a href="#security-best-practices">Security Best Practices</a></li>
+    <li><a href="#scalability">Scalability</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

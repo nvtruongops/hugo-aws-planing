@@ -1,0 +1,5 @@
+baseURL = 'https://example.org/'
+languageCode = 'en-us'
+title = 'Together'
+theme = 'hugo-book'
+ignoreLogs = ['warning-goldmark-raw-html']
