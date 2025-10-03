@@ -1,0 +1,1576 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Monitoring &amp; Observability - Smart Cooking App#
+Monitoring Strategy#
+Observability Pillars#
+
+Metrics: Quantitative measurements (CloudWatch)
+Logs: Event records (CloudWatch Logs)
+Traces: Request flow tracking (X-Ray)
+Alerts: Proactive notifications (SNS)
+
+Monitoring Objectives#
+
+Performance: API response time &lt; 500ms (p95)
+Reliability: 99.5% uptime target
+Cost Control: Budget alerts and optimization
+User Experience: Error rate &lt; 1%
+
+🔍 CloudWatch Metrics#
+Application Metrics#
+API Gateway Metrics#
+Key Metrics:
+  - Count: Total requests per minute
+  - Latency: Response time (Average, p95, p99)
+  - 4XXError: Client errors (authentication, validation)
+  - 5XXError: Server errors (Lambda failures, timeouts)
+  - IntegrationLatency: Backend processing time
+
+Alarms:
+  - API Latency &gt; 1000ms (p95) for 5 minutes
+  - Error Rate &gt; 5% for 3 minutes
+  - Request Count &gt; 1000/minute (scale alert)Lambda Function Metrics#
+Per Function Tracking:
+  - Invocations: Function call count
+  - Duration: Execution time
+  - Errors: Function failures
+  - Throttles: Concurrency limit hits
+  - ColdStarts: New container initializations
+
+Critical Functions:
+  ai-suggestion:
+    - Duration &lt; 30s (p95)
+    - Error rate &lt; 2%
+    - Cold start rate &lt; 10%
+  
+  cooking-history:
+    - Duration &lt; 5s (p95)
+    - Error rate &lt; 1%
+  
+  rating-handler:
+    - Duration &lt; 3s (p95)
+    - Error rate &lt; 0.5%DynamoDB Metrics#
+Table Metrics:
+  - ConsumedReadCapacityUnits
+  - ConsumedWriteCapacityUnits
+  - ThrottledRequests (should be 0)
+  - SuccessfulRequestLatency
+  - SystemErrors
+
+GSI Metrics:
+  - GSI1/GSI2/GSI3 capacity consumption
+  - Query performance per index
+  - Hot partition detection
+
+Alarms:
+  - Throttled requests &gt; 0
+  - Read/Write capacity &gt; 80%
+  - Query latency &gt; 100ms (p95)Business Metrics#
+User Engagement#
+Custom Metrics:
+  - Daily Active Users (DAU)
+  - AI Suggestions per User per Day
+  - Recipe Completion Rate
+  - Rating Submission Rate
+  - Social Interaction Rate
+
+Tracking Method:
+  - Lambda functions emit custom metrics
+  - CloudWatch custom namespace: SmartCooking/Business
+  - Dimensions: Environment, UserTier, FeatureAI Performance#
+AI-Specific Metrics:
+  - AI Generation Success Rate
+  - DB vs AI Mix Ratio
+  - Recipe Auto-Approval Rate
+  - Invalid Ingredient Report Rate
+  - Average AI Response Time
+
+Implementation:
+```javascript
+// Custom metric emission in Lambda
+const cloudwatch = new CloudWatchClient({});
+
+await cloudwatch.send(new PutMetricDataCommand({
+  Namespace: &#39;SmartCooking/AI&#39;,
+  MetricData: [{
+    MetricName: &#39;RecipeGenerationTime&#39;,
+    Value: duration,
+    Unit: &#39;Milliseconds&#39;,
+    Dimensions: [{
+      Name: &#39;Environment&#39;,
+      Value: process.env.ENVIRONMENT
+    }]
+  }]
+}));Logging Strategy#
+Log Structure#
+{
+  &#34;timestamp&#34;: &#34;2025-01-20T10:30:00.000Z&#34;,
+  &#34;level&#34;: &#34;INFO|WARN|ERROR&#34;,
+  &#34;requestId&#34;: &#34;uuid-123&#34;,
+  &#34;userId&#34;: &#34;user-456&#34;,
+  &#34;functionName&#34;: &#34;ai-suggestion&#34;,
+  &#34;event&#34;: &#34;recipe_generated&#34;,
+  &#34;message&#34;: &#34;AI recipe generated successfully&#34;,
+  &#34;metadata&#34;: {
+    &#34;ingredients&#34;: [&#34;chicken&#34;, &#34;tomato&#34;],
+    &#34;recipeCount&#34;: 3,
+    &#34;dbRecipes&#34;: 2,
+    &#34;aiRecipes&#34;: 1,
+    &#34;duration&#34;: 2500
+  },
+  &#34;error&#34;: {
+    &#34;name&#34;: &#34;ValidationError&#34;,
+    &#34;message&#34;: &#34;Invalid ingredient&#34;,
+    &#34;stack&#34;: &#34;...&#34;
+  }
+}Log Groups Configuration#
+CloudWatch Log Groups:
+  /aws/lambda/smart-cooking-prod-ai-suggestion:
+    Retention: 7 days
+    Subscription: Error alerts to SNS
+  
+  /aws/lambda/smart-cooking-prod-cooking-history:
+    Retention: 7 days
+  
+  /aws/lambda/smart-cooking-prod-rating-handler:
+    Retention: 7 days
+  
+  /aws/apigateway/smart-cooking-api:
+    Retention: 3 days
+    Format: CLF (Common Log Format)
+  
+  /aws/waf/smart-cooking:
+    Retention: 30 days
+    Content: Blocked requests, rate limits
+
+Log Filtering:
+  - ERROR level: Immediate SNS alert
+  - WARN level: Daily digest
+  - Invalid ingredients: Weekly admin reportStructured Logging Implementation#
+// shared/logger.js
+class Logger {
+  constructor(functionName, requestId) {
+    this.functionName = functionName;
+    this.requestId = requestId;
+  }
+
+  info(message, metadata = {}) {
+    this.log(&#39;INFO&#39;, message, metadata);
+  }
+
+  warn(message, metadata = {}) {
+    this.log(&#39;WARN&#39;, message, metadata);
+  }
+
+  error(message, error, metadata = {}) {
+    this.log(&#39;ERROR&#39;, message, {
+      ...metadata,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      }
+    });
+  }
+
+  log(level, message, metadata) {
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      level,
+      requestId: this.requestId,
+      functionName: this.functionName,
+      message,
+      ...metadata
+    };
+
+    console.log(JSON.stringify(logEntry));
+  }
+}
+
+// Usage in Lambda
+exports.handler = async (event, context) =&gt; {
+  const logger = new Logger(context.functionName, context.awsRequestId);
+  
+  logger.info(&#39;Processing AI suggestion request&#39;, {
+    userId: event.requestContext.authorizer.claims.sub,
+    ingredients: JSON.parse(event.body).ingredients
+  });
+};🔍 Distributed Tracing (X-Ray)#
+Tracing Configuration#
+Services Traced:
+  - API Gateway: 100% sampling
+  - Lambda (AI Suggestion): 100% sampling
+  - Lambda (Others): 10% sampling
+  - DynamoDB: Auto-instrumented
+  - Bedrock: Auto-instrumented
+
+Trace Segments:
+  1. API Gateway → Lambda
+  2. Lambda → DynamoDB Query
+  3. Lambda → Bedrock API
+  4. Lambda → DynamoDB Write
+  5. Lambda → Response
+
+Annotations:
+  - user_id: For user-specific analysis
+  - recipe_count: Request size
+  - db_recipes_found: DB hit rate
+  - ai_recipes_generated: AI usage
+  - total_duration: End-to-end timingX-Ray Implementation#
+// Enable X-Ray tracing in Lambda
+const AWSXRay = require(&#39;aws-xray-sdk-core&#39;);
+const AWS = AWSXRay.captureAWS(require(&#39;aws-sdk&#39;));
+
+exports.handler = async (event, context) =&gt; {
+  // Create subsegment for AI generation
+  const segment = AWSXRay.getSegment();
+  const subsegment = segment.addNewSubsegment(&#39;ai-generation&#39;);
+  
+  try {
+    subsegment.addAnnotation(&#39;user_id&#39;, userId);
+    subsegment.addAnnotation(&#39;recipe_count&#39;, recipeCount);
+    
+    const aiRecipes = await generateAIRecipes(ingredients);
+    
+    subsegment.addMetadata(&#39;ai_response&#39;, {
+      recipes_generated: aiRecipes.length,
+      total_tokens: aiRecipes.reduce((sum, r) =&gt; sum &#43; r.tokens, 0)
+    });
+    
+    subsegment.close();
+    return aiRecipes;
+  } catch (error) {
+    subsegment.addError(error);
+    subsegment.close();
+    throw error;
+  }
+};Alerting System#
+Alert Categories#
+Critical Alerts (Immediate Response)#
+System Down:
+  - API Gateway 5XX &gt; 50% for 2 minutes
+  - Lambda function errors &gt; 90% for 1 minute
+  - DynamoDB throttling &gt; 10 events in 5 minutes
+
+Performance Degradation:
+  - API latency &gt; 2s (p95) for 5 minutes
+  - Lambda timeout rate &gt; 10% for 3 minutes
+  - AI generation failure rate &gt; 20% for 5 minutes
+
+Security Issues:
+  - WAF blocked requests &gt; 1000 in 5 minutes
+  - Unusual authentication failures &gt; 100 in 1 minute
+  - Cost spike &gt; 200% of daily averageWarning Alerts (Monitor &amp; Plan)#
+Capacity Concerns:
+  - DynamoDB capacity &gt; 70% for 10 minutes
+  - Lambda concurrent executions &gt; 80% for 5 minutes
+  - Daily cost &gt; budget threshold
+
+Quality Issues:
+  - Recipe approval rate &lt; 30% for 1 hour
+  - Invalid ingredient reports &gt; 50 per hour
+  - User error rate &gt; 5% for 10 minutesSNS Alert Configuration#
+Topics:
+  smart-cooking-prod-critical:
+    Subscribers:
+      - Email: admin@smartcooking.app
+      - SMS: &#43;84xxx (for critical only)
+    
+  smart-cooking-prod-warnings:
+    Subscribers:
+      - Email: team@smartcooking.app
+      - Slack: #alerts channel
+
+Alert Format:
+  Subject: &#34;[CRITICAL] Smart Cooking - API Gateway High Error Rate&#34;
+  Body: |
+    Alert: API Gateway 5XX Error Rate
+    Environment: Production
+    Current Value: 15.2%
+    Threshold: 5%
+    Duration: 3 minutes
+    
+    Dashboard: https://console.aws.amazon.com/cloudwatch/...
+    Runbook: https://wiki.smartcooking.app/runbooks/api-errorsDashboards#
+Executive Dashboard#
+High-Level Metrics (Daily/Weekly):
+  - Total Users (Active)
+  - Revenue (Premium subscriptions)
+  - System Uptime %
+  - Cost per User
+  - Customer Satisfaction (App Store ratings)
+
+Widgets:
+  - User Growth Chart (30 days)
+  - Revenue Trend (90 days)
+  - Cost Breakdown Pie Chart
+  - System Health StatusOperations Dashboard#
+Real-Time Metrics:
+  - API Request Rate (requests/minute)
+  - Error Rate % (last 1 hour)
+  - Average Response Time (p95)
+  - Active Lambda Invocations
+  - DynamoDB Throttling Events
+
+Performance Widgets:
+  - API Gateway Latency (5-minute intervals)
+  - Lambda Duration by Function
+  - DynamoDB Query Performance
+  - AI Generation Success Rate
+  - Cost Trend (daily)AI Performance Dashboard#
+AI-Specific Metrics:
+  - DB vs AI Mix Ratio (daily trend)
+  - Recipe Auto-Approval Rate
+  - AI Generation Time Distribution
+  - Invalid Ingredient Reports
+  - Bedrock API Success Rate
+
+Business Impact:
+  - Cost Savings from DB Mix
+  - User Satisfaction with AI Recipes
+  - Recipe Database Growth RateDashboard Implementation#
+// CDK Dashboard Configuration
+const dashboard = new cloudwatch.Dashboard(this, &#39;SmartCookingDashboard&#39;, {
+  dashboardName: &#39;smart-cooking-production&#39;
+});
+
+// API Gateway metrics
+dashboard.addWidgets(
+  new cloudwatch.GraphWidget({
+    title: &#39;API Gateway Requests&#39;,
+    left: [apiGateway.metricCount()],
+    right: [apiGateway.metricLatency()]
+  }),
+  
+  new cloudwatch.GraphWidget({
+    title: &#39;Lambda Performance&#39;,
+    left: [
+      aiSuggestionFunction.metricDuration(),
+      cookingHistoryFunction.metricDuration()
+    ],
+    right: [
+      aiSuggestionFunction.metricErrors(),
+      cookingHistoryFunction.metricErrors()
+    ]
+  })
+);
+
+// Custom business metrics
+dashboard.addWidgets(
+  new cloudwatch.GraphWidget({
+    title: &#39;AI Performance&#39;,
+    left: [
+      new cloudwatch.Metric({
+        namespace: &#39;SmartCooking/AI&#39;,
+        metricName: &#39;RecipeGenerationTime&#39;,
+        statistic: &#39;Average&#39;
+      })
+    ]
+  })
+);Monitoring Tools &amp; Integration#
+Third-Party Integrations#
+Slack Integration:
+  - Critical alerts to #alerts channel
+  - Daily summary to #operations channel
+  - Cost reports to #finance channel
+
+PagerDuty (Future):
+  - Escalation for critical alerts
+  - On-call rotation management
+  - Incident response coordination
+
+Datadog (Alternative):
+  - Advanced APM capabilities
+  - Custom dashboards
+  - Machine learning anomaly detectionMonitoring Automation#
+Auto-Remediation:
+  - Lambda timeout → Increase memory allocation
+  - DynamoDB throttling → Enable auto-scaling
+  - High error rate → Circuit breaker activation
+  - Cost spike → Rate limiting activation
+
+Health Checks:
+  - Synthetic transactions every 5 minutes
+  - End-to-end user journey testing
+  - Database connectivity checks
+  - AI service availability monitoringPerformance Baselines#
+Current Baselines (MVP)#
+API Performance:
+  - Average Response Time: 200ms
+  - P95 Response Time: 500ms
+  - P99 Response Time: 1000ms
+  - Error Rate: &lt;0.5%
+
+Lambda Performance:
+  - AI Suggestion: 3-5s average
+  - Other Functions: &lt;1s average
+  - Cold Start Rate: &lt;5%
+  - Memory Utilization: &lt;70%
+
+Database Performance:
+  - Query Latency: &lt;50ms (p95)
+  - Write Latency: &lt;25ms (p95)
+  - Throttling Events: 0
+  - Hot Partitions: 0Target Improvements (Scale)#
+6-Month Targets:
+  - API P95 Latency: &lt;300ms
+  - AI Generation: &lt;2s average
+  - Error Rate: &lt;0.1%
+  - Uptime: &gt;99.9%
+
+12-Month Targets:
+  - API P95 Latency: &lt;200ms
+  - AI Generation: &lt;1s average
+  - Cost per User: &lt;$0.05
+  - DB Coverage: &gt;80%Related Documents#
+
+30 - Cost Analysis
+31 - Scaling
+10 - Architecture
+22 - DevOps
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/32-monitoring/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="32 - Monitoring & Observability">
+  <meta property="og:description" content="Monitoring &amp; Observability - Smart Cooking App#Monitoring Strategy#Observability Pillars#Metrics: Quantitative measurements (CloudWatch) Logs: Event records (CloudWatch Logs) Traces: Request flow tracking (X-Ray) Alerts: Proactive notifications (SNS) Monitoring Objectives#Performance: API response time &lt; 500ms (p95) Reliability: 99.5% uptime target Cost Control: Budget alerts and optimization User Experience: Error rate &lt; 1% 🔍 CloudWatch Metrics#Application Metrics#API Gateway Metrics#Key Metrics: - Count: Total requests per minute - Latency: Response time (Average, p95, p99) - 4XXError: Client errors (authentication, validation) - 5XXError: Server errors (Lambda failures, timeouts) - IntegrationLatency: Backend processing time Alarms: - API Latency &gt; 1000ms (p95) for 5 minutes - Error Rate &gt; 5% for 3 minutes - Request Count &gt; 1000/minute (scale alert)Lambda Function Metrics#Per Function Tracking: - Invocations: Function call count - Duration: Execution time - Errors: Function failures - Throttles: Concurrency limit hits - ColdStarts: New container initializations Critical Functions: ai-suggestion: - Duration &lt; 30s (p95) - Error rate &lt; 2% - Cold start rate &lt; 10% cooking-history: - Duration &lt; 5s (p95) - Error rate &lt; 1% rating-handler: - Duration &lt; 3s (p95) - Error rate &lt; 0.5%DynamoDB Metrics#Table Metrics: - ConsumedReadCapacityUnits - ConsumedWriteCapacityUnits - ThrottledRequests (should be 0) - SuccessfulRequestLatency - SystemErrors GSI Metrics: - GSI1/GSI2/GSI3 capacity consumption - Query performance per index - Hot partition detection Alarms: - Throttled requests &gt; 0 - Read/Write capacity &gt; 80% - Query latency &gt; 100ms (p95)Business Metrics#User Engagement#Custom Metrics: - Daily Active Users (DAU) - AI Suggestions per User per Day - Recipe Completion Rate - Rating Submission Rate - Social Interaction Rate Tracking Method: - Lambda functions emit custom metrics - CloudWatch custom namespace: SmartCooking/Business - Dimensions: Environment, UserTier, FeatureAI Performance#AI-Specific Metrics: - AI Generation Success Rate - DB vs AI Mix Ratio - Recipe Auto-Approval Rate - Invalid Ingredient Report Rate - Average AI Response Time Implementation: ```javascript // Custom metric emission in Lambda const cloudwatch = new CloudWatchClient({}); await cloudwatch.send(new PutMetricDataCommand({ Namespace: &#39;SmartCooking/AI&#39;, MetricData: [{ MetricName: &#39;RecipeGenerationTime&#39;, Value: duration, Unit: &#39;Milliseconds&#39;, Dimensions: [{ Name: &#39;Environment&#39;, Value: process.env.ENVIRONMENT }] }] }));Logging Strategy#Log Structure#{ &#34;timestamp&#34;: &#34;2025-01-20T10:30:00.000Z&#34;, &#34;level&#34;: &#34;INFO|WARN|ERROR&#34;, &#34;requestId&#34;: &#34;uuid-123&#34;, &#34;userId&#34;: &#34;user-456&#34;, &#34;functionName&#34;: &#34;ai-suggestion&#34;, &#34;event&#34;: &#34;recipe_generated&#34;, &#34;message&#34;: &#34;AI recipe generated successfully&#34;, &#34;metadata&#34;: { &#34;ingredients&#34;: [&#34;chicken&#34;, &#34;tomato&#34;], &#34;recipeCount&#34;: 3, &#34;dbRecipes&#34;: 2, &#34;aiRecipes&#34;: 1, &#34;duration&#34;: 2500 }, &#34;error&#34;: { &#34;name&#34;: &#34;ValidationError&#34;, &#34;message&#34;: &#34;Invalid ingredient&#34;, &#34;stack&#34;: &#34;...&#34; } }Log Groups Configuration#CloudWatch Log Groups: /aws/lambda/smart-cooking-prod-ai-suggestion: Retention: 7 days Subscription: Error alerts to SNS /aws/lambda/smart-cooking-prod-cooking-history: Retention: 7 days /aws/lambda/smart-cooking-prod-rating-handler: Retention: 7 days /aws/apigateway/smart-cooking-api: Retention: 3 days Format: CLF (Common Log Format) /aws/waf/smart-cooking: Retention: 30 days Content: Blocked requests, rate limits Log Filtering: - ERROR level: Immediate SNS alert - WARN level: Daily digest - Invalid ingredients: Weekly admin reportStructured Logging Implementation#// shared/logger.js class Logger { constructor(functionName, requestId) { this.functionName = functionName; this.requestId = requestId; } info(message, metadata = {}) { this.log(&#39;INFO&#39;, message, metadata); } warn(message, metadata = {}) { this.log(&#39;WARN&#39;, message, metadata); } error(message, error, metadata = {}) { this.log(&#39;ERROR&#39;, message, { ...metadata, error: { name: error.name, message: error.message, stack: error.stack } }); } log(level, message, metadata) { const logEntry = { timestamp: new Date().toISOString(), level, requestId: this.requestId, functionName: this.functionName, message, ...metadata }; console.log(JSON.stringify(logEntry)); } } // Usage in Lambda exports.handler = async (event, context) =&gt; { const logger = new Logger(context.functionName, context.awsRequestId); logger.info(&#39;Processing AI suggestion request&#39;, { userId: event.requestContext.authorizer.claims.sub, ingredients: JSON.parse(event.body).ingredients }); };🔍 Distributed Tracing (X-Ray)#Tracing Configuration#Services Traced: - API Gateway: 100% sampling - Lambda (AI Suggestion): 100% sampling - Lambda (Others): 10% sampling - DynamoDB: Auto-instrumented - Bedrock: Auto-instrumented Trace Segments: 1. API Gateway → Lambda 2. Lambda → DynamoDB Query 3. Lambda → Bedrock API 4. Lambda → DynamoDB Write 5. Lambda → Response Annotations: - user_id: For user-specific analysis - recipe_count: Request size - db_recipes_found: DB hit rate - ai_recipes_generated: AI usage - total_duration: End-to-end timingX-Ray Implementation#// Enable X-Ray tracing in Lambda const AWSXRay = require(&#39;aws-xray-sdk-core&#39;); const AWS = AWSXRay.captureAWS(require(&#39;aws-sdk&#39;)); exports.handler = async (event, context) =&gt; { // Create subsegment for AI generation const segment = AWSXRay.getSegment(); const subsegment = segment.addNewSubsegment(&#39;ai-generation&#39;); try { subsegment.addAnnotation(&#39;user_id&#39;, userId); subsegment.addAnnotation(&#39;recipe_count&#39;, recipeCount); const aiRecipes = await generateAIRecipes(ingredients); subsegment.addMetadata(&#39;ai_response&#39;, { recipes_generated: aiRecipes.length, total_tokens: aiRecipes.reduce((sum, r) =&gt; sum &#43; r.tokens, 0) }); subsegment.close(); return aiRecipes; } catch (error) { subsegment.addError(error); subsegment.close(); throw error; } };Alerting System#Alert Categories#Critical Alerts (Immediate Response)#System Down: - API Gateway 5XX &gt; 50% for 2 minutes - Lambda function errors &gt; 90% for 1 minute - DynamoDB throttling &gt; 10 events in 5 minutes Performance Degradation: - API latency &gt; 2s (p95) for 5 minutes - Lambda timeout rate &gt; 10% for 3 minutes - AI generation failure rate &gt; 20% for 5 minutes Security Issues: - WAF blocked requests &gt; 1000 in 5 minutes - Unusual authentication failures &gt; 100 in 1 minute - Cost spike &gt; 200% of daily averageWarning Alerts (Monitor &amp; Plan)#Capacity Concerns: - DynamoDB capacity &gt; 70% for 10 minutes - Lambda concurrent executions &gt; 80% for 5 minutes - Daily cost &gt; budget threshold Quality Issues: - Recipe approval rate &lt; 30% for 1 hour - Invalid ingredient reports &gt; 50 per hour - User error rate &gt; 5% for 10 minutesSNS Alert Configuration#Topics: smart-cooking-prod-critical: Subscribers: - Email: admin@smartcooking.app - SMS: &#43;84xxx (for critical only) smart-cooking-prod-warnings: Subscribers: - Email: team@smartcooking.app - Slack: #alerts channel Alert Format: Subject: &#34;[CRITICAL] Smart Cooking - API Gateway High Error Rate&#34; Body: | Alert: API Gateway 5XX Error Rate Environment: Production Current Value: 15.2% Threshold: 5% Duration: 3 minutes Dashboard: https://console.aws.amazon.com/cloudwatch/... Runbook: https://wiki.smartcooking.app/runbooks/api-errorsDashboards#Executive Dashboard#High-Level Metrics (Daily/Weekly): - Total Users (Active) - Revenue (Premium subscriptions) - System Uptime % - Cost per User - Customer Satisfaction (App Store ratings) Widgets: - User Growth Chart (30 days) - Revenue Trend (90 days) - Cost Breakdown Pie Chart - System Health StatusOperations Dashboard#Real-Time Metrics: - API Request Rate (requests/minute) - Error Rate % (last 1 hour) - Average Response Time (p95) - Active Lambda Invocations - DynamoDB Throttling Events Performance Widgets: - API Gateway Latency (5-minute intervals) - Lambda Duration by Function - DynamoDB Query Performance - AI Generation Success Rate - Cost Trend (daily)AI Performance Dashboard#AI-Specific Metrics: - DB vs AI Mix Ratio (daily trend) - Recipe Auto-Approval Rate - AI Generation Time Distribution - Invalid Ingredient Reports - Bedrock API Success Rate Business Impact: - Cost Savings from DB Mix - User Satisfaction with AI Recipes - Recipe Database Growth RateDashboard Implementation#// CDK Dashboard Configuration const dashboard = new cloudwatch.Dashboard(this, &#39;SmartCookingDashboard&#39;, { dashboardName: &#39;smart-cooking-production&#39; }); // API Gateway metrics dashboard.addWidgets( new cloudwatch.GraphWidget({ title: &#39;API Gateway Requests&#39;, left: [apiGateway.metricCount()], right: [apiGateway.metricLatency()] }), new cloudwatch.GraphWidget({ title: &#39;Lambda Performance&#39;, left: [ aiSuggestionFunction.metricDuration(), cookingHistoryFunction.metricDuration() ], right: [ aiSuggestionFunction.metricErrors(), cookingHistoryFunction.metricErrors() ] }) ); // Custom business metrics dashboard.addWidgets( new cloudwatch.GraphWidget({ title: &#39;AI Performance&#39;, left: [ new cloudwatch.Metric({ namespace: &#39;SmartCooking/AI&#39;, metricName: &#39;RecipeGenerationTime&#39;, statistic: &#39;Average&#39; }) ] }) );Monitoring Tools &amp; Integration#Third-Party Integrations#Slack Integration: - Critical alerts to #alerts channel - Daily summary to #operations channel - Cost reports to #finance channel PagerDuty (Future): - Escalation for critical alerts - On-call rotation management - Incident response coordination Datadog (Alternative): - Advanced APM capabilities - Custom dashboards - Machine learning anomaly detectionMonitoring Automation#Auto-Remediation: - Lambda timeout → Increase memory allocation - DynamoDB throttling → Enable auto-scaling - High error rate → Circuit breaker activation - Cost spike → Rate limiting activation Health Checks: - Synthetic transactions every 5 minutes - End-to-end user journey testing - Database connectivity checks - AI service availability monitoringPerformance Baselines#Current Baselines (MVP)#API Performance: - Average Response Time: 200ms - P95 Response Time: 500ms - P99 Response Time: 1000ms - Error Rate: &lt;0.5% Lambda Performance: - AI Suggestion: 3-5s average - Other Functions: &lt;1s average - Cold Start Rate: &lt;5% - Memory Utilization: &lt;70% Database Performance: - Query Latency: &lt;50ms (p95) - Write Latency: &lt;25ms (p95) - Throttling Events: 0 - Hot Partitions: 0Target Improvements (Scale)#6-Month Targets: - API P95 Latency: &lt;300ms - AI Generation: &lt;2s average - Error Rate: &lt;0.1% - Uptime: &gt;99.9% 12-Month Targets: - API P95 Latency: &lt;200ms - AI Generation: &lt;1s average - Cost per User: &lt;$0.05 - DB Coverage: &gt;80%Related Documents#30 - Cost Analysis 31 - Scaling 10 - Architecture 22 - DevOps">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>32 - Monitoring &amp; Observability | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/32-monitoring/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="active">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>32 - Monitoring &amp; Observability</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#monitoring-strategy">Monitoring Strategy</a>
+      <ul>
+        <li><a href="#observability-pillars">Observability Pillars</a></li>
+        <li><a href="#monitoring-objectives">Monitoring Objectives</a></li>
+      </ul>
+    </li>
+    <li><a href="#-cloudwatch-metrics">🔍 CloudWatch Metrics</a>
+      <ul>
+        <li><a href="#application-metrics">Application Metrics</a></li>
+        <li><a href="#business-metrics">Business Metrics</a></li>
+      </ul>
+    </li>
+    <li><a href="#logging-strategy">Logging Strategy</a>
+      <ul>
+        <li><a href="#log-structure">Log Structure</a></li>
+        <li><a href="#log-groups-configuration">Log Groups Configuration</a></li>
+        <li><a href="#structured-logging-implementation">Structured Logging Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#-distributed-tracing-x-ray">🔍 Distributed Tracing (X-Ray)</a>
+      <ul>
+        <li><a href="#tracing-configuration">Tracing Configuration</a></li>
+        <li><a href="#x-ray-implementation">X-Ray Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#alerting-system">Alerting System</a>
+      <ul>
+        <li><a href="#alert-categories">Alert Categories</a></li>
+        <li><a href="#sns-alert-configuration">SNS Alert Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#dashboards">Dashboards</a>
+      <ul>
+        <li><a href="#executive-dashboard">Executive Dashboard</a></li>
+        <li><a href="#operations-dashboard">Operations Dashboard</a></li>
+        <li><a href="#ai-performance-dashboard">AI Performance Dashboard</a></li>
+        <li><a href="#dashboard-implementation">Dashboard Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring-tools--integration">Monitoring Tools &amp; Integration</a>
+      <ul>
+        <li><a href="#third-party-integrations">Third-Party Integrations</a></li>
+        <li><a href="#monitoring-automation">Monitoring Automation</a></li>
+      </ul>
+    </li>
+    <li><a href="#performance-baselines">Performance Baselines</a>
+      <ul>
+        <li><a href="#current-baselines-mvp">Current Baselines (MVP)</a></li>
+        <li><a href="#target-improvements-scale">Target Improvements (Scale)</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="monitoring--observability---smart-cooking-app">Monitoring &amp; Observability - Smart Cooking App<a class="anchor" href="#monitoring--observability---smart-cooking-app">#</a></h1>
+<h2 id="monitoring-strategy">Monitoring Strategy<a class="anchor" href="#monitoring-strategy">#</a></h2>
+<h3 id="observability-pillars">Observability Pillars<a class="anchor" href="#observability-pillars">#</a></h3>
+<ol>
+<li><strong>Metrics</strong>: Quantitative measurements (CloudWatch)</li>
+<li><strong>Logs</strong>: Event records (CloudWatch Logs)</li>
+<li><strong>Traces</strong>: Request flow tracking (X-Ray)</li>
+<li><strong>Alerts</strong>: Proactive notifications (SNS)</li>
+</ol>
+<h3 id="monitoring-objectives">Monitoring Objectives<a class="anchor" href="#monitoring-objectives">#</a></h3>
+<ul>
+<li><strong>Performance</strong>: API response time &lt; 500ms (p95)</li>
+<li><strong>Reliability</strong>: 99.5% uptime target</li>
+<li><strong>Cost Control</strong>: Budget alerts and optimization</li>
+<li><strong>User Experience</strong>: Error rate &lt; 1%</li>
+</ul>
+<h2 id="-cloudwatch-metrics">🔍 CloudWatch Metrics<a class="anchor" href="#-cloudwatch-metrics">#</a></h2>
+<h3 id="application-metrics">Application Metrics<a class="anchor" href="#application-metrics">#</a></h3>
+<h4 id="api-gateway-metrics">API Gateway Metrics<a class="anchor" href="#api-gateway-metrics">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Key Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Count</span>: <span style="color:#ae81ff">Total requests per minute</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Latency</span>: <span style="color:#ae81ff">Response time (Average, p95, p99)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">4XXError</span>: <span style="color:#ae81ff">Client errors (authentication, validation)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">5XXError</span>: <span style="color:#ae81ff">Server errors (Lambda failures, timeouts)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">IntegrationLatency</span>: <span style="color:#ae81ff">Backend processing time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Alarms</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API Latency &gt; 1000ms (p95) for 5 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Error Rate &gt; 5% for 3 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Request Count &gt; 1000/minute (scale alert)</span></span></span></code></pre></div><h4 id="lambda-function-metrics">Lambda Function Metrics<a class="anchor" href="#lambda-function-metrics">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Per Function Tracking</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Invocations</span>: <span style="color:#ae81ff">Function call count</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Duration</span>: <span style="color:#ae81ff">Execution time</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Errors</span>: <span style="color:#ae81ff">Function failures</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Throttles</span>: <span style="color:#ae81ff">Concurrency limit hits</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">ColdStarts</span>: <span style="color:#ae81ff">New container initializations</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Critical Functions</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai-suggestion</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Duration &lt; 30s (p95)</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Error rate &lt; 2%</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Cold start rate &lt; 10%</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cooking-history</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Duration &lt; 5s (p95)</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Error rate &lt; 1%</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">rating-handler</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Duration &lt; 3s (p95)</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">Error rate &lt; 0.5%</span></span></span></code></pre></div><h4 id="dynamodb-metrics">DynamoDB Metrics<a class="anchor" href="#dynamodb-metrics">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Table Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ConsumedReadCapacityUnits</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ConsumedWriteCapacityUnits</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ThrottledRequests (should be 0)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">SuccessfulRequestLatency</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">SystemErrors</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">GSI Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">GSI1/GSI2/GSI3 capacity consumption</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Query performance per index</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Hot partition detection</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Alarms</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Throttled requests &gt; 0</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Read/Write capacity &gt; 80%</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Query latency &gt; 100ms (p95)</span></span></span></code></pre></div><h3 id="business-metrics">Business Metrics<a class="anchor" href="#business-metrics">#</a></h3>
+<h4 id="user-engagement">User Engagement<a class="anchor" href="#user-engagement">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Custom Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Daily Active Users (DAU)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI Suggestions per User per Day</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Recipe Completion Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Rating Submission Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Social Interaction Rate</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Tracking Method</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda functions emit custom metrics</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">CloudWatch custom namespace</span>: <span style="color:#ae81ff">SmartCooking/Business</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Dimensions</span>: <span style="color:#ae81ff">Environment, UserTier, Feature</span></span></span></code></pre></div><h4 id="ai-performance">AI Performance<a class="anchor" href="#ai-performance">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">AI-Specific Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI Generation Success Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DB vs AI Mix Ratio</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Recipe Auto-Approval Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Invalid Ingredient Report Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Average AI Response Time</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Implementation</span>:
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">```javascript</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">// Custom metric emission in Lambda</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">const cloudwatch = new CloudWatchClient({});</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">await cloudwatch.send(new PutMetricDataCommand({</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Namespace</span>: <span style="color:#e6db74">&#39;SmartCooking/AI&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">MetricData</span>: [{
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">MetricName</span>: <span style="color:#e6db74">&#39;RecipeGenerationTime&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Value</span>: <span style="color:#ae81ff">duration,</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Unit</span>: <span style="color:#e6db74">&#39;Milliseconds&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Dimensions</span>: [{
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Name</span>: <span style="color:#e6db74">&#39;Environment&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">Value</span>: <span style="color:#ae81ff">process.env.ENVIRONMENT</span>
+</span></span><span style="display:flex;"><span>    }]
+</span></span><span style="display:flex;"><span>  }]
+</span></span><span style="display:flex;"><span>}<span style="color:#ae81ff">));</span></span></span></code></pre></div><h2 id="logging-strategy">Logging Strategy<a class="anchor" href="#logging-strategy">#</a></h2>
+<h3 id="log-structure">Log Structure<a class="anchor" href="#log-structure">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;timestamp&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:30:00.000Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;level&#34;</span>: <span style="color:#e6db74">&#34;INFO|WARN|ERROR&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;requestId&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;userId&#34;</span>: <span style="color:#e6db74">&#34;user-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;functionName&#34;</span>: <span style="color:#e6db74">&#34;ai-suggestion&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;event&#34;</span>: <span style="color:#e6db74">&#34;recipe_generated&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;message&#34;</span>: <span style="color:#e6db74">&#34;AI recipe generated successfully&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;metadata&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;ingredients&#34;</span>: [<span style="color:#e6db74">&#34;chicken&#34;</span>, <span style="color:#e6db74">&#34;tomato&#34;</span>],
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;recipeCount&#34;</span>: <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;dbRecipes&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;aiRecipes&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;duration&#34;</span>: <span style="color:#ae81ff">2500</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;error&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;ValidationError&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;message&#34;</span>: <span style="color:#e6db74">&#34;Invalid ingredient&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;stack&#34;</span>: <span style="color:#e6db74">&#34;...&#34;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="log-groups-configuration">Log Groups Configuration<a class="anchor" href="#log-groups-configuration">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">CloudWatch Log Groups</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">/aws/lambda/smart-cooking-prod-ai-suggestion</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Subscription</span>: <span style="color:#ae81ff">Error alerts to SNS</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">/aws/lambda/smart-cooking-prod-cooking-history</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">/aws/lambda/smart-cooking-prod-rating-handler</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">/aws/apigateway/smart-cooking-api</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">3</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Format</span>: <span style="color:#ae81ff">CLF (Common Log Format)</span>
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">/aws/waf/smart-cooking</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">30</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Content</span>: <span style="color:#ae81ff">Blocked requests, rate limits</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Log Filtering</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">ERROR level</span>: <span style="color:#ae81ff">Immediate SNS alert</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">WARN level</span>: <span style="color:#ae81ff">Daily digest</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Invalid ingredients</span>: <span style="color:#ae81ff">Weekly admin report</span></span></span></code></pre></div><h3 id="structured-logging-implementation">Structured Logging Implementation<a class="anchor" href="#structured-logging-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/logger.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Logger</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>(<span style="color:#a6e22e">functionName</span>, <span style="color:#a6e22e">requestId</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">functionName</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">functionName</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">requestId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">requestId</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">info</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;INFO&#39;</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">warn</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;WARN&#39;</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">error</span>, <span style="color:#a6e22e">metadata</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;ERROR&#39;</span>, <span style="color:#a6e22e">message</span>, {
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">metadata</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">stack</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">stack</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">level</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">logEntry</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">level</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">requestId</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">requestId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">functionName</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">metadata</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">logEntry</span>));
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Usage in Lambda
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">logger</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Logger</span>(<span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">functionName</span>, <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">awsRequestId</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">logger</span>.<span style="color:#a6e22e">info</span>(<span style="color:#e6db74">&#39;Processing AI suggestion request&#39;</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>).<span style="color:#a6e22e">ingredients</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="-distributed-tracing-x-ray">🔍 Distributed Tracing (X-Ray)<a class="anchor" href="#-distributed-tracing-x-ray">#</a></h2>
+<h3 id="tracing-configuration">Tracing Configuration<a class="anchor" href="#tracing-configuration">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Services Traced</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">API Gateway</span>: <span style="color:#ae81ff">100</span><span style="color:#ae81ff">% sampling</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Lambda (AI Suggestion)</span>: <span style="color:#ae81ff">100</span><span style="color:#ae81ff">% sampling</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Lambda (Others)</span>: <span style="color:#ae81ff">10</span><span style="color:#ae81ff">% sampling</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">DynamoDB</span>: <span style="color:#ae81ff">Auto-instrumented</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Bedrock</span>: <span style="color:#ae81ff">Auto-instrumented</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Trace Segments</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. API Gateway → Lambda</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Lambda → DynamoDB Query</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Lambda → Bedrock API</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. Lambda → DynamoDB Write</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. Lambda → Response</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Annotations</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">user_id</span>: <span style="color:#ae81ff">For user-specific analysis</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">recipe_count</span>: <span style="color:#ae81ff">Request size</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">db_recipes_found</span>: <span style="color:#ae81ff">DB hit rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">ai_recipes_generated</span>: <span style="color:#ae81ff">AI usage</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">total_duration</span>: <span style="color:#ae81ff">End-to-end timing</span></span></span></code></pre></div><h3 id="x-ray-implementation">X-Ray Implementation<a class="anchor" href="#x-ray-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Enable X-Ray tracing in Lambda
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">AWSXRay</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;aws-xray-sdk-core&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">AWS</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">AWSXRay</span>.<span style="color:#a6e22e">captureAWS</span>(<span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;aws-sdk&#39;</span>));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Create subsegment for AI generation
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">segment</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">AWSXRay</span>.<span style="color:#a6e22e">getSegment</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">subsegment</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">segment</span>.<span style="color:#a6e22e">addNewSubsegment</span>(<span style="color:#e6db74">&#39;ai-generation&#39;</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">addAnnotation</span>(<span style="color:#e6db74">&#39;user_id&#39;</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">addAnnotation</span>(<span style="color:#e6db74">&#39;recipe_count&#39;</span>, <span style="color:#a6e22e">recipeCount</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">generateAIRecipes</span>(<span style="color:#a6e22e">ingredients</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">addMetadata</span>(<span style="color:#e6db74">&#39;ai_response&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes_generated</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">total_tokens</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">reduce</span>((<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">r</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">tokens</span>, <span style="color:#ae81ff">0</span>)
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">aiRecipes</span>;
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">addError</span>(<span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">subsegment</span>.<span style="color:#a6e22e">close</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="alerting-system">Alerting System<a class="anchor" href="#alerting-system">#</a></h2>
+<h3 id="alert-categories">Alert Categories<a class="anchor" href="#alert-categories">#</a></h3>
+<h4 id="critical-alerts-immediate-response">Critical Alerts (Immediate Response)<a class="anchor" href="#critical-alerts-immediate-response">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">System Down</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API Gateway 5XX &gt; 50% for 2 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda function errors &gt; 90% for 1 minute</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB throttling &gt; 10 events in 5 minutes</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Performance Degradation</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API latency &gt; 2s (p95) for 5 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda timeout rate &gt; 10% for 3 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI generation failure rate &gt; 20% for 5 minutes</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Security Issues</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">WAF blocked requests &gt; 1000 in 5 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Unusual authentication failures &gt; 100 in 1 minute</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost spike &gt; 200% of daily average</span></span></span></code></pre></div><h4 id="warning-alerts-monitor--plan">Warning Alerts (Monitor &amp; Plan)<a class="anchor" href="#warning-alerts-monitor--plan">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Capacity Concerns</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB capacity &gt; 70% for 10 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda concurrent executions &gt; 80% for 5 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Daily cost &gt; budget threshold</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Quality Issues</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Recipe approval rate &lt; 30% for 1 hour</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Invalid ingredient reports &gt; 50 per hour</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">User error rate &gt; 5% for 10 minutes</span></span></span></code></pre></div><h3 id="sns-alert-configuration">SNS Alert Configuration<a class="anchor" href="#sns-alert-configuration">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Topics</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">smart-cooking-prod-critical</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Subscribers</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Email</span>: <span style="color:#ae81ff">admin@smartcooking.app</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">SMS</span>: <span style="color:#ae81ff">+84xxx (for critical only)</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">smart-cooking-prod-warnings</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Subscribers</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Email</span>: <span style="color:#ae81ff">team@smartcooking.app</span>
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">Slack</span>: <span style="color:#75715e">#alerts channel</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Alert Format</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Subject</span>: <span style="color:#e6db74">&#34;[CRITICAL] Smart Cooking - API Gateway High Error Rate&#34;</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Body</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Alert: API Gateway 5XX Error Rate
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Environment: Production
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Current Value: 15.2%
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Threshold: 5%
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Duration: 3 minutes
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Dashboard: https://console.aws.amazon.com/cloudwatch/...
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    Runbook: https://wiki.smartcooking.app/runbooks/api-errors</span></span></span></code></pre></div><h2 id="dashboards">Dashboards<a class="anchor" href="#dashboards">#</a></h2>
+<h3 id="executive-dashboard">Executive Dashboard<a class="anchor" href="#executive-dashboard">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">High-Level Metrics (Daily/Weekly)</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Total Users (Active)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Revenue (Premium subscriptions)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">System Uptime %</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost per User</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Customer Satisfaction (App Store ratings)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Widgets</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">User Growth Chart (30 days)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Revenue Trend (90 days)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost Breakdown Pie Chart</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">System Health Status</span></span></span></code></pre></div><h3 id="operations-dashboard">Operations Dashboard<a class="anchor" href="#operations-dashboard">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Real-Time Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API Request Rate (requests/minute)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Error Rate % (last 1 hour)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Average Response Time (p95)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Active Lambda Invocations</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB Throttling Events</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Performance Widgets</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API Gateway Latency (5-minute intervals)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda Duration by Function</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB Query Performance</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI Generation Success Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost Trend (daily)</span></span></span></code></pre></div><h3 id="ai-performance-dashboard">AI Performance Dashboard<a class="anchor" href="#ai-performance-dashboard">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">AI-Specific Metrics</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DB vs AI Mix Ratio (daily trend)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Recipe Auto-Approval Rate</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI Generation Time Distribution</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Invalid Ingredient Reports</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Bedrock API Success Rate</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Business Impact</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost Savings from DB Mix</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">User Satisfaction with AI Recipes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Recipe Database Growth Rate</span></span></span></code></pre></div><h3 id="dashboard-implementation">Dashboard Implementation<a class="anchor" href="#dashboard-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// CDK Dashboard Configuration
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dashboard</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Dashboard</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;SmartCookingDashboard&#39;</span>, {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">dashboardName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-production&#39;</span>
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// API Gateway metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">dashboard</span>.<span style="color:#a6e22e">addWidgets</span>(
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;API Gateway Requests&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [<span style="color:#a6e22e">apiGateway</span>.<span style="color:#a6e22e">metricCount</span>()],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">right</span><span style="color:#f92672">:</span> [<span style="color:#a6e22e">apiGateway</span>.<span style="color:#a6e22e">metricLatency</span>()]
+</span></span><span style="display:flex;"><span>  }),
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Lambda Performance&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiSuggestionFunction</span>.<span style="color:#a6e22e">metricDuration</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cookingHistoryFunction</span>.<span style="color:#a6e22e">metricDuration</span>()
+</span></span><span style="display:flex;"><span>    ],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">right</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiSuggestionFunction</span>.<span style="color:#a6e22e">metricErrors</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cookingHistoryFunction</span>.<span style="color:#a6e22e">metricErrors</span>()
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Custom business metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">dashboard</span>.<span style="color:#a6e22e">addWidgets</span>(
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AI Performance&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Metric</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">namespace</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SmartCooking/AI&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">metricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RecipeGenerationTime&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">statistic</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Average&#39;</span>
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    ]
+</span></span><span style="display:flex;"><span>  })
+</span></span><span style="display:flex;"><span>);</span></span></code></pre></div><h2 id="monitoring-tools--integration">Monitoring Tools &amp; Integration<a class="anchor" href="#monitoring-tools--integration">#</a></h2>
+<h3 id="third-party-integrations">Third-Party Integrations<a class="anchor" href="#third-party-integrations">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Slack Integration</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Critical alerts to</span> <span style="color:#75715e">#alerts channel</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Daily summary to</span> <span style="color:#75715e">#operations channel</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost reports to</span> <span style="color:#75715e">#finance channel</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">PagerDuty (Future)</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Escalation for critical alerts</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#66d9ef">On</span>-<span style="color:#ae81ff">call rotation management</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Incident response coordination</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Datadog (Alternative)</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Advanced APM capabilities</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Custom dashboards</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Machine learning anomaly detection</span></span></span></code></pre></div><h3 id="monitoring-automation">Monitoring Automation<a class="anchor" href="#monitoring-automation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Auto-Remediation</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda timeout → Increase memory allocation</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB throttling → Enable auto-scaling</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">High error rate → Circuit breaker activation</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost spike → Rate limiting activation</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Health Checks</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Synthetic transactions every 5 minutes</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">End-to-end user journey testing</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Database connectivity checks</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI service availability monitoring</span></span></span></code></pre></div><h2 id="performance-baselines">Performance Baselines<a class="anchor" href="#performance-baselines">#</a></h2>
+<h3 id="current-baselines-mvp">Current Baselines (MVP)<a class="anchor" href="#current-baselines-mvp">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">API Performance</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Average Response Time</span>: <span style="color:#ae81ff">200ms</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">P95 Response Time</span>: <span style="color:#ae81ff">500ms</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">P99 Response Time</span>: <span style="color:#ae81ff">1000ms</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Error Rate</span>: <span style="color:#ae81ff">&lt;0.5%</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Lambda Performance</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">AI Suggestion</span>: <span style="color:#ae81ff">3</span>-<span style="color:#ae81ff">5s average</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Other Functions</span>: <span style="color:#ae81ff">&lt;1s average</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Cold Start Rate</span>: <span style="color:#ae81ff">&lt;5%</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Memory Utilization</span>: <span style="color:#ae81ff">&lt;70%</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Database Performance</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Query Latency</span>: <span style="color:#ae81ff">&lt;50ms (p95)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Write Latency</span>: <span style="color:#ae81ff">&lt;25ms (p95)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Throttling Events</span>: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Hot Partitions</span>: <span style="color:#ae81ff">0</span></span></span></code></pre></div><h3 id="target-improvements-scale">Target Improvements (Scale)<a class="anchor" href="#target-improvements-scale">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">6-Month Targets</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">API P95 Latency</span>: <span style="color:#ae81ff">&lt;300ms</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">AI Generation</span>: <span style="color:#ae81ff">&lt;2s average</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Error Rate</span>: <span style="color:#ae81ff">&lt;0.1%</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Uptime</span>: <span style="color:#ae81ff">&gt;99.9%</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">12-Month Targets</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">API P95 Latency</span>: <span style="color:#ae81ff">&lt;200ms</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">AI Generation</span>: <span style="color:#ae81ff">&lt;1s average</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Cost per User</span>: <span style="color:#ae81ff">&lt;$0.05</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">DB Coverage</span>: <span style="color:#ae81ff">&gt;80%</span></span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="30-cost-analysis.md">30 - Cost Analysis</a></li>
+<li><a href="31-scaling.md">31 - Scaling</a></li>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="22-devops.md">22 - DevOps</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/31-scaling/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="31 - Scaling Strategy" />
+        <span>31 - Scaling Strategy</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/40-auth/" class="flex align-center">
+        <span>40 - Authentication &amp; Authorization</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="40 - Authentication &amp; Authorization" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#monitoring-strategy">Monitoring Strategy</a>
+      <ul>
+        <li><a href="#observability-pillars">Observability Pillars</a></li>
+        <li><a href="#monitoring-objectives">Monitoring Objectives</a></li>
+      </ul>
+    </li>
+    <li><a href="#-cloudwatch-metrics">🔍 CloudWatch Metrics</a>
+      <ul>
+        <li><a href="#application-metrics">Application Metrics</a></li>
+        <li><a href="#business-metrics">Business Metrics</a></li>
+      </ul>
+    </li>
+    <li><a href="#logging-strategy">Logging Strategy</a>
+      <ul>
+        <li><a href="#log-structure">Log Structure</a></li>
+        <li><a href="#log-groups-configuration">Log Groups Configuration</a></li>
+        <li><a href="#structured-logging-implementation">Structured Logging Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#-distributed-tracing-x-ray">🔍 Distributed Tracing (X-Ray)</a>
+      <ul>
+        <li><a href="#tracing-configuration">Tracing Configuration</a></li>
+        <li><a href="#x-ray-implementation">X-Ray Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#alerting-system">Alerting System</a>
+      <ul>
+        <li><a href="#alert-categories">Alert Categories</a></li>
+        <li><a href="#sns-alert-configuration">SNS Alert Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#dashboards">Dashboards</a>
+      <ul>
+        <li><a href="#executive-dashboard">Executive Dashboard</a></li>
+        <li><a href="#operations-dashboard">Operations Dashboard</a></li>
+        <li><a href="#ai-performance-dashboard">AI Performance Dashboard</a></li>
+        <li><a href="#dashboard-implementation">Dashboard Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring-tools--integration">Monitoring Tools &amp; Integration</a>
+      <ul>
+        <li><a href="#third-party-integrations">Third-Party Integrations</a></li>
+        <li><a href="#monitoring-automation">Monitoring Automation</a></li>
+      </ul>
+    </li>
+    <li><a href="#performance-baselines">Performance Baselines</a>
+      <ul>
+        <li><a href="#current-baselines-mvp">Current Baselines (MVP)</a></li>
+        <li><a href="#target-improvements-scale">Target Improvements (Scale)</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

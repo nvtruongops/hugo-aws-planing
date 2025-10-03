@@ -1,6 +1,6 @@
 # AWS ARCHITECTURE - MVP SIMPLIFIED
 
-## 🎯 Chỉ cần 4 Lambda Functions
+##    Chỉ cần 4 Lambda Functions
 
 ### Lambda 1: Auth Handler
 - **Trigger**: Cognito Post-Authentication
@@ -36,7 +36,7 @@
 
 ---
 
-## 📊 AWS Services (Simplified)
+##    AWS Services (Simplified)
 
 ```mermaid
 graph TB
@@ -76,7 +76,7 @@ graph TB
 
 ---
 
-## 📋 API Endpoints (Simplified)
+##    API Endpoints (Simplified)
 
 ```
 Authentication
@@ -106,7 +106,7 @@ GET    /user/favorites            # List favorite recipes
 
 ---
 
-## 💰 Cost Comparison
+##    Cost Comparison
 
 | Service | Full Version | MVP Version | Savings |
 |---------|--------------|-------------|---------|

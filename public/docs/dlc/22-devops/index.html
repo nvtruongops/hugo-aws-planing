@@ -1,0 +1,2046 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DevOps &amp; Deployment - Smart Cooking App#
+Deployment Strategy#
+Infrastructure as Code (IaC)#
+Tool: AWS CDK (TypeScript)
+Alternative: AWS SAM
+Reason: Better TypeScript integration, more flexible than SAM
+
+Structure:
+  - cdk/
+    ├── lib/
+    │   ├── database-stack.ts      # DynamoDB tables
+    │   ├── lambda-stack.ts        # Lambda functions
+    │   ├── api-stack.ts           # API Gateway
+    │   ├── auth-stack.ts          # Cognito
+    │   ├── storage-stack.ts       # S3 buckets
+    │   ├── monitoring-stack.ts    # CloudWatch, X-Ray
+    │   └── main-stack.ts          # Main orchestration
+    ├── bin/
+    │   └── app.ts                 # CDK app entry
+    └── package.jsonEnvironment Strategy#
+Environments:
+  - dev: Development (personal)
+  - staging: Pre-production testing
+  - prod: Production
+
+Naming Convention:
+  - Resources: smart-cooking-{env}-{resource}
+  - Example: smart-cooking-prod-api-gatewayCI/CD Pipeline#
+Frontend Pipeline (AWS Amplify)#
+# amplify.yml
+version: 1
+applications:
+  - frontend:
+      phases:
+        preBuild:
+          commands:
+            - npm ci
+        build:
+          commands:
+            - npm run build
+            - npm start &amp;
+            - sleep 5
+            - pkill -f &#34;node&#34;
+      artifacts:
+        baseDirectory: .
+        files:
+          - &#39;**/*&#39;
+        excludePaths:
+          - node_modules/**/*
+          - .git/**/*
+      cache:
+        paths:
+          - node_modules/**/*
+      
+      customHeaders:
+        - pattern: &#39;**/*&#39;
+          headers:
+            - key: &#39;Strict-Transport-Security&#39;
+              value: &#39;max-age=31536000; includeSubDomains&#39;
+            - key: &#39;X-Content-Type-Options&#39;
+              value: &#39;nosniff&#39;
+            - key: &#39;X-Frame-Options&#39;
+              value: &#39;DENY&#39;
+
+environments:
+  main:
+    environmentVariables:
+      API_URL: https://api.smartcooking.app
+      NODE_ENV: production
+      PORT: 3000
+  develop:
+    environmentVariables:
+      API_URL: https://api-dev.smartcooking.app
+      NODE_ENV: development
+      PORT: 3000Backend Pipeline (GitHub Actions)#
+# .github/workflows/deploy.yml
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: &#39;20&#39;
+          cache: &#39;npm&#39;
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Run tests
+        run: npm test
+      
+      - name: Run linting
+        run: npm run lint
+
+  deploy-dev:
+    if: github.ref == &#39;refs/heads/develop&#39;
+    needs: test
+    runs-on: ubuntu-latest
+    environment: development
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: &#39;20&#39;
+          cache: &#39;npm&#39;
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Deploy CDK stack
+        run: |
+          cd cdk
+          npm ci
+          npx cdk deploy --all --require-approval never
+        env:
+          ENVIRONMENT: dev
+
+  deploy-prod:
+    if: github.ref == &#39;refs/heads/main&#39;
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: &#39;20&#39;
+          cache: &#39;npm&#39;
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Deploy CDK stack
+        run: |
+          cd cdk
+          npm ci
+          npx cdk deploy --all --require-approval never
+        env:
+          ENVIRONMENT: prodInfrastructure Code#
+Main CDK Stack#
+// cdk/lib/main-stack.ts
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import { Construct } from &#39;constructs&#39;;
+import { DatabaseStack } from &#39;./database-stack&#39;;
+import { LambdaStack } from &#39;./lambda-stack&#39;;
+import { ApiStack } from &#39;./api-stack&#39;;
+import { AuthStack } from &#39;./auth-stack&#39;;
+import { StorageStack } from &#39;./storage-stack&#39;;
+import { MonitoringStack } from &#39;./monitoring-stack&#39;;
+
+export class MainStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    const env = process.env.ENVIRONMENT || &#39;dev&#39;;
+
+    // Database
+    const databaseStack = new DatabaseStack(this, &#39;Database&#39;, {
+      environment: env
+    });
+
+    // Storage
+    const storageStack = new StorageStack(this, &#39;Storage&#39;, {
+      environment: env
+    });
+
+    // Auth
+    const authStack = new AuthStack(this, &#39;Auth&#39;, {
+      environment: env
+    });
+
+    // Lambda Functions
+    const lambdaStack = new LambdaStack(this, &#39;Lambda&#39;, {
+      environment: env,
+      table: databaseStack.table,
+      userPool: authStack.userPool,
+      buckets: storageStack.buckets
+    });
+
+    // API Gateway
+    const apiStack = new ApiStack(this, &#39;Api&#39;, {
+      environment: env,
+      lambdaFunctions: lambdaStack.functions,
+      userPool: authStack.userPool
+    });
+
+    // Monitoring
+    new MonitoringStack(this, &#39;Monitoring&#39;, {
+      environment: env,
+      api: apiStack.api,
+      lambdaFunctions: lambdaStack.functions
+    });
+
+    // Outputs
+    new cdk.CfnOutput(this, &#39;ApiUrl&#39;, {
+      value: apiStack.api.url,
+      description: &#39;API Gateway URL&#39;
+    });
+
+    new cdk.CfnOutput(this, &#39;UserPoolId&#39;, {
+      value: authStack.userPool.userPoolId,
+      description: &#39;Cognito User Pool ID&#39;
+    });
+  }
+}Lambda Stack#
+// cdk/lib/lambda-stack.ts
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import * as lambda from &#39;aws-cdk-lib/aws-lambda&#39;;
+import * as dynamodb from &#39;aws-cdk-lib/aws-dynamodb&#39;;
+import * as cognito from &#39;aws-cdk-lib/aws-cognito&#39;;
+import * as s3 from &#39;aws-cdk-lib/aws-s3&#39;;
+import { Construct } from &#39;constructs&#39;;
+
+interface LambdaStackProps {
+  environment: string;
+  table: dynamodb.Table;
+  userPool: cognito.UserPool;
+  buckets: { [key: string]: s3.Bucket };
+}
+
+export class LambdaStack extends Construct {
+  public readonly functions: { [key: string]: lambda.Function };
+
+  constructor(scope: Construct, id: string, props: LambdaStackProps) {
+    super(scope, id);
+
+    const commonEnvironment = {
+      DYNAMODB_TABLE: props.table.tableName,
+      USER_POOL_ID: props.userPool.userPoolId,
+      ENVIRONMENT: props.environment
+    };
+
+    // AI Suggestion Function (Most important)
+    const aiSuggestionFunction = new lambda.Function(this, &#39;AiSuggestion&#39;, {
+      functionName: `smart-cooking-${props.environment}-ai-suggestion`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: &#39;index.handler&#39;,
+      code: lambda.Code.fromAsset(&#39;lambda-functions/ai-suggestion&#39;),
+      memorySize: 1024,
+      timeout: cdk.Duration.seconds(60),
+      environment: {
+        ...commonEnvironment,
+        BEDROCK_MODEL_ID: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39;
+      },
+      tracing: lambda.Tracing.ACTIVE
+    });
+
+    // Cooking History Function
+    const cookingHistoryFunction = new lambda.Function(this, &#39;CookingHistory&#39;, {
+      functionName: `smart-cooking-${props.environment}-cooking-history`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: &#39;index.handler&#39;,
+      code: lambda.Code.fromAsset(&#39;lambda-functions/cooking-history&#39;),
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnvironment,
+      tracing: lambda.Tracing.ACTIVE
+    });
+
+    // Rating Handler Function
+    const ratingHandlerFunction = new lambda.Function(this, &#39;RatingHandler&#39;, {
+      functionName: `smart-cooking-${props.environment}-rating-handler`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: &#39;index.handler&#39;,
+      code: lambda.Code.fromAsset(&#39;lambda-functions/rating-handler&#39;),
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnvironment,
+      tracing: lambda.Tracing.ACTIVE
+    });
+
+    // Ingredient Validator Function
+    const ingredientValidatorFunction = new lambda.Function(this, &#39;IngredientValidator&#39;, {
+      functionName: `smart-cooking-${props.environment}-ingredient-validator`,
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: &#39;index.handler&#39;,
+      code: lambda.Code.fromAsset(&#39;lambda-functions/ingredient-validator&#39;),
+      memorySize: 256,
+      timeout: cdk.Duration.seconds(10),
+      environment: commonEnvironment,
+      tracing: lambda.Tracing.ACTIVE
+    });
+
+    // Grant permissions
+    props.table.grantReadWriteData(aiSuggestionFunction);
+    props.table.grantReadWriteData(cookingHistoryFunction);
+    props.table.grantReadWriteData(ratingHandlerFunction);
+    props.table.grantReadWriteData(ingredientValidatorFunction);
+
+    // Grant Bedrock permissions to AI function
+    aiSuggestionFunction.addToRolePolicy(
+      new cdk.aws_iam.PolicyStatement({
+        effect: cdk.aws_iam.Effect.ALLOW,
+        actions: [&#39;bedrock:InvokeModel&#39;],
+        resources: [&#39;arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-*&#39;]
+      })
+    );
+
+    this.functions = {
+      aiSuggestion: aiSuggestionFunction,
+      cookingHistory: cookingHistoryFunction,
+      ratingHandler: ratingHandlerFunction,
+      ingredientValidator: ingredientValidatorFunction
+    };
+  }
+}Database Stack#
+// cdk/lib/database-stack.ts
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import * as dynamodb from &#39;aws-cdk-lib/aws-dynamodb&#39;;
+import { Construct } from &#39;constructs&#39;;
+
+interface DatabaseStackProps {
+  environment: string;
+}
+
+export class DatabaseStack extends Construct {
+  public readonly table: dynamodb.Table;
+
+  constructor(scope: Construct, id: string, props: DatabaseStackProps) {
+    super(scope, id);
+
+    // Single table design
+    this.table = new dynamodb.Table(this, &#39;SmartCookingTable&#39;, {
+      tableName: `smart-cooking-${props.environment}-data`,
+      partitionKey: {
+        name: &#39;PK&#39;,
+        type: dynamodb.AttributeType.STRING
+      },
+      sortKey: {
+        name: &#39;SK&#39;,
+        type: dynamodb.AttributeType.STRING
+      },
+      billingMode: dynamodb.BillingMode.ON_DEMAND,
+      encryption: dynamodb.TableEncryption.AWS_MANAGED,
+      pointInTimeRecovery: props.environment === &#39;prod&#39;,
+      removalPolicy: props.environment === &#39;prod&#39; 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+
+      // Global Secondary Indexes
+      globalSecondaryIndexes: [
+        {
+          indexName: &#39;GSI1&#39;,
+          partitionKey: {
+            name: &#39;GSI1PK&#39;,
+            type: dynamodb.AttributeType.STRING
+          },
+          sortKey: {
+            name: &#39;GSI1SK&#39;,
+            type: dynamodb.AttributeType.STRING
+          }
+        },
+        {
+          indexName: &#39;GSI2&#39;,
+          partitionKey: {
+            name: &#39;GSI2PK&#39;,
+            type: dynamodb.AttributeType.STRING
+          },
+          sortKey: {
+            name: &#39;GSI2SK&#39;,
+            type: dynamodb.AttributeType.STRING
+          }
+        },
+        {
+          indexName: &#39;GSI3&#39;,
+          partitionKey: {
+            name: &#39;GSI3PK&#39;,
+            type: dynamodb.AttributeType.STRING
+          },
+          sortKey: {
+            name: &#39;GSI3SK&#39;,
+            type: dynamodb.AttributeType.STRING
+          }
+        }
+      ]
+    });
+
+    // Add TTL attribute for auto-cleanup
+    this.table.addGlobalSecondaryIndex({
+      indexName: &#39;TTL-Index&#39;,
+      partitionKey: {
+        name: &#39;ttl&#39;,
+        type: dynamodb.AttributeType.NUMBER
+      }
+    });
+  }
+}Monitoring &amp; Logging#
+CloudWatch Dashboard#
+// cdk/lib/monitoring-stack.ts
+import * as cdk from &#39;aws-cdk-lib&#39;;
+import * as cloudwatch from &#39;aws-cdk-lib/aws-cloudwatch&#39;;
+import * as lambda from &#39;aws-cdk-lib/aws-lambda&#39;;
+import * as apigateway from &#39;aws-cdk-lib/aws-apigateway&#39;;
+import * as sns from &#39;aws-cdk-lib/aws-sns&#39;;
+import { Construct } from &#39;constructs&#39;;
+
+interface MonitoringStackProps {
+  environment: string;
+  api: apigateway.RestApi;
+  lambdaFunctions: { [key: string]: lambda.Function };
+}
+
+export class MonitoringStack extends Construct {
+  constructor(scope: Construct, id: string, props: MonitoringStackProps) {
+    super(scope, id);
+
+    // SNS Topic for alerts
+    const alertTopic = new sns.Topic(this, &#39;AlertTopic&#39;, {
+      topicName: `smart-cooking-${props.environment}-alerts`
+    });
+
+    // CloudWatch Dashboard
+    const dashboard = new cloudwatch.Dashboard(this, &#39;Dashboard&#39;, {
+      dashboardName: `smart-cooking-${props.environment}-dashboard`
+    });
+
+    // API Gateway Metrics
+    dashboard.addWidgets(
+      new cloudwatch.GraphWidget({
+        title: &#39;API Gateway Requests&#39;,
+        left: [
+          new cloudwatch.Metric({
+            namespace: &#39;AWS/ApiGateway&#39;,
+            metricName: &#39;Count&#39;,
+            dimensionsMap: {
+              ApiName: props.api.restApiName
+            },
+            statistic: &#39;Sum&#39;
+          })
+        ]
+      }),
+      new cloudwatch.GraphWidget({
+        title: &#39;API Gateway Latency&#39;,
+        left: [
+          new cloudwatch.Metric({
+            namespace: &#39;AWS/ApiGateway&#39;,
+            metricName: &#39;Latency&#39;,
+            dimensionsMap: {
+              ApiName: props.api.restApiName
+            },
+            statistic: &#39;Average&#39;
+          })
+        ]
+      })
+    );
+
+    // Lambda Metrics
+    Object.entries(props.lambdaFunctions).forEach(([name, func]) =&gt; {
+      dashboard.addWidgets(
+        new cloudwatch.GraphWidget({
+          title: `${name} Function Metrics`,
+          left: [
+            func.metricInvocations(),
+            func.metricErrors(),
+            func.metricDuration()
+          ]
+        })
+      );
+
+      // Alarms
+      const errorAlarm = new cloudwatch.Alarm(this, `${name}ErrorAlarm`, {
+        alarmName: `smart-cooking-${props.environment}-${name}-errors`,
+        metric: func.metricErrors({
+          period: cdk.Duration.minutes(5)
+        }),
+        threshold: 10,
+        evaluationPeriods: 2
+      });
+
+      errorAlarm.addAlarmAction(
+        new cdk.aws_cloudwatch_actions.SnsAction(alertTopic)
+      );
+
+      const durationAlarm = new cloudwatch.Alarm(this, `${name}DurationAlarm`, {
+        alarmName: `smart-cooking-${props.environment}-${name}-duration`,
+        metric: func.metricDuration({
+          period: cdk.Duration.minutes(5),
+          statistic: &#39;Average&#39;
+        }),
+        threshold: name === &#39;aiSuggestion&#39; ? 30000 : 5000, // 30s for AI, 5s for others
+        evaluationPeriods: 3
+      });
+
+      durationAlarm.addAlarmAction(
+        new cdk.aws_cloudwatch_actions.SnsAction(alertTopic)
+      );
+    });
+
+    // Cost Alarm
+    const costAlarm = new cloudwatch.Alarm(this, &#39;CostAlarm&#39;, {
+      alarmName: `smart-cooking-${props.environment}-cost`,
+      metric: new cloudwatch.Metric({
+        namespace: &#39;AWS/Billing&#39;,
+        metricName: &#39;EstimatedCharges&#39;,
+        dimensionsMap: {
+          Currency: &#39;USD&#39;
+        },
+        statistic: &#39;Maximum&#39;,
+        period: cdk.Duration.hours(6)
+      }),
+      threshold: props.environment === &#39;prod&#39; ? 200 : 50,
+      evaluationPeriods: 1
+    });
+
+    costAlarm.addAlarmAction(
+      new cdk.aws_cloudwatch_actions.SnsAction(alertTopic)
+    );
+  }
+}Log Aggregation#
+// Lambda function logging setup
+const logger = {
+  info: (message: string, meta: any = {}) =&gt; {
+    console.log(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: &#39;INFO&#39;,
+      message,
+      requestId: context.awsRequestId,
+      functionName: context.functionName,
+      ...meta
+    }));
+  },
+
+  error: (message: string, error: Error, meta: any = {}) =&gt; {
+    console.error(JSON.stringify({
+      timestamp: new Date().toISOString(),
+      level: &#39;ERROR&#39;,
+      message,
+      error: {
+        name: error.name,
+        message: error.message,
+        stack: error.stack
+      },
+      requestId: context.awsRequestId,
+      functionName: context.functionName,
+      ...meta
+    }));
+  }
+};Security &amp; Compliance#
+Security Scanning#
+# .github/workflows/security.yml
+name: Security Scan
+
+on:
+  push:
+    branches: [main, develop]
+  schedule:
+    - cron: &#39;0 2 * * 1&#39; # Weekly on Monday
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Run npm audit
+        run: npm audit --audit-level high
+      
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=high
+      
+      - name: Run OWASP ZAP scan
+        uses: zaproxy/action-full-scan@v0.4.0
+        with:
+          target: &#39;https://api-dev.smartcooking.app&#39;Environment Variables Management#
+// Environment-specific configurations
+const config = {
+  dev: {
+    apiUrl: &#39;https://api-dev.smartcooking.app&#39;,
+    cognitoUserPoolId: &#39;us-east-1_dev123&#39;,
+    bedrockModel: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39;,
+    logLevel: &#39;DEBUG&#39;
+  },
+  prod: {
+    apiUrl: &#39;https://api.smartcooking.app&#39;,
+    cognitoUserPoolId: &#39;us-east-1_prod456&#39;,
+    bedrockModel: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39;,
+    logLevel: &#39;INFO&#39;
+  }
+};
+
+export const getConfig = () =&gt; {
+  const env = process.env.ENVIRONMENT || &#39;dev&#39;;
+  return config[env as keyof typeof config];
+};Performance Optimization#
+Lambda Optimization#
+// Shared connection pool for DynamoDB
+let ddbClient: DynamoDBDocumentClient;
+
+export const getDynamoDBClient = () =&gt; {
+  if (!ddbClient) {
+    const client = new DynamoDBClient({
+      region: process.env.AWS_REGION || &#39;us-east-1&#39;
+    });
+    ddbClient = DynamoDBDocumentClient.from(client);
+  }
+  return ddbClient;
+};
+
+// Warm-up function
+export const warmUp = async () =&gt; {
+  if (process.env.AWS_LAMBDA_FUNCTION_NAME) {
+    // Pre-initialize connections
+    getDynamoDBClient();
+    
+    // Pre-load master ingredients cache
+    await loadMasterIngredientsCache();
+  }
+};Caching Strategy#
+// In-memory cache for master ingredients
+let masterIngredientsCache: Map&lt;string, any&gt; | null = null;
+
+export const getMasterIngredient = async (normalizedName: string) =&gt; {
+  if (!masterIngredientsCache) {
+    await loadMasterIngredientsCache();
+  }
+  
+  return masterIngredientsCache?.get(normalizedName);
+};
+
+const loadMasterIngredientsCache = async () =&gt; {
+  const result = await ddb.query({
+    TableName: process.env.DYNAMODB_TABLE,
+    IndexName: &#39;GSI1&#39;,
+    KeyConditionExpression: &#39;GSI1PK = :pk&#39;,
+    ExpressionAttributeValues: {
+      &#39;:pk&#39;: &#39;INGREDIENT#ACTIVE&#39;
+    }
+  });
+
+  masterIngredientsCache = new Map();
+  result.Items?.forEach(item =&gt; {
+    masterIngredientsCache?.set(item.normalized_name, item);
+  });
+};Related Documents#
+
+10 - Architecture
+20 - Backend
+21 - Frontend
+32 - Monitoring
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/22-devops/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="22 - DevOps & Deployment">
+  <meta property="og:description" content="DevOps &amp; Deployment - Smart Cooking App#Deployment Strategy#Infrastructure as Code (IaC)#Tool: AWS CDK (TypeScript) Alternative: AWS SAM Reason: Better TypeScript integration, more flexible than SAM Structure: - cdk/ ├── lib/ │ ├── database-stack.ts # DynamoDB tables │ ├── lambda-stack.ts # Lambda functions │ ├── api-stack.ts # API Gateway │ ├── auth-stack.ts # Cognito │ ├── storage-stack.ts # S3 buckets │ ├── monitoring-stack.ts # CloudWatch, X-Ray │ └── main-stack.ts # Main orchestration ├── bin/ │ └── app.ts # CDK app entry └── package.jsonEnvironment Strategy#Environments: - dev: Development (personal) - staging: Pre-production testing - prod: Production Naming Convention: - Resources: smart-cooking-{env}-{resource} - Example: smart-cooking-prod-api-gatewayCI/CD Pipeline#Frontend Pipeline (AWS Amplify)## amplify.yml version: 1 applications: - frontend: phases: preBuild: commands: - npm ci build: commands: - npm run build - npm start &amp; - sleep 5 - pkill -f &#34;node&#34; artifacts: baseDirectory: . files: - &#39;**/*&#39; excludePaths: - node_modules/**/* - .git/**/* cache: paths: - node_modules/**/* customHeaders: - pattern: &#39;**/*&#39; headers: - key: &#39;Strict-Transport-Security&#39; value: &#39;max-age=31536000; includeSubDomains&#39; - key: &#39;X-Content-Type-Options&#39; value: &#39;nosniff&#39; - key: &#39;X-Frame-Options&#39; value: &#39;DENY&#39; environments: main: environmentVariables: API_URL: https://api.smartcooking.app NODE_ENV: production PORT: 3000 develop: environmentVariables: API_URL: https://api-dev.smartcooking.app NODE_ENV: development PORT: 3000Backend Pipeline (GitHub Actions)## .github/workflows/deploy.yml name: Deploy Backend on: push: branches: [main, develop] pull_request: branches: [main] env: AWS_REGION: us-east-1 jobs: test: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;20&#39; cache: &#39;npm&#39; - name: Install dependencies run: npm ci - name: Run tests run: npm test - name: Run linting run: npm run lint deploy-dev: if: github.ref == &#39;refs/heads/develop&#39; needs: test runs-on: ubuntu-latest environment: development steps: - uses: actions/checkout@v4 - name: Configure AWS credentials uses: aws-actions/configure-aws-credentials@v4 with: aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }} aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }} aws-region: ${{ env.AWS_REGION }} - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;20&#39; cache: &#39;npm&#39; - name: Install dependencies run: npm ci - name: Deploy CDK stack run: | cd cdk npm ci npx cdk deploy --all --require-approval never env: ENVIRONMENT: dev deploy-prod: if: github.ref == &#39;refs/heads/main&#39; needs: test runs-on: ubuntu-latest environment: production steps: - uses: actions/checkout@v4 - name: Configure AWS credentials uses: aws-actions/configure-aws-credentials@v4 with: aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_PROD }} aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }} aws-region: ${{ env.AWS_REGION }} - name: Setup Node.js uses: actions/setup-node@v4 with: node-version: &#39;20&#39; cache: &#39;npm&#39; - name: Install dependencies run: npm ci - name: Deploy CDK stack run: | cd cdk npm ci npx cdk deploy --all --require-approval never env: ENVIRONMENT: prodInfrastructure Code#Main CDK Stack#// cdk/lib/main-stack.ts import * as cdk from &#39;aws-cdk-lib&#39;; import { Construct } from &#39;constructs&#39;; import { DatabaseStack } from &#39;./database-stack&#39;; import { LambdaStack } from &#39;./lambda-stack&#39;; import { ApiStack } from &#39;./api-stack&#39;; import { AuthStack } from &#39;./auth-stack&#39;; import { StorageStack } from &#39;./storage-stack&#39;; import { MonitoringStack } from &#39;./monitoring-stack&#39;; export class MainStack extends cdk.Stack { constructor(scope: Construct, id: string, props?: cdk.StackProps) { super(scope, id, props); const env = process.env.ENVIRONMENT || &#39;dev&#39;; // Database const databaseStack = new DatabaseStack(this, &#39;Database&#39;, { environment: env }); // Storage const storageStack = new StorageStack(this, &#39;Storage&#39;, { environment: env }); // Auth const authStack = new AuthStack(this, &#39;Auth&#39;, { environment: env }); // Lambda Functions const lambdaStack = new LambdaStack(this, &#39;Lambda&#39;, { environment: env, table: databaseStack.table, userPool: authStack.userPool, buckets: storageStack.buckets }); // API Gateway const apiStack = new ApiStack(this, &#39;Api&#39;, { environment: env, lambdaFunctions: lambdaStack.functions, userPool: authStack.userPool }); // Monitoring new MonitoringStack(this, &#39;Monitoring&#39;, { environment: env, api: apiStack.api, lambdaFunctions: lambdaStack.functions }); // Outputs new cdk.CfnOutput(this, &#39;ApiUrl&#39;, { value: apiStack.api.url, description: &#39;API Gateway URL&#39; }); new cdk.CfnOutput(this, &#39;UserPoolId&#39;, { value: authStack.userPool.userPoolId, description: &#39;Cognito User Pool ID&#39; }); } }Lambda Stack#// cdk/lib/lambda-stack.ts import * as cdk from &#39;aws-cdk-lib&#39;; import * as lambda from &#39;aws-cdk-lib/aws-lambda&#39;; import * as dynamodb from &#39;aws-cdk-lib/aws-dynamodb&#39;; import * as cognito from &#39;aws-cdk-lib/aws-cognito&#39;; import * as s3 from &#39;aws-cdk-lib/aws-s3&#39;; import { Construct } from &#39;constructs&#39;; interface LambdaStackProps { environment: string; table: dynamodb.Table; userPool: cognito.UserPool; buckets: { [key: string]: s3.Bucket }; } export class LambdaStack extends Construct { public readonly functions: { [key: string]: lambda.Function }; constructor(scope: Construct, id: string, props: LambdaStackProps) { super(scope, id); const commonEnvironment = { DYNAMODB_TABLE: props.table.tableName, USER_POOL_ID: props.userPool.userPoolId, ENVIRONMENT: props.environment }; // AI Suggestion Function (Most important) const aiSuggestionFunction = new lambda.Function(this, &#39;AiSuggestion&#39;, { functionName: `smart-cooking-${props.environment}-ai-suggestion`, runtime: lambda.Runtime.NODEJS_20_X, handler: &#39;index.handler&#39;, code: lambda.Code.fromAsset(&#39;lambda-functions/ai-suggestion&#39;), memorySize: 1024, timeout: cdk.Duration.seconds(60), environment: { ...commonEnvironment, BEDROCK_MODEL_ID: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39; }, tracing: lambda.Tracing.ACTIVE }); // Cooking History Function const cookingHistoryFunction = new lambda.Function(this, &#39;CookingHistory&#39;, { functionName: `smart-cooking-${props.environment}-cooking-history`, runtime: lambda.Runtime.NODEJS_20_X, handler: &#39;index.handler&#39;, code: lambda.Code.fromAsset(&#39;lambda-functions/cooking-history&#39;), memorySize: 256, timeout: cdk.Duration.seconds(10), environment: commonEnvironment, tracing: lambda.Tracing.ACTIVE }); // Rating Handler Function const ratingHandlerFunction = new lambda.Function(this, &#39;RatingHandler&#39;, { functionName: `smart-cooking-${props.environment}-rating-handler`, runtime: lambda.Runtime.NODEJS_20_X, handler: &#39;index.handler&#39;, code: lambda.Code.fromAsset(&#39;lambda-functions/rating-handler&#39;), memorySize: 256, timeout: cdk.Duration.seconds(10), environment: commonEnvironment, tracing: lambda.Tracing.ACTIVE }); // Ingredient Validator Function const ingredientValidatorFunction = new lambda.Function(this, &#39;IngredientValidator&#39;, { functionName: `smart-cooking-${props.environment}-ingredient-validator`, runtime: lambda.Runtime.NODEJS_20_X, handler: &#39;index.handler&#39;, code: lambda.Code.fromAsset(&#39;lambda-functions/ingredient-validator&#39;), memorySize: 256, timeout: cdk.Duration.seconds(10), environment: commonEnvironment, tracing: lambda.Tracing.ACTIVE }); // Grant permissions props.table.grantReadWriteData(aiSuggestionFunction); props.table.grantReadWriteData(cookingHistoryFunction); props.table.grantReadWriteData(ratingHandlerFunction); props.table.grantReadWriteData(ingredientValidatorFunction); // Grant Bedrock permissions to AI function aiSuggestionFunction.addToRolePolicy( new cdk.aws_iam.PolicyStatement({ effect: cdk.aws_iam.Effect.ALLOW, actions: [&#39;bedrock:InvokeModel&#39;], resources: [&#39;arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-*&#39;] }) ); this.functions = { aiSuggestion: aiSuggestionFunction, cookingHistory: cookingHistoryFunction, ratingHandler: ratingHandlerFunction, ingredientValidator: ingredientValidatorFunction }; } }Database Stack#// cdk/lib/database-stack.ts import * as cdk from &#39;aws-cdk-lib&#39;; import * as dynamodb from &#39;aws-cdk-lib/aws-dynamodb&#39;; import { Construct } from &#39;constructs&#39;; interface DatabaseStackProps { environment: string; } export class DatabaseStack extends Construct { public readonly table: dynamodb.Table; constructor(scope: Construct, id: string, props: DatabaseStackProps) { super(scope, id); // Single table design this.table = new dynamodb.Table(this, &#39;SmartCookingTable&#39;, { tableName: `smart-cooking-${props.environment}-data`, partitionKey: { name: &#39;PK&#39;, type: dynamodb.AttributeType.STRING }, sortKey: { name: &#39;SK&#39;, type: dynamodb.AttributeType.STRING }, billingMode: dynamodb.BillingMode.ON_DEMAND, encryption: dynamodb.TableEncryption.AWS_MANAGED, pointInTimeRecovery: props.environment === &#39;prod&#39;, removalPolicy: props.environment === &#39;prod&#39; ? cdk.RemovalPolicy.RETAIN : cdk.RemovalPolicy.DESTROY, // Global Secondary Indexes globalSecondaryIndexes: [ { indexName: &#39;GSI1&#39;, partitionKey: { name: &#39;GSI1PK&#39;, type: dynamodb.AttributeType.STRING }, sortKey: { name: &#39;GSI1SK&#39;, type: dynamodb.AttributeType.STRING } }, { indexName: &#39;GSI2&#39;, partitionKey: { name: &#39;GSI2PK&#39;, type: dynamodb.AttributeType.STRING }, sortKey: { name: &#39;GSI2SK&#39;, type: dynamodb.AttributeType.STRING } }, { indexName: &#39;GSI3&#39;, partitionKey: { name: &#39;GSI3PK&#39;, type: dynamodb.AttributeType.STRING }, sortKey: { name: &#39;GSI3SK&#39;, type: dynamodb.AttributeType.STRING } } ] }); // Add TTL attribute for auto-cleanup this.table.addGlobalSecondaryIndex({ indexName: &#39;TTL-Index&#39;, partitionKey: { name: &#39;ttl&#39;, type: dynamodb.AttributeType.NUMBER } }); } }Monitoring &amp; Logging#CloudWatch Dashboard#// cdk/lib/monitoring-stack.ts import * as cdk from &#39;aws-cdk-lib&#39;; import * as cloudwatch from &#39;aws-cdk-lib/aws-cloudwatch&#39;; import * as lambda from &#39;aws-cdk-lib/aws-lambda&#39;; import * as apigateway from &#39;aws-cdk-lib/aws-apigateway&#39;; import * as sns from &#39;aws-cdk-lib/aws-sns&#39;; import { Construct } from &#39;constructs&#39;; interface MonitoringStackProps { environment: string; api: apigateway.RestApi; lambdaFunctions: { [key: string]: lambda.Function }; } export class MonitoringStack extends Construct { constructor(scope: Construct, id: string, props: MonitoringStackProps) { super(scope, id); // SNS Topic for alerts const alertTopic = new sns.Topic(this, &#39;AlertTopic&#39;, { topicName: `smart-cooking-${props.environment}-alerts` }); // CloudWatch Dashboard const dashboard = new cloudwatch.Dashboard(this, &#39;Dashboard&#39;, { dashboardName: `smart-cooking-${props.environment}-dashboard` }); // API Gateway Metrics dashboard.addWidgets( new cloudwatch.GraphWidget({ title: &#39;API Gateway Requests&#39;, left: [ new cloudwatch.Metric({ namespace: &#39;AWS/ApiGateway&#39;, metricName: &#39;Count&#39;, dimensionsMap: { ApiName: props.api.restApiName }, statistic: &#39;Sum&#39; }) ] }), new cloudwatch.GraphWidget({ title: &#39;API Gateway Latency&#39;, left: [ new cloudwatch.Metric({ namespace: &#39;AWS/ApiGateway&#39;, metricName: &#39;Latency&#39;, dimensionsMap: { ApiName: props.api.restApiName }, statistic: &#39;Average&#39; }) ] }) ); // Lambda Metrics Object.entries(props.lambdaFunctions).forEach(([name, func]) =&gt; { dashboard.addWidgets( new cloudwatch.GraphWidget({ title: `${name} Function Metrics`, left: [ func.metricInvocations(), func.metricErrors(), func.metricDuration() ] }) ); // Alarms const errorAlarm = new cloudwatch.Alarm(this, `${name}ErrorAlarm`, { alarmName: `smart-cooking-${props.environment}-${name}-errors`, metric: func.metricErrors({ period: cdk.Duration.minutes(5) }), threshold: 10, evaluationPeriods: 2 }); errorAlarm.addAlarmAction( new cdk.aws_cloudwatch_actions.SnsAction(alertTopic) ); const durationAlarm = new cloudwatch.Alarm(this, `${name}DurationAlarm`, { alarmName: `smart-cooking-${props.environment}-${name}-duration`, metric: func.metricDuration({ period: cdk.Duration.minutes(5), statistic: &#39;Average&#39; }), threshold: name === &#39;aiSuggestion&#39; ? 30000 : 5000, // 30s for AI, 5s for others evaluationPeriods: 3 }); durationAlarm.addAlarmAction( new cdk.aws_cloudwatch_actions.SnsAction(alertTopic) ); }); // Cost Alarm const costAlarm = new cloudwatch.Alarm(this, &#39;CostAlarm&#39;, { alarmName: `smart-cooking-${props.environment}-cost`, metric: new cloudwatch.Metric({ namespace: &#39;AWS/Billing&#39;, metricName: &#39;EstimatedCharges&#39;, dimensionsMap: { Currency: &#39;USD&#39; }, statistic: &#39;Maximum&#39;, period: cdk.Duration.hours(6) }), threshold: props.environment === &#39;prod&#39; ? 200 : 50, evaluationPeriods: 1 }); costAlarm.addAlarmAction( new cdk.aws_cloudwatch_actions.SnsAction(alertTopic) ); } }Log Aggregation#// Lambda function logging setup const logger = { info: (message: string, meta: any = {}) =&gt; { console.log(JSON.stringify({ timestamp: new Date().toISOString(), level: &#39;INFO&#39;, message, requestId: context.awsRequestId, functionName: context.functionName, ...meta })); }, error: (message: string, error: Error, meta: any = {}) =&gt; { console.error(JSON.stringify({ timestamp: new Date().toISOString(), level: &#39;ERROR&#39;, message, error: { name: error.name, message: error.message, stack: error.stack }, requestId: context.awsRequestId, functionName: context.functionName, ...meta })); } };Security &amp; Compliance#Security Scanning## .github/workflows/security.yml name: Security Scan on: push: branches: [main, develop] schedule: - cron: &#39;0 2 * * 1&#39; # Weekly on Monday jobs: security-scan: runs-on: ubuntu-latest steps: - uses: actions/checkout@v4 - name: Run npm audit run: npm audit --audit-level high - name: Run Snyk security scan uses: snyk/actions/node@master env: SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }} with: args: --severity-threshold=high - name: Run OWASP ZAP scan uses: zaproxy/action-full-scan@v0.4.0 with: target: &#39;https://api-dev.smartcooking.app&#39;Environment Variables Management#// Environment-specific configurations const config = { dev: { apiUrl: &#39;https://api-dev.smartcooking.app&#39;, cognitoUserPoolId: &#39;us-east-1_dev123&#39;, bedrockModel: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39;, logLevel: &#39;DEBUG&#39; }, prod: { apiUrl: &#39;https://api.smartcooking.app&#39;, cognitoUserPoolId: &#39;us-east-1_prod456&#39;, bedrockModel: &#39;anthropic.claude-3-haiku-20240307-v1:0&#39;, logLevel: &#39;INFO&#39; } }; export const getConfig = () =&gt; { const env = process.env.ENVIRONMENT || &#39;dev&#39;; return config[env as keyof typeof config]; };Performance Optimization#Lambda Optimization#// Shared connection pool for DynamoDB let ddbClient: DynamoDBDocumentClient; export const getDynamoDBClient = () =&gt; { if (!ddbClient) { const client = new DynamoDBClient({ region: process.env.AWS_REGION || &#39;us-east-1&#39; }); ddbClient = DynamoDBDocumentClient.from(client); } return ddbClient; }; // Warm-up function export const warmUp = async () =&gt; { if (process.env.AWS_LAMBDA_FUNCTION_NAME) { // Pre-initialize connections getDynamoDBClient(); // Pre-load master ingredients cache await loadMasterIngredientsCache(); } };Caching Strategy#// In-memory cache for master ingredients let masterIngredientsCache: Map&lt;string, any&gt; | null = null; export const getMasterIngredient = async (normalizedName: string) =&gt; { if (!masterIngredientsCache) { await loadMasterIngredientsCache(); } return masterIngredientsCache?.get(normalizedName); }; const loadMasterIngredientsCache = async () =&gt; { const result = await ddb.query({ TableName: process.env.DYNAMODB_TABLE, IndexName: &#39;GSI1&#39;, KeyConditionExpression: &#39;GSI1PK = :pk&#39;, ExpressionAttributeValues: { &#39;:pk&#39;: &#39;INGREDIENT#ACTIVE&#39; } }); masterIngredientsCache = new Map(); result.Items?.forEach(item =&gt; { masterIngredientsCache?.set(item.normalized_name, item); }); };Related Documents#10 - Architecture 20 - Backend 21 - Frontend 32 - Monitoring">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>22 - DevOps &amp; Deployment | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/22-devops/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="active">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>22 - DevOps &amp; Deployment</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#deployment-strategy">Deployment Strategy</a>
+      <ul>
+        <li><a href="#infrastructure-as-code-iac">Infrastructure as Code (IaC)</a></li>
+        <li><a href="#environment-strategy">Environment Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#cicd-pipeline">CI/CD Pipeline</a>
+      <ul>
+        <li><a href="#frontend-pipeline-aws-amplify">Frontend Pipeline (AWS Amplify)</a></li>
+        <li><a href="#backend-pipeline-github-actions">Backend Pipeline (GitHub Actions)</a></li>
+      </ul>
+    </li>
+    <li><a href="#infrastructure-code">Infrastructure Code</a>
+      <ul>
+        <li><a href="#main-cdk-stack">Main CDK Stack</a></li>
+        <li><a href="#lambda-stack">Lambda Stack</a></li>
+        <li><a href="#database-stack">Database Stack</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring--logging">Monitoring &amp; Logging</a>
+      <ul>
+        <li><a href="#cloudwatch-dashboard">CloudWatch Dashboard</a></li>
+        <li><a href="#log-aggregation">Log Aggregation</a></li>
+      </ul>
+    </li>
+    <li><a href="#security--compliance">Security &amp; Compliance</a>
+      <ul>
+        <li><a href="#security-scanning">Security Scanning</a></li>
+        <li><a href="#environment-variables-management">Environment Variables Management</a></li>
+      </ul>
+    </li>
+    <li><a href="#performance-optimization">Performance Optimization</a>
+      <ul>
+        <li><a href="#lambda-optimization">Lambda Optimization</a></li>
+        <li><a href="#caching-strategy">Caching Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="devops--deployment---smart-cooking-app">DevOps &amp; Deployment - Smart Cooking App<a class="anchor" href="#devops--deployment---smart-cooking-app">#</a></h1>
+<h2 id="deployment-strategy">Deployment Strategy<a class="anchor" href="#deployment-strategy">#</a></h2>
+<h3 id="infrastructure-as-code-iac">Infrastructure as Code (IaC)<a class="anchor" href="#infrastructure-as-code-iac">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Tool</span>: <span style="color:#ae81ff">AWS CDK (TypeScript)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Alternative</span>: <span style="color:#ae81ff">AWS SAM</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Reason</span>: <span style="color:#ae81ff">Better TypeScript integration, more flexible than SAM</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Structure</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">cdk/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">├── lib/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── database-stack.ts     </span> <span style="color:#75715e"># DynamoDB tables</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── lambda-stack.ts       </span> <span style="color:#75715e"># Lambda functions</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── api-stack.ts          </span> <span style="color:#75715e"># API Gateway</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── auth-stack.ts         </span> <span style="color:#75715e"># Cognito</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── storage-stack.ts      </span> <span style="color:#75715e"># S3 buckets</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   ├── monitoring-stack.ts   </span> <span style="color:#75715e"># CloudWatch, X-Ray</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   └── main-stack.ts         </span> <span style="color:#75715e"># Main orchestration</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">├── bin/</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">│   └── app.ts                </span> <span style="color:#75715e"># CDK app entry</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">└── package.json</span></span></span></code></pre></div><h3 id="environment-strategy">Environment Strategy<a class="anchor" href="#environment-strategy">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Environments</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">dev</span>: <span style="color:#ae81ff">Development (personal)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">staging</span>: <span style="color:#ae81ff">Pre-production testing</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">prod</span>: <span style="color:#ae81ff">Production</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Naming Convention</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Resources</span>: <span style="color:#ae81ff">smart-cooking-{env}-{resource}</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Example</span>: <span style="color:#ae81ff">smart-cooking-prod-api-gateway</span></span></span></code></pre></div><h2 id="cicd-pipeline">CI/CD Pipeline<a class="anchor" href="#cicd-pipeline">#</a></h2>
+<h3 id="frontend-pipeline-aws-amplify">Frontend Pipeline (AWS Amplify)<a class="anchor" href="#frontend-pipeline-aws-amplify">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># amplify.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">version</span>: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">applications</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">frontend</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">phases</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">preBuild</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">commands</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#ae81ff">npm ci</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">build</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">commands</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#ae81ff">npm run build</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#ae81ff">npm start &amp;</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#ae81ff">sleep 5</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#ae81ff">pkill -f &#34;node&#34;</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">artifacts</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">baseDirectory</span>: <span style="color:#ae81ff">.</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">files</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#e6db74">&#39;**/*&#39;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">excludePaths</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#ae81ff">node_modules/**/*</span>
+</span></span><span style="display:flex;"><span>          - <span style="color:#ae81ff">.git/**/*</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">cache</span>:
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">paths</span>:
+</span></span><span style="display:flex;"><span>          - <span style="color:#ae81ff">node_modules/**/*</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">customHeaders</span>:
+</span></span><span style="display:flex;"><span>        - <span style="color:#f92672">pattern</span>: <span style="color:#e6db74">&#39;**/*&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">headers</span>:
+</span></span><span style="display:flex;"><span>            - <span style="color:#f92672">key</span>: <span style="color:#e6db74">&#39;Strict-Transport-Security&#39;</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#f92672">value</span>: <span style="color:#e6db74">&#39;max-age=31536000; includeSubDomains&#39;</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#f92672">key</span>: <span style="color:#e6db74">&#39;X-Content-Type-Options&#39;</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#f92672">value</span>: <span style="color:#e6db74">&#39;nosniff&#39;</span>
+</span></span><span style="display:flex;"><span>            - <span style="color:#f92672">key</span>: <span style="color:#e6db74">&#39;X-Frame-Options&#39;</span>
+</span></span><span style="display:flex;"><span>              <span style="color:#f92672">value</span>: <span style="color:#e6db74">&#39;DENY&#39;</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">environments</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">main</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environmentVariables</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">API_URL</span>: <span style="color:#ae81ff">https://api.smartcooking.app</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NODE_ENV</span>: <span style="color:#ae81ff">production</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">PORT</span>: <span style="color:#ae81ff">3000</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">develop</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environmentVariables</span>:
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">API_URL</span>: <span style="color:#ae81ff">https://api-dev.smartcooking.app</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">NODE_ENV</span>: <span style="color:#ae81ff">development</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">PORT</span>: <span style="color:#ae81ff">3000</span></span></span></code></pre></div><h3 id="backend-pipeline-github-actions">Backend Pipeline (GitHub Actions)<a class="anchor" href="#backend-pipeline-github-actions">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># .github/workflows/deploy.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">name</span>: <span style="color:#ae81ff">Deploy Backend</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">on</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">push</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">branches</span>: [<span style="color:#ae81ff">main, develop]</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">pull_request</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">branches</span>: [<span style="color:#ae81ff">main]</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">AWS_REGION</span>: <span style="color:#ae81ff">us-east-1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">jobs</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">test</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v4</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup Node.js</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/setup-node@v4</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">node-version</span>: <span style="color:#e6db74">&#39;20&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cache</span>: <span style="color:#e6db74">&#39;npm&#39;</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install dependencies</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm ci</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run tests</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm test</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run linting</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm run lint</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">deploy-dev</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">if</span>: <span style="color:#ae81ff">github.ref == &#39;refs/heads/develop&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">needs</span>: <span style="color:#ae81ff">test</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>: <span style="color:#ae81ff">development</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v4</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Configure AWS credentials</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">aws-actions/configure-aws-credentials@v4</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-access-key-id</span>: <span style="color:#ae81ff">${{ secrets.AWS_ACCESS_KEY_ID }}</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-secret-access-key</span>: <span style="color:#ae81ff">${{ secrets.AWS_SECRET_ACCESS_KEY }}</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-region</span>: <span style="color:#ae81ff">${{ env.AWS_REGION }}</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup Node.js</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/setup-node@v4</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">node-version</span>: <span style="color:#e6db74">&#39;20&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cache</span>: <span style="color:#e6db74">&#39;npm&#39;</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install dependencies</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm ci</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Deploy CDK stack</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          cd cdk
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          npm ci
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          npx cdk deploy --all --require-approval never</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">ENVIRONMENT</span>: <span style="color:#ae81ff">dev</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">deploy-prod</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">if</span>: <span style="color:#ae81ff">github.ref == &#39;refs/heads/main&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">needs</span>: <span style="color:#ae81ff">test</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">environment</span>: <span style="color:#ae81ff">production</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v4</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Configure AWS credentials</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">aws-actions/configure-aws-credentials@v4</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-access-key-id</span>: <span style="color:#ae81ff">${{ secrets.AWS_ACCESS_KEY_ID_PROD }}</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-secret-access-key</span>: <span style="color:#ae81ff">${{ secrets.AWS_SECRET_ACCESS_KEY_PROD }}</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">aws-region</span>: <span style="color:#ae81ff">${{ env.AWS_REGION }}</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Setup Node.js</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/setup-node@v4</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">node-version</span>: <span style="color:#e6db74">&#39;20&#39;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">cache</span>: <span style="color:#e6db74">&#39;npm&#39;</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Install dependencies</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm ci</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Deploy CDK stack</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: |<span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          cd cdk
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          npm ci
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          npx cdk deploy --all --require-approval never</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">ENVIRONMENT</span>: <span style="color:#ae81ff">prod</span></span></span></code></pre></div><h2 id="infrastructure-code">Infrastructure Code<a class="anchor" href="#infrastructure-code">#</a></h2>
+<h3 id="main-cdk-stack">Main CDK Stack<a class="anchor" href="#main-cdk-stack">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// cdk/lib/main-stack.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cdk</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;constructs&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">DatabaseStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./database-stack&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">LambdaStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./lambda-stack&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">ApiStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./api-stack&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">AuthStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./auth-stack&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">StorageStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./storage-stack&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">MonitoringStack</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./monitoring-stack&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MainStack</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">Stack</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props?</span>: <span style="color:#66d9ef">cdk.StackProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>, <span style="color:#a6e22e">props</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">env</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">ENVIRONMENT</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;dev&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">databaseStack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DatabaseStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Database&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Storage
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">storageStack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">StorageStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Storage&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Auth
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authStack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">AuthStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Auth&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Lambda Functions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">lambdaStack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">LambdaStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Lambda&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">table</span>: <span style="color:#66d9ef">databaseStack.table</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userPool</span>: <span style="color:#66d9ef">authStack.userPool</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">buckets</span>: <span style="color:#66d9ef">storageStack.buckets</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// API Gateway
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">apiStack</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">ApiStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Api&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">lambdaFunctions</span>: <span style="color:#66d9ef">lambdaStack.functions</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userPool</span>: <span style="color:#66d9ef">authStack.userPool</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Monitoring
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">MonitoringStack</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Monitoring&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">env</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">api</span>: <span style="color:#66d9ef">apiStack.api</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">lambdaFunctions</span>: <span style="color:#66d9ef">lambdaStack.functions</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Outputs
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">CfnOutput</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;ApiUrl&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">value</span>: <span style="color:#66d9ef">apiStack.api.url</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">description</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;API Gateway URL&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">CfnOutput</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;UserPoolId&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">value</span>: <span style="color:#66d9ef">authStack.userPool.userPoolId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">description</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Cognito User Pool ID&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="lambda-stack">Lambda Stack<a class="anchor" href="#lambda-stack">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// cdk/lib/lambda-stack.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cdk</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">lambda</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-lambda&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">dynamodb</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-dynamodb&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cognito</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-cognito&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">s3</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-s3&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;constructs&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">LambdaStackProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">table</span>: <span style="color:#66d9ef">dynamodb.Table</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">userPool</span>: <span style="color:#66d9ef">cognito.UserPool</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">buckets</span><span style="color:#f92672">:</span> { [<span style="color:#a6e22e">key</span>: <span style="color:#66d9ef">string</span>]<span style="color:#f92672">:</span> <span style="color:#a6e22e">s3</span>.<span style="color:#a6e22e">Bucket</span> };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">LambdaStack</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Construct</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">readonly</span> <span style="color:#a6e22e">functions</span><span style="color:#f92672">:</span> { [<span style="color:#a6e22e">key</span>: <span style="color:#66d9ef">string</span>]<span style="color:#f92672">:</span> <span style="color:#a6e22e">lambda</span>.Function };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props</span>: <span style="color:#66d9ef">LambdaStackProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">commonEnvironment</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">DYNAMODB_TABLE</span>: <span style="color:#66d9ef">props.table.tableName</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">USER_POOL_ID</span>: <span style="color:#66d9ef">props.userPool.userPoolId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ENVIRONMENT</span>: <span style="color:#66d9ef">props.environment</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// AI Suggestion Function (Most important)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiSuggestionFunction</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">lambda</span>.Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;AiSuggestion&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-ai-suggestion`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">lambda.Runtime.NODEJS_20_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.handler&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">lambda.Code.fromAsset</span>(<span style="color:#e6db74">&#39;lambda-functions/ai-suggestion&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">memorySize</span>: <span style="color:#66d9ef">1024</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timeout</span>: <span style="color:#66d9ef">cdk.Duration.seconds</span>(<span style="color:#ae81ff">60</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">commonEnvironment</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">BEDROCK_MODEL_ID</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anthropic.claude-3-haiku-20240307-v1:0&#39;</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tracing</span>: <span style="color:#66d9ef">lambda.Tracing.ACTIVE</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cooking History Function
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">cookingHistoryFunction</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">lambda</span>.Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;CookingHistory&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-cooking-history`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">lambda.Runtime.NODEJS_20_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.handler&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">lambda.Code.fromAsset</span>(<span style="color:#e6db74">&#39;lambda-functions/cooking-history&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">memorySize</span>: <span style="color:#66d9ef">256</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timeout</span>: <span style="color:#66d9ef">cdk.Duration.seconds</span>(<span style="color:#ae81ff">10</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">commonEnvironment</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tracing</span>: <span style="color:#66d9ef">lambda.Tracing.ACTIVE</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Rating Handler Function
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ratingHandlerFunction</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">lambda</span>.Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;RatingHandler&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-rating-handler`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">lambda.Runtime.NODEJS_20_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.handler&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">lambda.Code.fromAsset</span>(<span style="color:#e6db74">&#39;lambda-functions/rating-handler&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">memorySize</span>: <span style="color:#66d9ef">256</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timeout</span>: <span style="color:#66d9ef">cdk.Duration.seconds</span>(<span style="color:#ae81ff">10</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">commonEnvironment</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tracing</span>: <span style="color:#66d9ef">lambda.Tracing.ACTIVE</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Ingredient Validator Function
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ingredientValidatorFunction</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">lambda</span>.Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;IngredientValidator&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-ingredient-validator`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">lambda.Runtime.NODEJS_20_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.handler&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">lambda.Code.fromAsset</span>(<span style="color:#e6db74">&#39;lambda-functions/ingredient-validator&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">memorySize</span>: <span style="color:#66d9ef">256</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timeout</span>: <span style="color:#66d9ef">cdk.Duration.seconds</span>(<span style="color:#ae81ff">10</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">commonEnvironment</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tracing</span>: <span style="color:#66d9ef">lambda.Tracing.ACTIVE</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Grant permissions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">grantReadWriteData</span>(<span style="color:#a6e22e">aiSuggestionFunction</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">grantReadWriteData</span>(<span style="color:#a6e22e">cookingHistoryFunction</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">grantReadWriteData</span>(<span style="color:#a6e22e">ratingHandlerFunction</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">grantReadWriteData</span>(<span style="color:#a6e22e">ingredientValidatorFunction</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Grant Bedrock permissions to AI function
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">aiSuggestionFunction</span>.<span style="color:#a6e22e">addToRolePolicy</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">aws_iam</span>.<span style="color:#a6e22e">PolicyStatement</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">effect</span>: <span style="color:#66d9ef">cdk.aws_iam.Effect.ALLOW</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">actions</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;bedrock:InvokeModel&#39;</span>],
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">resources</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;arn:aws:bedrock:us-east-1::foundation-model/anthropic.claude-3-haiku-*&#39;</span>]
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">functions</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiSuggestion</span>: <span style="color:#66d9ef">aiSuggestionFunction</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cookingHistory</span>: <span style="color:#66d9ef">cookingHistoryFunction</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ratingHandler</span>: <span style="color:#66d9ef">ratingHandlerFunction</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredientValidator</span>: <span style="color:#66d9ef">ingredientValidatorFunction</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="database-stack">Database Stack<a class="anchor" href="#database-stack">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// cdk/lib/database-stack.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cdk</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">dynamodb</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-dynamodb&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;constructs&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">DatabaseStackProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">DatabaseStack</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Construct</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">public</span> <span style="color:#66d9ef">readonly</span> <span style="color:#a6e22e">table</span>: <span style="color:#66d9ef">dynamodb.Table</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props</span>: <span style="color:#66d9ef">DatabaseStackProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Single table design
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">table</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">Table</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;SmartCookingTable&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-data`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">sortKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SK&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">billingMode</span>: <span style="color:#66d9ef">dynamodb.BillingMode.ON_DEMAND</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">encryption</span>: <span style="color:#66d9ef">dynamodb.TableEncryption.AWS_MANAGED</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">pointInTimeRecovery</span>: <span style="color:#66d9ef">props.environment</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;prod&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">removalPolicy</span>: <span style="color:#66d9ef">props.environment</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;prod&#39;</span> 
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">?</span> <span style="color:#a6e22e">cdk.RemovalPolicy.RETAIN</span> 
+</span></span><span style="display:flex;"><span>        : <span style="color:#66d9ef">cdk.RemovalPolicy.DESTROY</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Global Secondary Indexes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">globalSecondaryIndexes</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">indexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sortKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1SK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">indexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sortKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2SK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">indexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI3&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI3PK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          },
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">sortKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI3SK&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      ]
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Add TTL attribute for auto-cleanup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">table</span>.<span style="color:#a6e22e">addGlobalSecondaryIndex</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">indexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;TTL-Index&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ttl&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dynamodb</span>.<span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">NUMBER</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="monitoring--logging">Monitoring &amp; Logging<a class="anchor" href="#monitoring--logging">#</a></h2>
+<h3 id="cloudwatch-dashboard">CloudWatch Dashboard<a class="anchor" href="#cloudwatch-dashboard">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// cdk/lib/monitoring-stack.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cdk</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">cloudwatch</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-cloudwatch&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">lambda</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-lambda&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">apigateway</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-apigateway&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#f92672">*</span> <span style="color:#66d9ef">as</span> <span style="color:#a6e22e">sns</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;aws-cdk-lib/aws-sns&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Construct</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;constructs&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">MonitoringStackProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">environment</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">api</span>: <span style="color:#66d9ef">apigateway.RestApi</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">lambdaFunctions</span><span style="color:#f92672">:</span> { [<span style="color:#a6e22e">key</span>: <span style="color:#66d9ef">string</span>]<span style="color:#f92672">:</span> <span style="color:#a6e22e">lambda</span>.Function };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">MonitoringStack</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Construct</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props</span>: <span style="color:#66d9ef">MonitoringStackProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// SNS Topic for alerts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">alertTopic</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">sns</span>.<span style="color:#a6e22e">Topic</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;AlertTopic&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">topicName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-alerts`</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// CloudWatch Dashboard
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dashboard</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Dashboard</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Dashboard&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">dashboardName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-dashboard`</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// API Gateway Metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">dashboard</span>.<span style="color:#a6e22e">addWidgets</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;API Gateway Requests&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Metric</span>({
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">namespace</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AWS/ApiGateway&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">metricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Count&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">dimensionsMap</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>              <span style="color:#a6e22e">ApiName</span>: <span style="color:#66d9ef">props.api.restApiName</span>
+</span></span><span style="display:flex;"><span>            },
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">statistic</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Sum&#39;</span>
+</span></span><span style="display:flex;"><span>          })
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      }),
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;API Gateway Latency&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Metric</span>({
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">namespace</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AWS/ApiGateway&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">metricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Latency&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">dimensionsMap</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>              <span style="color:#a6e22e">ApiName</span>: <span style="color:#66d9ef">props.api.restApiName</span>
+</span></span><span style="display:flex;"><span>            },
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">statistic</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Average&#39;</span>
+</span></span><span style="display:flex;"><span>          })
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Lambda Metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    Object.<span style="color:#a6e22e">entries</span>(<span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">lambdaFunctions</span>).<span style="color:#a6e22e">forEach</span>(([<span style="color:#a6e22e">name</span>, <span style="color:#a6e22e">func</span>]) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">dashboard</span>.<span style="color:#a6e22e">addWidgets</span>(
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">GraphWidget</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">name</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> Function Metrics`</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">left</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">func</span>.<span style="color:#a6e22e">metricInvocations</span>(),
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">func</span>.<span style="color:#a6e22e">metricErrors</span>(),
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">func</span>.<span style="color:#a6e22e">metricDuration</span>()
+</span></span><span style="display:flex;"><span>          ]
+</span></span><span style="display:flex;"><span>        })
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Alarms
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">errorAlarm</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Alarm</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">name</span><span style="color:#e6db74">}</span><span style="color:#e6db74">ErrorAlarm`</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">alarmName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">name</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-errors`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">metric</span>: <span style="color:#66d9ef">func.metricErrors</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">period</span>: <span style="color:#66d9ef">cdk.Duration.minutes</span>(<span style="color:#ae81ff">5</span>)
+</span></span><span style="display:flex;"><span>        }),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">threshold</span>: <span style="color:#66d9ef">10</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">evaluationPeriods</span>: <span style="color:#66d9ef">2</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">errorAlarm</span>.<span style="color:#a6e22e">addAlarmAction</span>(
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">aws_cloudwatch_actions</span>.<span style="color:#a6e22e">SnsAction</span>(<span style="color:#a6e22e">alertTopic</span>)
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">durationAlarm</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Alarm</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">name</span><span style="color:#e6db74">}</span><span style="color:#e6db74">DurationAlarm`</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">alarmName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">name</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-duration`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">metric</span>: <span style="color:#66d9ef">func.metricDuration</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">period</span>: <span style="color:#66d9ef">cdk.Duration.minutes</span>(<span style="color:#ae81ff">5</span>),
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">statistic</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Average&#39;</span>
+</span></span><span style="display:flex;"><span>        }),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">threshold</span>: <span style="color:#66d9ef">name</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;aiSuggestion&#39;</span> <span style="color:#f92672">?</span> <span style="color:#a6e22e">30000</span> : <span style="color:#66d9ef">5000</span>, <span style="color:#75715e">// 30s for AI, 5s for others
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">evaluationPeriods</span>: <span style="color:#66d9ef">3</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">durationAlarm</span>.<span style="color:#a6e22e">addAlarmAction</span>(
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">aws_cloudwatch_actions</span>.<span style="color:#a6e22e">SnsAction</span>(<span style="color:#a6e22e">alertTopic</span>)
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cost Alarm
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">costAlarm</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Alarm</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;CostAlarm&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">alarmName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`smart-cooking-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">props</span>.<span style="color:#a6e22e">environment</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-cost`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">metric</span>: <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">Metric</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">namespace</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AWS/Billing&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">metricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;EstimatedCharges&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">dimensionsMap</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">Currency</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;USD&#39;</span>
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">statistic</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Maximum&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">period</span>: <span style="color:#66d9ef">cdk.Duration.hours</span>(<span style="color:#ae81ff">6</span>)
+</span></span><span style="display:flex;"><span>      }),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">threshold</span>: <span style="color:#66d9ef">props.environment</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;prod&#39;</span> <span style="color:#f92672">?</span> <span style="color:#a6e22e">200</span> : <span style="color:#66d9ef">50</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">evaluationPeriods</span>: <span style="color:#66d9ef">1</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">costAlarm</span>.<span style="color:#a6e22e">addAlarmAction</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">cdk</span>.<span style="color:#a6e22e">aws_cloudwatch_actions</span>.<span style="color:#a6e22e">SnsAction</span>(<span style="color:#a6e22e">alertTopic</span>)
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="log-aggregation">Log Aggregation<a class="anchor" href="#log-aggregation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// Lambda function logging setup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">logger</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">info</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">meta</span>: <span style="color:#66d9ef">any</span> <span style="color:#f92672">=</span> {}) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span>: <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">level</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INFO&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">requestId</span>: <span style="color:#66d9ef">context.awsRequestId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span>: <span style="color:#66d9ef">context.functionName</span>,
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">meta</span>
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">error</span>: <span style="color:#66d9ef">Error</span>, <span style="color:#a6e22e">meta</span>: <span style="color:#66d9ef">any</span> <span style="color:#f92672">=</span> {}) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span>: <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">level</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ERROR&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span>: <span style="color:#66d9ef">error.name</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">error.message</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">stack</span>: <span style="color:#66d9ef">error.stack</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">requestId</span>: <span style="color:#66d9ef">context.awsRequestId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">functionName</span>: <span style="color:#66d9ef">context.functionName</span>,
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">meta</span>
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="security--compliance">Security &amp; Compliance<a class="anchor" href="#security--compliance">#</a></h2>
+<h3 id="security-scanning">Security Scanning<a class="anchor" href="#security-scanning">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#75715e"># .github/workflows/security.yml</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">name</span>: <span style="color:#ae81ff">Security Scan</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">on</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">push</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">branches</span>: [<span style="color:#ae81ff">main, develop]</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">schedule</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">cron</span>: <span style="color:#e6db74">&#39;0 2 * * 1&#39;</span> <span style="color:#75715e"># Weekly on Monday</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">jobs</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">security-scan</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">runs-on</span>: <span style="color:#ae81ff">ubuntu-latest</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">steps</span>:
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">actions/checkout@v4</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run npm audit</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">run</span>: <span style="color:#ae81ff">npm audit --audit-level high</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run Snyk security scan</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">snyk/actions/node@master</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">env</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">SNYK_TOKEN</span>: <span style="color:#ae81ff">${{ secrets.SNYK_TOKEN }}</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">args</span>: --<span style="color:#ae81ff">severity-threshold=high</span>
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      - <span style="color:#f92672">name</span>: <span style="color:#ae81ff">Run OWASP ZAP scan</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">uses</span>: <span style="color:#ae81ff">zaproxy/action-full-scan@v0.4.0</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">with</span>:
+</span></span><span style="display:flex;"><span>          <span style="color:#f92672">target</span>: <span style="color:#e6db74">&#39;https://api-dev.smartcooking.app&#39;</span></span></span></code></pre></div><h3 id="environment-variables-management">Environment Variables Management<a class="anchor" href="#environment-variables-management">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// Environment-specific configurations
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">config</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">dev</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">apiUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://api-dev.smartcooking.app&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cognitoUserPoolId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1_dev123&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">bedrockModel</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anthropic.claude-3-haiku-20240307-v1:0&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">logLevel</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;DEBUG&#39;</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">prod</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">apiUrl</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;https://api.smartcooking.app&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cognitoUserPoolId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1_prod456&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">bedrockModel</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anthropic.claude-3-haiku-20240307-v1:0&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">logLevel</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INFO&#39;</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">getConfig</span> <span style="color:#f92672">=</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">env</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">ENVIRONMENT</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;dev&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">config</span>[<span style="color:#a6e22e">env</span> <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">keyof</span> <span style="color:#66d9ef">typeof</span> <span style="color:#a6e22e">config</span>];
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="performance-optimization">Performance Optimization<a class="anchor" href="#performance-optimization">#</a></h2>
+<h3 id="lambda-optimization">Lambda Optimization<a class="anchor" href="#lambda-optimization">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// Shared connection pool for DynamoDB
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">let</span> <span style="color:#a6e22e">ddbClient</span>: <span style="color:#66d9ef">DynamoDBDocumentClient</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">getDynamoDBClient</span> <span style="color:#f92672">=</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">ddbClient</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">client</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DynamoDBClient</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">region</span>: <span style="color:#66d9ef">process.env.AWS_REGION</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;us-east-1&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ddbClient</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">DynamoDBDocumentClient</span>.<span style="color:#66d9ef">from</span>(<span style="color:#a6e22e">client</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">ddbClient</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Warm-up function
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">warmUp</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">AWS_LAMBDA_FUNCTION_NAME</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Pre-initialize connections
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">getDynamoDBClient</span>();
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Pre-load master ingredients cache
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">loadMasterIngredientsCache</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h3 id="caching-strategy">Caching Strategy<a class="anchor" href="#caching-strategy">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// In-memory cache for master ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">let</span> <span style="color:#a6e22e">masterIngredientsCache</span>: <span style="color:#66d9ef">Map</span>&lt;<span style="color:#f92672">string</span>, <span style="color:#a6e22e">any</span>&gt; <span style="color:#f92672">|</span> <span style="color:#66d9ef">null</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">getMasterIngredient</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">normalizedName</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">masterIngredientsCache</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">loadMasterIngredientsCache</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">masterIngredientsCache</span><span style="color:#f92672">?</span>.<span style="color:#66d9ef">get</span>(<span style="color:#a6e22e">normalizedName</span>);
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">loadMasterIngredientsCache</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span>: <span style="color:#66d9ef">process.env.DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INGREDIENT#ACTIVE&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">masterIngredientsCache</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Map</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">forEach</span>(<span style="color:#a6e22e">item</span> <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">masterIngredientsCache</span><span style="color:#f92672">?</span>.<span style="color:#66d9ef">set</span>(<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">normalized_name</span>, <span style="color:#a6e22e">item</span>);
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="20-backend.md">20 - Backend</a></li>
+<li><a href="21-frontend.md">21 - Frontend</a></li>
+<li><a href="32-monitoring.md">32 - Monitoring</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/21-frontend/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="21 - Frontend Implementation" />
+        <span>21 - Frontend Implementation</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/23-tasks/" class="flex align-center">
+        <span>23 - Implementation Tasks</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="23 - Implementation Tasks" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#deployment-strategy">Deployment Strategy</a>
+      <ul>
+        <li><a href="#infrastructure-as-code-iac">Infrastructure as Code (IaC)</a></li>
+        <li><a href="#environment-strategy">Environment Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#cicd-pipeline">CI/CD Pipeline</a>
+      <ul>
+        <li><a href="#frontend-pipeline-aws-amplify">Frontend Pipeline (AWS Amplify)</a></li>
+        <li><a href="#backend-pipeline-github-actions">Backend Pipeline (GitHub Actions)</a></li>
+      </ul>
+    </li>
+    <li><a href="#infrastructure-code">Infrastructure Code</a>
+      <ul>
+        <li><a href="#main-cdk-stack">Main CDK Stack</a></li>
+        <li><a href="#lambda-stack">Lambda Stack</a></li>
+        <li><a href="#database-stack">Database Stack</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring--logging">Monitoring &amp; Logging</a>
+      <ul>
+        <li><a href="#cloudwatch-dashboard">CloudWatch Dashboard</a></li>
+        <li><a href="#log-aggregation">Log Aggregation</a></li>
+      </ul>
+    </li>
+    <li><a href="#security--compliance">Security &amp; Compliance</a>
+      <ul>
+        <li><a href="#security-scanning">Security Scanning</a></li>
+        <li><a href="#environment-variables-management">Environment Variables Management</a></li>
+      </ul>
+    </li>
+    <li><a href="#performance-optimization">Performance Optimization</a>
+      <ul>
+        <li><a href="#lambda-optimization">Lambda Optimization</a></li>
+        <li><a href="#caching-strategy">Caching Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

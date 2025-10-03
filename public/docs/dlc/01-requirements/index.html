@@ -1,0 +1,1702 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Yêu Cầu Dự Án - Smart Cooking App#
+Functional Requirements#
+1. User Management (FR-UM)#
+FR-UM-01: User Registration#
+
+Mô tả: Người dùng có thể đăng ký tài khoản mới
+Input: Email, password, username, full_name
+Process:
+
+Validation email format
+Password strength check (min 8 characters)
+Username uniqueness check
+Email verification via Cognito
+
+
+Output: User account created, verification email sent
+Priority: MUST HAVE (P0)
+
+FR-UM-02: User Login#
+
+Mô tả: Người dùng có thể đăng nhập vào hệ thống
+Input: username, password
+Process: Cognito authentication
+Output: JWT token, redirect to dashboard
+Priority: MUST HAVE (P0)
+
+FR-UM-03: User Profile Management#
+
+Mô tả: Người dùng có thể cập nhật thông tin cá nhân
+Input: Full name, date_of_birth, gender, country, avatar
+Validation:
+
+Date_of_birth: Valid date, user &gt;= 13 years old
+Gender: Enum (male, female, other)
+Country: Valid country code
+
+
+Output: Updated profile
+AI Usage: Date_of_birth, gender, country được sử dụng cho AI personalization
+Priority: MUST HAVE (P0)
+
+FR-UM-04: User Preferences#
+
+Mô tả: Người dùng có thể thiết lập sở thích món ăn
+Input:
+
+preferred_cooking_methods: Array [&lsquo;xào&rsquo;, &lsquo;hấp&rsquo;, &lsquo;canh&rsquo;, &lsquo;chiên&rsquo;, &lsquo;kho&rsquo;]
+favorite_cuisines: Array [&lsquo;Việt Nam&rsquo;, &lsquo;Ý&rsquo;, &lsquo;Nhật&rsquo;, &lsquo;Thái&rsquo;]
+allergies: Array [&rsquo;tôm&rsquo;, &lsquo;cua&rsquo;, &lsquo;sữa&rsquo;]
+dietary_restrictions: Array [&lsquo;chay&rsquo;, &lsquo;halal&rsquo;, &rsquo;low-carb&rsquo;]
+
+
+Output: Updated preferences, used for AI suggestions
+Priority: MUST HAVE (P0)
+
+2. Ingredient Management (FR-IM)#
+FR-IM-01: Add Ingredient#
+
+Mô tả: Người dùng nhập nguyên liệu có sẵn
+Input: Ingredient name (string)
+Process:
+
+Validate với master_ingredients table
+Fuzzy search nếu không exact match
+Auto-correct nếu có similar match
+
+
+Output:
+
+Success: Ingredient added
+Warning: Auto-corrected to similar ingredient
+Error: Invalid ingredient, suggestions provided
+
+
+Priority: MUST HAVE (P0)
+
+FR-IM-02: List Ingredients#
+
+Mô tả: Hiển thị danh sách nguyên liệu của user
+Output: Array of ingredients với added_at timestamp
+Priority: MUST HAVE (P0)
+
+FR-IM-03: Remove Ingredient#
+
+Mô tả: Xóa nguyên liệu khỏi danh sách
+Input: Ingredient ID
+Output: Ingredient removed
+Priority: MUST HAVE (P0)
+
+FR-IM-04: Validate Ingredients (Batch)#
+
+Mô tả: Validate nhiều nguyên liệu cùng lúc
+Input: Array of ingredient names
+Output:
+
+valid: Array of valid ingredients
+invalid: Array of invalid ingredients
+corrected: Array of auto-corrected matches
+suggestions: Array of similar ingredients
+
+
+Priority: MUST HAVE (P0)
+
+3. AI Recipe Suggestion (FR-AI)#
+FR-AI-01: Request Recipe Suggestions#
+
+Mô tả: User yêu cầu AI gợi ý món ăn
+Input:
+
+ingredients: Array of ingredient names (min 2)
+recipe_count: Number (1-5, default: 1)
+user_preferences: From user profile &amp; preferences
+
+
+Process:
+
+Validate ingredients với master_ingredients
+Query DB cho approved recipes (match ingredients &#43; categories)
+Calculate gap: requested_count - db_count
+Generate gap recipes bằng AI (nếu cần)
+Ensure category diversity (xào, canh, hấp&hellip;)
+
+
+Output:
+
+suggestions: Array of recipes (DB &#43; AI mix)
+stats: { requested, from_database, from_ai }
+warnings: Array of invalid ingredients
+
+
+Constraints:
+
+AI generation timeout: 60s
+
+
+Priority: MUST HAVE (P0)
+
+FR-AI-02: AI Personalization#
+
+Mô tả: AI sử dụng user context để personalize suggestions
+AI Input Data:
+
+Age (from birth_year): Khuyến nghị dinh dưỡng phù hợp
+Gender: Khuyến nghị khẩu phần
+Country: Ưu tiên món địa phương
+Preferred cooking methods: Ưu tiên phương pháp nấu
+Favorite cuisines: Ưu tiên món quốc gia
+Allergies: TUYỆT ĐỐI TRÁNH các nguyên liệu này
+
+
+Privacy Policy:
+
+KHÔNG sử dụng: Email, full name, địa chỉ
+Mục đích: Cá nhân hóa gợi ý món ăn
+Không chia sẻ hoặc khai thác thông tin
+
+
+Priority: MUST HAVE (P0)
+
+FR-AI-03: Invalid Ingredient Handling#
+
+Mô tả: Xử lý nguyên liệu không hợp lệ gracefully
+Process:
+
+Log invalid ingredient to CloudWatch
+Increment report count in database
+Provide suggestions cho user
+Nếu report_count &gt;= 5 → Notify admin
+Vẫn generate suggestions với valid ingredients
+
+
+Output:
+
+warnings: Array of invalid items
+suggestions: Alternative ingredients
+reported: Boolean (đã log để admin review)
+
+
+Priority: MUST HAVE (P0)
+
+FR-AI-04: AI Suggestion History#
+
+Mô tả: Lưu lịch sử AI suggestions
+Saved Data:
+
+prompt_text, ingredients_used
+requested_recipe_count, recipes_from_db, recipes_from_ai
+invalid_ingredients (for analytics)
+ai_response, was_from_cache
+
+
+Output: History list sorted by created_at DESC
+Priority: SHOULD HAVE (P1)
+
+4. Cooking History &amp; Rating (FR-CH)#
+FR-CH-01: Start Cooking#
+
+Mô tả: User bắt đầu nấu một món
+Input: recipe_id, suggestion_id (optional)
+Output: history_id, status = &lsquo;cooking&rsquo;
+Priority: MUST HAVE (P0)
+
+FR-CH-02: Complete Cooking#
+
+Mô tả: User hoàn thành nấu món
+Input: history_id
+Output:
+
+Status updated to &lsquo;completed&rsquo;
+Prompt rating form
+
+
+Priority: MUST HAVE (P0)
+
+FR-CH-03: Rate Recipe#
+
+Mô tả: User đánh giá món đã nấu
+Input:
+
+recipe_id, history_id
+rating: Number (1-5 stars)
+comment: String (optional)
+
+
+Process:
+
+Save rating to recipe_ratings table
+Update user_cooking_history với personal_rating
+Calculate average rating cho recipe
+Auto-approval: Nếu average_rating &gt;= 4.0
+
+Set recipe.is_approved = true
+Set recipe.is_public = true
+Notify user: &ldquo;Công thức đã được thêm vào database!&rdquo;
+
+
+
+
+Output:
+
+success, rating_saved
+average_rating, rating_count
+auto_approved: Boolean
+message: String
+
+
+Priority: MUST HAVE (P0)
+
+FR-CH-04: View Cooking History#
+
+Mô tả: Xem lịch sử nấu ăn cá nhân
+Output: Array of cooking sessions với:
+
+recipe details
+status, cook_date
+personal_rating, personal_notes
+is_favorite
+
+
+Sort: created_at DESC (newest first)
+Priority: MUST HAVE (P0)
+
+FR-CH-05: Favorite Recipes#
+
+Mô tả: Đánh dấu món yêu thích
+Input: history_id, is_favorite: Boolean
+Output: Updated cooking history
+Filter: GET /user/cooking-history?favorites=true
+Priority: SHOULD HAVE (P1)
+
+5. Recipe Management (FR-RM)#
+FR-RM-01: View Recipe Details#
+
+Mô tả: Xem chi tiết công thức
+Input: recipe_id
+Output: Recipe với:
+
+Title, description, cuisine_type
+Cooking method, meal type
+Ingredients với quantities
+Instructions (step-by-step)
+Nutritional info
+Average rating, rating count
+is_approved, approval_type
+
+
+Priority: MUST HAVE (P0)
+
+FR-RM-02: Search Recipes#
+
+Mô tả: Tìm kiếm công thức approved
+Input:
+
+Query: String (search in title, description)
+Filters: cuisine_type, cooking_method, meal_type
+Sort: rating, created_at, popularity
+
+
+Output: Paginated list of approved recipes
+Priority: SHOULD HAVE (P1)
+
+FR-RM-03: User Created Recipes#
+
+Mô tả: User tự tạo recipe (không qua AI)
+Input: Recipe data (title, ingredients, instructions&hellip;)
+Process: Save as is_approved=false, requires rating
+Output: Recipe created
+Priority: COULD HAVE (P2 - Phase 2)
+
+6. Social Features (FR-SF) - Phase 2#
+FR-SF-01: Privacy Settings#
+
+Mô tả: User thiết lập privacy cho data
+Settings:
+
+profile_visibility: public/friends/private
+email_visibility: private (default)
+date_of_birth_visibility: friends (default)
+recipes_visibility: public (default)
+ingredients_visibility: friends (default)
+
+
+Priority: SHOULD HAVE (P1)
+
+FR-SF-02: Friend Requests#
+
+Mô tả: Gửi/nhận friend requests
+Actions:
+
+Send request: POST /friends/request
+Accept: PUT /friends/{id}/accept
+Reject: PUT /friends/{id}/reject
+Remove: DELETE /friends/{id}
+
+
+Priority: SHOULD HAVE (P1)
+
+FR-SF-03: Posts &amp; Comments#
+
+Mô tả: Chia sẻ cooking experience
+Post: content, images, recipe_id (optional)
+Comment: nested comments support
+Reactions: like, love, wow
+Privacy: respect user privacy settings
+Priority: SHOULD HAVE (P1)
+
+FR-SF-04: Notifications#
+
+Mô tả: Real-time notifications
+Types:
+
+friend_request, friend_accept
+comment, like, mention
+recipe_share, recipe_approved
+
+
+Delivery: In-app (future: Push)
+Priority: SHOULD HAVE (P1)
+
+Non-Functional Requirements#
+1. Performance (NFR-P)#
+NFR-P-01: API Response Time#
+
+Requirement: &lt; 500ms for non-AI endpoints
+Measurement: CloudWatch metrics, p95 latency
+Priority: MUST HAVE (P0)
+
+NFR-P-02: AI Generation Time#
+
+Requirement: &lt; 5 seconds per recipe
+Fallback: Show loading indicator, timeout after 60s
+Priority: MUST HAVE (P0)
+
+NFR-P-03: Database Query Performance#
+
+Requirement: &lt; 100ms for single-item queries
+Optimization: GSI indexes, query optimization
+Priority: MUST HAVE (P0)
+
+2. Scalability (NFR-S)#
+NFR-S-01: Concurrent Users#
+
+MVP: Support 100 concurrent users
+Growth: Scale to 10,000 concurrent users by Month 12
+Strategy: Serverless auto-scaling
+Priority: MUST HAVE (P0)
+
+NFR-S-02: Data Growth#
+
+Storage: Plan for 100MB → 10GB in Year 1
+DynamoDB: On-demand mode, auto-scaling
+S3: Lifecycle policies for old images
+Priority: MUST HAVE (P0)
+
+3. Availability (NFR-A)#
+NFR-A-01: System Uptime#
+
+Requirement: 99.5% uptime (Monthly)
+Downtime tolerance: ~3.6 hours/month
+Monitoring: CloudWatch alarms, X-Ray tracing
+Priority: MUST HAVE (P0)
+
+NFR-A-02: Error Rate#
+
+Requirement: &lt; 1% error rate
+Tracking: CloudWatch errors, Lambda failures
+Alerting: SNS notifications on threshold breach
+Priority: MUST HAVE (P0)
+
+4. Security (NFR-SEC)#
+NFR-SEC-01: Authentication#
+
+Method: Cognito User Pool, JWT tokens
+Password Policy: Min 8 chars, 1 uppercase, 1 number
+MFA: Optional (future enhancement)
+Priority: MUST HAVE (P0)
+
+NFR-SEC-02: Authorization#
+
+Method: IAM roles, API Gateway authorizers
+Principle: Least privilege access
+Validation: Request validation at API Gateway
+Priority: MUST HAVE (P0)
+
+NFR-SEC-03: Data Encryption#
+
+At Rest: DynamoDB encryption, S3 encryption
+In Transit: HTTPS only, TLS 1.2&#43;
+Keys: AWS KMS managed keys
+Priority: MUST HAVE (P0)
+
+NFR-SEC-04: API Security#
+
+WAF: AWS WAF rules (SQL injection, XSS)
+Rate Limiting: 1000 requests/5min per IP
+CORS: Whitelist origins only
+Priority: MUST HAVE (P0)
+
+5. Usability (NFR-U)#
+NFR-U-01: Mobile Responsive#
+
+Requirement: Work on all screen sizes
+Testing: iOS Safari, Android Chrome
+Priority: MUST HAVE (P0)
+
+NFR-U-02: Accessibility#
+
+Standard: WCAG 2.1 Level AA (target)
+Features: Alt text, keyboard navigation, screen reader support
+Priority: SHOULD HAVE (P1)
+
+NFR-U-03: Internationalization#
+
+MVP: Vietnamese &#43; English
+Future: Support 5&#43; languages
+Priority: COULD HAVE (P2)
+
+6. Maintainability (NFR-M)#
+NFR-M-01: Code Quality#
+
+Standards: ESLint, Prettier
+Testing: Unit tests (&gt;=70% coverage)
+Documentation: JSDoc comments
+Priority: SHOULD HAVE (P1)
+
+NFR-M-02: Monitoring &amp; Logging#
+
+Logging: CloudWatch Logs, structured JSON
+Tracing: AWS X-Ray for distributed tracing
+Alarms: Critical errors, high latency, cost spikes
+Priority: MUST HAVE (P0)
+
+7. Cost Efficiency (NFR-C)#
+NFR-C-01: MVP Cost Target#
+
+Target: $135-160/month for 1,000 users
+Monitoring: AWS Cost Explorer, budget alarms
+Optimization: Flexible DB/AI mix, caching
+Priority: MUST HAVE (P0)
+
+NFR-C-02: Cost per User#
+
+Target: &lt; $0.20/month (MVP), &lt; $0.03/month (Scale)
+Strategy: DB coverage growth 0% → 80%
+Metrics: Track DB vs AI usage ratio
+Priority: MUST HAVE (P0)
+
+Acceptance Criteria#
+MVP Release Criteria#
+
+All P0 requirements implemented
+User can register, login, manage profile
+User can add ingredients, get AI suggestions
+AI suggestions work with flexible DB/AI mix
+User can track cooking history and rate recipes
+Auto-approval system working (&gt;= 4 stars)
+System uptime &gt;= 99%
+API response time &lt; 500ms (p95)
+Monthly cost &lt;= $160
+0 critical security vulnerabilities
+
+Phase 2 Release Criteria#
+
+Privacy settings functional
+Friend system working
+Posts &amp; comments working
+Notifications delivered
+Database coverage &gt;= 30%
+
+Related Documents#
+
+00 - Overview
+02 - Constraints
+13 - Security
+23 - Tasks
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/01-requirements/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="01 - Requirements">
+  <meta property="og:description" content="Yêu Cầu Dự Án - Smart Cooking App#Functional Requirements#1. User Management (FR-UM)#FR-UM-01: User Registration#Mô tả: Người dùng có thể đăng ký tài khoản mới Input: Email, password, username, full_name Process: Validation email format Password strength check (min 8 characters) Username uniqueness check Email verification via Cognito Output: User account created, verification email sent Priority: MUST HAVE (P0) FR-UM-02: User Login#Mô tả: Người dùng có thể đăng nhập vào hệ thống Input: username, password Process: Cognito authentication Output: JWT token, redirect to dashboard Priority: MUST HAVE (P0) FR-UM-03: User Profile Management#Mô tả: Người dùng có thể cập nhật thông tin cá nhân Input: Full name, date_of_birth, gender, country, avatar Validation: Date_of_birth: Valid date, user &gt;= 13 years old Gender: Enum (male, female, other) Country: Valid country code Output: Updated profile AI Usage: Date_of_birth, gender, country được sử dụng cho AI personalization Priority: MUST HAVE (P0) FR-UM-04: User Preferences#Mô tả: Người dùng có thể thiết lập sở thích món ăn Input: preferred_cooking_methods: Array [‘xào’, ‘hấp’, ‘canh’, ‘chiên’, ‘kho’] favorite_cuisines: Array [‘Việt Nam’, ‘Ý’, ‘Nhật’, ‘Thái’] allergies: Array [’tôm’, ‘cua’, ‘sữa’] dietary_restrictions: Array [‘chay’, ‘halal’, ’low-carb’] Output: Updated preferences, used for AI suggestions Priority: MUST HAVE (P0) 2. Ingredient Management (FR-IM)#FR-IM-01: Add Ingredient#Mô tả: Người dùng nhập nguyên liệu có sẵn Input: Ingredient name (string) Process: Validate với master_ingredients table Fuzzy search nếu không exact match Auto-correct nếu có similar match Output: Success: Ingredient added Warning: Auto-corrected to similar ingredient Error: Invalid ingredient, suggestions provided Priority: MUST HAVE (P0) FR-IM-02: List Ingredients#Mô tả: Hiển thị danh sách nguyên liệu của user Output: Array of ingredients với added_at timestamp Priority: MUST HAVE (P0) FR-IM-03: Remove Ingredient#Mô tả: Xóa nguyên liệu khỏi danh sách Input: Ingredient ID Output: Ingredient removed Priority: MUST HAVE (P0) FR-IM-04: Validate Ingredients (Batch)#Mô tả: Validate nhiều nguyên liệu cùng lúc Input: Array of ingredient names Output: valid: Array of valid ingredients invalid: Array of invalid ingredients corrected: Array of auto-corrected matches suggestions: Array of similar ingredients Priority: MUST HAVE (P0) 3. AI Recipe Suggestion (FR-AI)#FR-AI-01: Request Recipe Suggestions#Mô tả: User yêu cầu AI gợi ý món ăn Input: ingredients: Array of ingredient names (min 2) recipe_count: Number (1-5, default: 1) user_preferences: From user profile &amp; preferences Process: Validate ingredients với master_ingredients Query DB cho approved recipes (match ingredients &#43; categories) Calculate gap: requested_count - db_count Generate gap recipes bằng AI (nếu cần) Ensure category diversity (xào, canh, hấp…) Output: suggestions: Array of recipes (DB &#43; AI mix) stats: { requested, from_database, from_ai } warnings: Array of invalid ingredients Constraints: AI generation timeout: 60s Priority: MUST HAVE (P0) FR-AI-02: AI Personalization#Mô tả: AI sử dụng user context để personalize suggestions AI Input Data: Age (from birth_year): Khuyến nghị dinh dưỡng phù hợp Gender: Khuyến nghị khẩu phần Country: Ưu tiên món địa phương Preferred cooking methods: Ưu tiên phương pháp nấu Favorite cuisines: Ưu tiên món quốc gia Allergies: TUYỆT ĐỐI TRÁNH các nguyên liệu này Privacy Policy: KHÔNG sử dụng: Email, full name, địa chỉ Mục đích: Cá nhân hóa gợi ý món ăn Không chia sẻ hoặc khai thác thông tin Priority: MUST HAVE (P0) FR-AI-03: Invalid Ingredient Handling#Mô tả: Xử lý nguyên liệu không hợp lệ gracefully Process: Log invalid ingredient to CloudWatch Increment report count in database Provide suggestions cho user Nếu report_count &gt;= 5 → Notify admin Vẫn generate suggestions với valid ingredients Output: warnings: Array of invalid items suggestions: Alternative ingredients reported: Boolean (đã log để admin review) Priority: MUST HAVE (P0) FR-AI-04: AI Suggestion History#Mô tả: Lưu lịch sử AI suggestions Saved Data: prompt_text, ingredients_used requested_recipe_count, recipes_from_db, recipes_from_ai invalid_ingredients (for analytics) ai_response, was_from_cache Output: History list sorted by created_at DESC Priority: SHOULD HAVE (P1) 4. Cooking History &amp; Rating (FR-CH)#FR-CH-01: Start Cooking#Mô tả: User bắt đầu nấu một món Input: recipe_id, suggestion_id (optional) Output: history_id, status = ‘cooking’ Priority: MUST HAVE (P0) FR-CH-02: Complete Cooking#Mô tả: User hoàn thành nấu món Input: history_id Output: Status updated to ‘completed’ Prompt rating form Priority: MUST HAVE (P0) FR-CH-03: Rate Recipe#Mô tả: User đánh giá món đã nấu Input: recipe_id, history_id rating: Number (1-5 stars) comment: String (optional) Process: Save rating to recipe_ratings table Update user_cooking_history với personal_rating Calculate average rating cho recipe Auto-approval: Nếu average_rating &gt;= 4.0 Set recipe.is_approved = true Set recipe.is_public = true Notify user: “Công thức đã được thêm vào database!” Output: success, rating_saved average_rating, rating_count auto_approved: Boolean message: String Priority: MUST HAVE (P0) FR-CH-04: View Cooking History#Mô tả: Xem lịch sử nấu ăn cá nhân Output: Array of cooking sessions với: recipe details status, cook_date personal_rating, personal_notes is_favorite Sort: created_at DESC (newest first) Priority: MUST HAVE (P0) FR-CH-05: Favorite Recipes#Mô tả: Đánh dấu món yêu thích Input: history_id, is_favorite: Boolean Output: Updated cooking history Filter: GET /user/cooking-history?favorites=true Priority: SHOULD HAVE (P1) 5. Recipe Management (FR-RM)#FR-RM-01: View Recipe Details#Mô tả: Xem chi tiết công thức Input: recipe_id Output: Recipe với: Title, description, cuisine_type Cooking method, meal type Ingredients với quantities Instructions (step-by-step) Nutritional info Average rating, rating count is_approved, approval_type Priority: MUST HAVE (P0) FR-RM-02: Search Recipes#Mô tả: Tìm kiếm công thức approved Input: Query: String (search in title, description) Filters: cuisine_type, cooking_method, meal_type Sort: rating, created_at, popularity Output: Paginated list of approved recipes Priority: SHOULD HAVE (P1) FR-RM-03: User Created Recipes#Mô tả: User tự tạo recipe (không qua AI) Input: Recipe data (title, ingredients, instructions…) Process: Save as is_approved=false, requires rating Output: Recipe created Priority: COULD HAVE (P2 - Phase 2) 6. Social Features (FR-SF) - Phase 2#FR-SF-01: Privacy Settings#Mô tả: User thiết lập privacy cho data Settings: profile_visibility: public/friends/private email_visibility: private (default) date_of_birth_visibility: friends (default) recipes_visibility: public (default) ingredients_visibility: friends (default) Priority: SHOULD HAVE (P1) FR-SF-02: Friend Requests#Mô tả: Gửi/nhận friend requests Actions: Send request: POST /friends/request Accept: PUT /friends/{id}/accept Reject: PUT /friends/{id}/reject Remove: DELETE /friends/{id} Priority: SHOULD HAVE (P1) FR-SF-03: Posts &amp; Comments#Mô tả: Chia sẻ cooking experience Post: content, images, recipe_id (optional) Comment: nested comments support Reactions: like, love, wow Privacy: respect user privacy settings Priority: SHOULD HAVE (P1) FR-SF-04: Notifications#Mô tả: Real-time notifications Types: friend_request, friend_accept comment, like, mention recipe_share, recipe_approved Delivery: In-app (future: Push) Priority: SHOULD HAVE (P1) Non-Functional Requirements#1. Performance (NFR-P)#NFR-P-01: API Response Time#Requirement: &lt; 500ms for non-AI endpoints Measurement: CloudWatch metrics, p95 latency Priority: MUST HAVE (P0) NFR-P-02: AI Generation Time#Requirement: &lt; 5 seconds per recipe Fallback: Show loading indicator, timeout after 60s Priority: MUST HAVE (P0) NFR-P-03: Database Query Performance#Requirement: &lt; 100ms for single-item queries Optimization: GSI indexes, query optimization Priority: MUST HAVE (P0) 2. Scalability (NFR-S)#NFR-S-01: Concurrent Users#MVP: Support 100 concurrent users Growth: Scale to 10,000 concurrent users by Month 12 Strategy: Serverless auto-scaling Priority: MUST HAVE (P0) NFR-S-02: Data Growth#Storage: Plan for 100MB → 10GB in Year 1 DynamoDB: On-demand mode, auto-scaling S3: Lifecycle policies for old images Priority: MUST HAVE (P0) 3. Availability (NFR-A)#NFR-A-01: System Uptime#Requirement: 99.5% uptime (Monthly) Downtime tolerance: ~3.6 hours/month Monitoring: CloudWatch alarms, X-Ray tracing Priority: MUST HAVE (P0) NFR-A-02: Error Rate#Requirement: &lt; 1% error rate Tracking: CloudWatch errors, Lambda failures Alerting: SNS notifications on threshold breach Priority: MUST HAVE (P0) 4. Security (NFR-SEC)#NFR-SEC-01: Authentication#Method: Cognito User Pool, JWT tokens Password Policy: Min 8 chars, 1 uppercase, 1 number MFA: Optional (future enhancement) Priority: MUST HAVE (P0) NFR-SEC-02: Authorization#Method: IAM roles, API Gateway authorizers Principle: Least privilege access Validation: Request validation at API Gateway Priority: MUST HAVE (P0) NFR-SEC-03: Data Encryption#At Rest: DynamoDB encryption, S3 encryption In Transit: HTTPS only, TLS 1.2&#43; Keys: AWS KMS managed keys Priority: MUST HAVE (P0) NFR-SEC-04: API Security#WAF: AWS WAF rules (SQL injection, XSS) Rate Limiting: 1000 requests/5min per IP CORS: Whitelist origins only Priority: MUST HAVE (P0) 5. Usability (NFR-U)#NFR-U-01: Mobile Responsive#Requirement: Work on all screen sizes Testing: iOS Safari, Android Chrome Priority: MUST HAVE (P0) NFR-U-02: Accessibility#Standard: WCAG 2.1 Level AA (target) Features: Alt text, keyboard navigation, screen reader support Priority: SHOULD HAVE (P1) NFR-U-03: Internationalization#MVP: Vietnamese &#43; English Future: Support 5&#43; languages Priority: COULD HAVE (P2) 6. Maintainability (NFR-M)#NFR-M-01: Code Quality#Standards: ESLint, Prettier Testing: Unit tests (&gt;=70% coverage) Documentation: JSDoc comments Priority: SHOULD HAVE (P1) NFR-M-02: Monitoring &amp; Logging#Logging: CloudWatch Logs, structured JSON Tracing: AWS X-Ray for distributed tracing Alarms: Critical errors, high latency, cost spikes Priority: MUST HAVE (P0) 7. Cost Efficiency (NFR-C)#NFR-C-01: MVP Cost Target#Target: $135-160/month for 1,000 users Monitoring: AWS Cost Explorer, budget alarms Optimization: Flexible DB/AI mix, caching Priority: MUST HAVE (P0) NFR-C-02: Cost per User#Target: &lt; $0.20/month (MVP), &lt; $0.03/month (Scale) Strategy: DB coverage growth 0% → 80% Metrics: Track DB vs AI usage ratio Priority: MUST HAVE (P0) Acceptance Criteria#MVP Release Criteria#All P0 requirements implemented User can register, login, manage profile User can add ingredients, get AI suggestions AI suggestions work with flexible DB/AI mix User can track cooking history and rate recipes Auto-approval system working (&gt;= 4 stars) System uptime &gt;= 99% API response time &lt; 500ms (p95) Monthly cost &lt;= $160 0 critical security vulnerabilities Phase 2 Release Criteria#Privacy settings functional Friend system working Posts &amp; comments working Notifications delivered Database coverage &gt;= 30% Related Documents#00 - Overview 02 - Constraints 13 - Security 23 - Tasks">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>01 - Requirements | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/01-requirements/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="active">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>01 - Requirements</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#functional-requirements">Functional Requirements</a>
+      <ul>
+        <li><a href="#1-user-management-fr-um">1. User Management (FR-UM)</a></li>
+        <li><a href="#2-ingredient-management-fr-im">2. Ingredient Management (FR-IM)</a></li>
+        <li><a href="#3-ai-recipe-suggestion-fr-ai">3. AI Recipe Suggestion (FR-AI)</a></li>
+        <li><a href="#4-cooking-history--rating-fr-ch">4. Cooking History &amp; Rating (FR-CH)</a></li>
+        <li><a href="#5-recipe-management-fr-rm">5. Recipe Management (FR-RM)</a></li>
+        <li><a href="#6-social-features-fr-sf---phase-2">6. Social Features (FR-SF) - Phase 2</a></li>
+      </ul>
+    </li>
+    <li><a href="#non-functional-requirements">Non-Functional Requirements</a>
+      <ul>
+        <li><a href="#1-performance-nfr-p">1. Performance (NFR-P)</a></li>
+        <li><a href="#2-scalability-nfr-s">2. Scalability (NFR-S)</a></li>
+        <li><a href="#3-availability-nfr-a">3. Availability (NFR-A)</a></li>
+        <li><a href="#4-security-nfr-sec">4. Security (NFR-SEC)</a></li>
+        <li><a href="#5-usability-nfr-u">5. Usability (NFR-U)</a></li>
+        <li><a href="#6-maintainability-nfr-m">6. Maintainability (NFR-M)</a></li>
+        <li><a href="#7-cost-efficiency-nfr-c">7. Cost Efficiency (NFR-C)</a></li>
+      </ul>
+    </li>
+    <li><a href="#acceptance-criteria">Acceptance Criteria</a>
+      <ul>
+        <li><a href="#mvp-release-criteria">MVP Release Criteria</a></li>
+        <li><a href="#phase-2-release-criteria">Phase 2 Release Criteria</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="yêu-cầu-dự-án---smart-cooking-app">Yêu Cầu Dự Án - Smart Cooking App<a class="anchor" href="#y%c3%aau-c%e1%ba%a7u-d%e1%bb%b1-%c3%a1n---smart-cooking-app">#</a></h1>
+<h2 id="functional-requirements">Functional Requirements<a class="anchor" href="#functional-requirements">#</a></h2>
+<h3 id="1-user-management-fr-um">1. User Management (FR-UM)<a class="anchor" href="#1-user-management-fr-um">#</a></h3>
+<h4 id="fr-um-01-user-registration">FR-UM-01: User Registration<a class="anchor" href="#fr-um-01-user-registration">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Người dùng có thể đăng ký tài khoản mới</li>
+<li><strong>Input</strong>: Email, password, username, full_name</li>
+<li><strong>Process</strong>:
+<ul>
+<li>Validation email format</li>
+<li>Password strength check (min 8 characters)</li>
+<li>Username uniqueness check</li>
+<li>Email verification via Cognito</li>
+</ul>
+</li>
+<li><strong>Output</strong>: User account created, verification email sent</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-um-02-user-login">FR-UM-02: User Login<a class="anchor" href="#fr-um-02-user-login">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Người dùng có thể đăng nhập vào hệ thống</li>
+<li><strong>Input</strong>: username, password</li>
+<li><strong>Process</strong>: Cognito authentication</li>
+<li><strong>Output</strong>: JWT token, redirect to dashboard</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-um-03-user-profile-management">FR-UM-03: User Profile Management<a class="anchor" href="#fr-um-03-user-profile-management">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Người dùng có thể cập nhật thông tin cá nhân</li>
+<li><strong>Input</strong>: Full name, date_of_birth, gender, country, avatar</li>
+<li><strong>Validation</strong>:
+<ul>
+<li>Date_of_birth: Valid date, user &gt;= 13 years old</li>
+<li>Gender: Enum (male, female, other)</li>
+<li>Country: Valid country code</li>
+</ul>
+</li>
+<li><strong>Output</strong>: Updated profile</li>
+<li><strong>AI Usage</strong>: Date_of_birth, gender, country được sử dụng cho AI personalization</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-um-04-user-preferences">FR-UM-04: User Preferences<a class="anchor" href="#fr-um-04-user-preferences">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Người dùng có thể thiết lập sở thích món ăn</li>
+<li><strong>Input</strong>:
+<ul>
+<li>preferred_cooking_methods: Array [&lsquo;xào&rsquo;, &lsquo;hấp&rsquo;, &lsquo;canh&rsquo;, &lsquo;chiên&rsquo;, &lsquo;kho&rsquo;]</li>
+<li>favorite_cuisines: Array [&lsquo;Việt Nam&rsquo;, &lsquo;Ý&rsquo;, &lsquo;Nhật&rsquo;, &lsquo;Thái&rsquo;]</li>
+<li>allergies: Array [&rsquo;tôm&rsquo;, &lsquo;cua&rsquo;, &lsquo;sữa&rsquo;]</li>
+<li>dietary_restrictions: Array [&lsquo;chay&rsquo;, &lsquo;halal&rsquo;, &rsquo;low-carb&rsquo;]</li>
+</ul>
+</li>
+<li><strong>Output</strong>: Updated preferences, used for AI suggestions</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="2-ingredient-management-fr-im">2. Ingredient Management (FR-IM)<a class="anchor" href="#2-ingredient-management-fr-im">#</a></h3>
+<h4 id="fr-im-01-add-ingredient">FR-IM-01: Add Ingredient<a class="anchor" href="#fr-im-01-add-ingredient">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Người dùng nhập nguyên liệu có sẵn</li>
+<li><strong>Input</strong>: Ingredient name (string)</li>
+<li><strong>Process</strong>:
+<ul>
+<li>Validate với master_ingredients table</li>
+<li>Fuzzy search nếu không exact match</li>
+<li>Auto-correct nếu có similar match</li>
+</ul>
+</li>
+<li><strong>Output</strong>:
+<ul>
+<li>Success: Ingredient added</li>
+<li>Warning: Auto-corrected to similar ingredient</li>
+<li>Error: Invalid ingredient, suggestions provided</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-im-02-list-ingredients">FR-IM-02: List Ingredients<a class="anchor" href="#fr-im-02-list-ingredients">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Hiển thị danh sách nguyên liệu của user</li>
+<li><strong>Output</strong>: Array of ingredients với added_at timestamp</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-im-03-remove-ingredient">FR-IM-03: Remove Ingredient<a class="anchor" href="#fr-im-03-remove-ingredient">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Xóa nguyên liệu khỏi danh sách</li>
+<li><strong>Input</strong>: Ingredient ID</li>
+<li><strong>Output</strong>: Ingredient removed</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-im-04-validate-ingredients-batch">FR-IM-04: Validate Ingredients (Batch)<a class="anchor" href="#fr-im-04-validate-ingredients-batch">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Validate nhiều nguyên liệu cùng lúc</li>
+<li><strong>Input</strong>: Array of ingredient names</li>
+<li><strong>Output</strong>:
+<ul>
+<li>valid: Array of valid ingredients</li>
+<li>invalid: Array of invalid ingredients</li>
+<li>corrected: Array of auto-corrected matches</li>
+<li>suggestions: Array of similar ingredients</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="3-ai-recipe-suggestion-fr-ai">3. AI Recipe Suggestion (FR-AI)<a class="anchor" href="#3-ai-recipe-suggestion-fr-ai">#</a></h3>
+<h4 id="fr-ai-01-request-recipe-suggestions">FR-AI-01: Request Recipe Suggestions<a class="anchor" href="#fr-ai-01-request-recipe-suggestions">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User yêu cầu AI gợi ý món ăn</li>
+<li><strong>Input</strong>:
+<ul>
+<li>ingredients: Array of ingredient names (min 2)</li>
+<li>recipe_count: Number (1-5, default: 1)</li>
+<li>user_preferences: From user profile &amp; preferences</li>
+</ul>
+</li>
+<li><strong>Process</strong>:
+<ol>
+<li>Validate ingredients với master_ingredients</li>
+<li>Query DB cho approved recipes (match ingredients + categories)</li>
+<li>Calculate gap: requested_count - db_count</li>
+<li>Generate gap recipes bằng AI (nếu cần)</li>
+<li>Ensure category diversity (xào, canh, hấp&hellip;)</li>
+</ol>
+</li>
+<li><strong>Output</strong>:
+<ul>
+<li>suggestions: Array of recipes (DB + AI mix)</li>
+<li>stats: { requested, from_database, from_ai }</li>
+<li>warnings: Array of invalid ingredients</li>
+</ul>
+</li>
+<li><strong>Constraints</strong>:
+<ul>
+<li>AI generation timeout: 60s</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ai-02-ai-personalization">FR-AI-02: AI Personalization<a class="anchor" href="#fr-ai-02-ai-personalization">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: AI sử dụng user context để personalize suggestions</li>
+<li><strong>AI Input Data</strong>:
+<ul>
+<li>Age (from birth_year): Khuyến nghị dinh dưỡng phù hợp</li>
+<li>Gender: Khuyến nghị khẩu phần</li>
+<li>Country: Ưu tiên món địa phương</li>
+<li>Preferred cooking methods: Ưu tiên phương pháp nấu</li>
+<li>Favorite cuisines: Ưu tiên món quốc gia</li>
+<li>Allergies: <strong>TUYỆT ĐỐI TRÁNH</strong> các nguyên liệu này</li>
+</ul>
+</li>
+<li><strong>Privacy Policy</strong>:
+<ul>
+<li>KHÔNG sử dụng: Email, full name, địa chỉ</li>
+<li>Mục đích: Cá nhân hóa gợi ý món ăn</li>
+<li>Không chia sẻ hoặc khai thác thông tin</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ai-03-invalid-ingredient-handling">FR-AI-03: Invalid Ingredient Handling<a class="anchor" href="#fr-ai-03-invalid-ingredient-handling">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Xử lý nguyên liệu không hợp lệ gracefully</li>
+<li><strong>Process</strong>:
+<ol>
+<li>Log invalid ingredient to CloudWatch</li>
+<li>Increment report count in database</li>
+<li>Provide suggestions cho user</li>
+<li>Nếu report_count &gt;= 5 → Notify admin</li>
+<li>Vẫn generate suggestions với valid ingredients</li>
+</ol>
+</li>
+<li><strong>Output</strong>:
+<ul>
+<li>warnings: Array of invalid items</li>
+<li>suggestions: Alternative ingredients</li>
+<li>reported: Boolean (đã log để admin review)</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ai-04-ai-suggestion-history">FR-AI-04: AI Suggestion History<a class="anchor" href="#fr-ai-04-ai-suggestion-history">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Lưu lịch sử AI suggestions</li>
+<li><strong>Saved Data</strong>:
+<ul>
+<li>prompt_text, ingredients_used</li>
+<li>requested_recipe_count, recipes_from_db, recipes_from_ai</li>
+<li>invalid_ingredients (for analytics)</li>
+<li>ai_response, was_from_cache</li>
+</ul>
+</li>
+<li><strong>Output</strong>: History list sorted by created_at DESC</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h3 id="4-cooking-history--rating-fr-ch">4. Cooking History &amp; Rating (FR-CH)<a class="anchor" href="#4-cooking-history--rating-fr-ch">#</a></h3>
+<h4 id="fr-ch-01-start-cooking">FR-CH-01: Start Cooking<a class="anchor" href="#fr-ch-01-start-cooking">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User bắt đầu nấu một món</li>
+<li><strong>Input</strong>: recipe_id, suggestion_id (optional)</li>
+<li><strong>Output</strong>: history_id, status = &lsquo;cooking&rsquo;</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ch-02-complete-cooking">FR-CH-02: Complete Cooking<a class="anchor" href="#fr-ch-02-complete-cooking">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User hoàn thành nấu món</li>
+<li><strong>Input</strong>: history_id</li>
+<li><strong>Output</strong>:
+<ul>
+<li>Status updated to &lsquo;completed&rsquo;</li>
+<li>Prompt rating form</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ch-03-rate-recipe">FR-CH-03: Rate Recipe<a class="anchor" href="#fr-ch-03-rate-recipe">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User đánh giá món đã nấu</li>
+<li><strong>Input</strong>:
+<ul>
+<li>recipe_id, history_id</li>
+<li>rating: Number (1-5 stars)</li>
+<li>comment: String (optional)</li>
+</ul>
+</li>
+<li><strong>Process</strong>:
+<ol>
+<li>Save rating to recipe_ratings table</li>
+<li>Update user_cooking_history với personal_rating</li>
+<li>Calculate average rating cho recipe</li>
+<li><strong>Auto-approval</strong>: Nếu average_rating &gt;= 4.0
+<ul>
+<li>Set recipe.is_approved = true</li>
+<li>Set recipe.is_public = true</li>
+<li>Notify user: &ldquo;Công thức đã được thêm vào database!&rdquo;</li>
+</ul>
+</li>
+</ol>
+</li>
+<li><strong>Output</strong>:
+<ul>
+<li>success, rating_saved</li>
+<li>average_rating, rating_count</li>
+<li>auto_approved: Boolean</li>
+<li>message: String</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ch-04-view-cooking-history">FR-CH-04: View Cooking History<a class="anchor" href="#fr-ch-04-view-cooking-history">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Xem lịch sử nấu ăn cá nhân</li>
+<li><strong>Output</strong>: Array of cooking sessions với:
+<ul>
+<li>recipe details</li>
+<li>status, cook_date</li>
+<li>personal_rating, personal_notes</li>
+<li>is_favorite</li>
+</ul>
+</li>
+<li><strong>Sort</strong>: created_at DESC (newest first)</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-ch-05-favorite-recipes">FR-CH-05: Favorite Recipes<a class="anchor" href="#fr-ch-05-favorite-recipes">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Đánh dấu món yêu thích</li>
+<li><strong>Input</strong>: history_id, is_favorite: Boolean</li>
+<li><strong>Output</strong>: Updated cooking history</li>
+<li><strong>Filter</strong>: GET /user/cooking-history?favorites=true</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h3 id="5-recipe-management-fr-rm">5. Recipe Management (FR-RM)<a class="anchor" href="#5-recipe-management-fr-rm">#</a></h3>
+<h4 id="fr-rm-01-view-recipe-details">FR-RM-01: View Recipe Details<a class="anchor" href="#fr-rm-01-view-recipe-details">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Xem chi tiết công thức</li>
+<li><strong>Input</strong>: recipe_id</li>
+<li><strong>Output</strong>: Recipe với:
+<ul>
+<li>Title, description, cuisine_type</li>
+<li>Cooking method, meal type</li>
+<li>Ingredients với quantities</li>
+<li>Instructions (step-by-step)</li>
+<li>Nutritional info</li>
+<li>Average rating, rating count</li>
+<li>is_approved, approval_type</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="fr-rm-02-search-recipes">FR-RM-02: Search Recipes<a class="anchor" href="#fr-rm-02-search-recipes">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Tìm kiếm công thức approved</li>
+<li><strong>Input</strong>:
+<ul>
+<li>Query: String (search in title, description)</li>
+<li>Filters: cuisine_type, cooking_method, meal_type</li>
+<li>Sort: rating, created_at, popularity</li>
+</ul>
+</li>
+<li><strong>Output</strong>: Paginated list of approved recipes</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="fr-rm-03-user-created-recipes">FR-RM-03: User Created Recipes<a class="anchor" href="#fr-rm-03-user-created-recipes">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User tự tạo recipe (không qua AI)</li>
+<li><strong>Input</strong>: Recipe data (title, ingredients, instructions&hellip;)</li>
+<li><strong>Process</strong>: Save as is_approved=false, requires rating</li>
+<li><strong>Output</strong>: Recipe created</li>
+<li><strong>Priority</strong>: <strong>COULD HAVE</strong> (P2 - Phase 2)</li>
+</ul>
+<h3 id="6-social-features-fr-sf---phase-2">6. Social Features (FR-SF) - Phase 2<a class="anchor" href="#6-social-features-fr-sf---phase-2">#</a></h3>
+<h4 id="fr-sf-01-privacy-settings">FR-SF-01: Privacy Settings<a class="anchor" href="#fr-sf-01-privacy-settings">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: User thiết lập privacy cho data</li>
+<li><strong>Settings</strong>:
+<ul>
+<li>profile_visibility: public/friends/private</li>
+<li>email_visibility: private (default)</li>
+<li>date_of_birth_visibility: friends (default)</li>
+<li>recipes_visibility: public (default)</li>
+<li>ingredients_visibility: friends (default)</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="fr-sf-02-friend-requests">FR-SF-02: Friend Requests<a class="anchor" href="#fr-sf-02-friend-requests">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Gửi/nhận friend requests</li>
+<li><strong>Actions</strong>:
+<ul>
+<li>Send request: POST /friends/request</li>
+<li>Accept: PUT /friends/{id}/accept</li>
+<li>Reject: PUT /friends/{id}/reject</li>
+<li>Remove: DELETE /friends/{id}</li>
+</ul>
+</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="fr-sf-03-posts--comments">FR-SF-03: Posts &amp; Comments<a class="anchor" href="#fr-sf-03-posts--comments">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Chia sẻ cooking experience</li>
+<li><strong>Post</strong>: content, images, recipe_id (optional)</li>
+<li><strong>Comment</strong>: nested comments support</li>
+<li><strong>Reactions</strong>: like, love, wow</li>
+<li><strong>Privacy</strong>: respect user privacy settings</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="fr-sf-04-notifications">FR-SF-04: Notifications<a class="anchor" href="#fr-sf-04-notifications">#</a></h4>
+<ul>
+<li><strong>Mô tả</strong>: Real-time notifications</li>
+<li><strong>Types</strong>:
+<ul>
+<li>friend_request, friend_accept</li>
+<li>comment, like, mention</li>
+<li>recipe_share, recipe_approved</li>
+</ul>
+</li>
+<li><strong>Delivery</strong>: In-app (future: Push)</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h2 id="non-functional-requirements">Non-Functional Requirements<a class="anchor" href="#non-functional-requirements">#</a></h2>
+<h3 id="1-performance-nfr-p">1. Performance (NFR-P)<a class="anchor" href="#1-performance-nfr-p">#</a></h3>
+<h4 id="nfr-p-01-api-response-time">NFR-P-01: API Response Time<a class="anchor" href="#nfr-p-01-api-response-time">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: &lt; 500ms for non-AI endpoints</li>
+<li><strong>Measurement</strong>: CloudWatch metrics, p95 latency</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-p-02-ai-generation-time">NFR-P-02: AI Generation Time<a class="anchor" href="#nfr-p-02-ai-generation-time">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: &lt; 5 seconds per recipe</li>
+<li><strong>Fallback</strong>: Show loading indicator, timeout after 60s</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-p-03-database-query-performance">NFR-P-03: Database Query Performance<a class="anchor" href="#nfr-p-03-database-query-performance">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: &lt; 100ms for single-item queries</li>
+<li><strong>Optimization</strong>: GSI indexes, query optimization</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="2-scalability-nfr-s">2. Scalability (NFR-S)<a class="anchor" href="#2-scalability-nfr-s">#</a></h3>
+<h4 id="nfr-s-01-concurrent-users">NFR-S-01: Concurrent Users<a class="anchor" href="#nfr-s-01-concurrent-users">#</a></h4>
+<ul>
+<li><strong>MVP</strong>: Support 100 concurrent users</li>
+<li><strong>Growth</strong>: Scale to 10,000 concurrent users by Month 12</li>
+<li><strong>Strategy</strong>: Serverless auto-scaling</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-s-02-data-growth">NFR-S-02: Data Growth<a class="anchor" href="#nfr-s-02-data-growth">#</a></h4>
+<ul>
+<li><strong>Storage</strong>: Plan for 100MB → 10GB in Year 1</li>
+<li><strong>DynamoDB</strong>: On-demand mode, auto-scaling</li>
+<li><strong>S3</strong>: Lifecycle policies for old images</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="3-availability-nfr-a">3. Availability (NFR-A)<a class="anchor" href="#3-availability-nfr-a">#</a></h3>
+<h4 id="nfr-a-01-system-uptime">NFR-A-01: System Uptime<a class="anchor" href="#nfr-a-01-system-uptime">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: 99.5% uptime (Monthly)</li>
+<li><strong>Downtime tolerance</strong>: ~3.6 hours/month</li>
+<li><strong>Monitoring</strong>: CloudWatch alarms, X-Ray tracing</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-a-02-error-rate">NFR-A-02: Error Rate<a class="anchor" href="#nfr-a-02-error-rate">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: &lt; 1% error rate</li>
+<li><strong>Tracking</strong>: CloudWatch errors, Lambda failures</li>
+<li><strong>Alerting</strong>: SNS notifications on threshold breach</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="4-security-nfr-sec">4. Security (NFR-SEC)<a class="anchor" href="#4-security-nfr-sec">#</a></h3>
+<h4 id="nfr-sec-01-authentication">NFR-SEC-01: Authentication<a class="anchor" href="#nfr-sec-01-authentication">#</a></h4>
+<ul>
+<li><strong>Method</strong>: Cognito User Pool, JWT tokens</li>
+<li><strong>Password Policy</strong>: Min 8 chars, 1 uppercase, 1 number</li>
+<li><strong>MFA</strong>: Optional (future enhancement)</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-sec-02-authorization">NFR-SEC-02: Authorization<a class="anchor" href="#nfr-sec-02-authorization">#</a></h4>
+<ul>
+<li><strong>Method</strong>: IAM roles, API Gateway authorizers</li>
+<li><strong>Principle</strong>: Least privilege access</li>
+<li><strong>Validation</strong>: Request validation at API Gateway</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-sec-03-data-encryption">NFR-SEC-03: Data Encryption<a class="anchor" href="#nfr-sec-03-data-encryption">#</a></h4>
+<ul>
+<li><strong>At Rest</strong>: DynamoDB encryption, S3 encryption</li>
+<li><strong>In Transit</strong>: HTTPS only, TLS 1.2+</li>
+<li><strong>Keys</strong>: AWS KMS managed keys</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-sec-04-api-security">NFR-SEC-04: API Security<a class="anchor" href="#nfr-sec-04-api-security">#</a></h4>
+<ul>
+<li><strong>WAF</strong>: AWS WAF rules (SQL injection, XSS)</li>
+<li><strong>Rate Limiting</strong>: 1000 requests/5min per IP</li>
+<li><strong>CORS</strong>: Whitelist origins only</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="5-usability-nfr-u">5. Usability (NFR-U)<a class="anchor" href="#5-usability-nfr-u">#</a></h3>
+<h4 id="nfr-u-01-mobile-responsive">NFR-U-01: Mobile Responsive<a class="anchor" href="#nfr-u-01-mobile-responsive">#</a></h4>
+<ul>
+<li><strong>Requirement</strong>: Work on all screen sizes</li>
+<li><strong>Testing</strong>: iOS Safari, Android Chrome</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-u-02-accessibility">NFR-U-02: Accessibility<a class="anchor" href="#nfr-u-02-accessibility">#</a></h4>
+<ul>
+<li><strong>Standard</strong>: WCAG 2.1 Level AA (target)</li>
+<li><strong>Features</strong>: Alt text, keyboard navigation, screen reader support</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="nfr-u-03-internationalization">NFR-U-03: Internationalization<a class="anchor" href="#nfr-u-03-internationalization">#</a></h4>
+<ul>
+<li><strong>MVP</strong>: Vietnamese + English</li>
+<li><strong>Future</strong>: Support 5+ languages</li>
+<li><strong>Priority</strong>: <strong>COULD HAVE</strong> (P2)</li>
+</ul>
+<h3 id="6-maintainability-nfr-m">6. Maintainability (NFR-M)<a class="anchor" href="#6-maintainability-nfr-m">#</a></h3>
+<h4 id="nfr-m-01-code-quality">NFR-M-01: Code Quality<a class="anchor" href="#nfr-m-01-code-quality">#</a></h4>
+<ul>
+<li><strong>Standards</strong>: ESLint, Prettier</li>
+<li><strong>Testing</strong>: Unit tests (&gt;=70% coverage)</li>
+<li><strong>Documentation</strong>: JSDoc comments</li>
+<li><strong>Priority</strong>: <strong>SHOULD HAVE</strong> (P1)</li>
+</ul>
+<h4 id="nfr-m-02-monitoring--logging">NFR-M-02: Monitoring &amp; Logging<a class="anchor" href="#nfr-m-02-monitoring--logging">#</a></h4>
+<ul>
+<li><strong>Logging</strong>: CloudWatch Logs, structured JSON</li>
+<li><strong>Tracing</strong>: AWS X-Ray for distributed tracing</li>
+<li><strong>Alarms</strong>: Critical errors, high latency, cost spikes</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h3 id="7-cost-efficiency-nfr-c">7. Cost Efficiency (NFR-C)<a class="anchor" href="#7-cost-efficiency-nfr-c">#</a></h3>
+<h4 id="nfr-c-01-mvp-cost-target">NFR-C-01: MVP Cost Target<a class="anchor" href="#nfr-c-01-mvp-cost-target">#</a></h4>
+<ul>
+<li><strong>Target</strong>: $135-160/month for 1,000 users</li>
+<li><strong>Monitoring</strong>: AWS Cost Explorer, budget alarms</li>
+<li><strong>Optimization</strong>: Flexible DB/AI mix, caching</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h4 id="nfr-c-02-cost-per-user">NFR-C-02: Cost per User<a class="anchor" href="#nfr-c-02-cost-per-user">#</a></h4>
+<ul>
+<li><strong>Target</strong>: &lt; $0.20/month (MVP), &lt; $0.03/month (Scale)</li>
+<li><strong>Strategy</strong>: DB coverage growth 0% → 80%</li>
+<li><strong>Metrics</strong>: Track DB vs AI usage ratio</li>
+<li><strong>Priority</strong>: <strong>MUST HAVE</strong> (P0)</li>
+</ul>
+<h2 id="acceptance-criteria">Acceptance Criteria<a class="anchor" href="#acceptance-criteria">#</a></h2>
+<h3 id="mvp-release-criteria">MVP Release Criteria<a class="anchor" href="#mvp-release-criteria">#</a></h3>
+<ul>
+<li>All P0 requirements implemented</li>
+<li>User can register, login, manage profile</li>
+<li>User can add ingredients, get AI suggestions</li>
+<li>AI suggestions work with flexible DB/AI mix</li>
+<li>User can track cooking history and rate recipes</li>
+<li>Auto-approval system working (&gt;= 4 stars)</li>
+<li>System uptime &gt;= 99%</li>
+<li>API response time &lt; 500ms (p95)</li>
+<li>Monthly cost &lt;= $160</li>
+<li>0 critical security vulnerabilities</li>
+</ul>
+<h3 id="phase-2-release-criteria">Phase 2 Release Criteria<a class="anchor" href="#phase-2-release-criteria">#</a></h3>
+<ul>
+<li>Privacy settings functional</li>
+<li>Friend system working</li>
+<li>Posts &amp; comments working</li>
+<li>Notifications delivered</li>
+<li>Database coverage &gt;= 30%</li>
+</ul>
+<h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="00-overview.md">00 - Overview</a></li>
+<li><a href="02-constraints.md">02 - Constraints</a></li>
+<li><a href="13-security.md">13 - Security</a></li>
+<li><a href="23-tasks.md">23 - Tasks</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/00-overview/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="00 - Project Overview" />
+        <span>00 - Project Overview</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/02-constraints/" class="flex align-center">
+        <span>02 - Constraints</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="02 - Constraints" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#functional-requirements">Functional Requirements</a>
+      <ul>
+        <li><a href="#1-user-management-fr-um">1. User Management (FR-UM)</a></li>
+        <li><a href="#2-ingredient-management-fr-im">2. Ingredient Management (FR-IM)</a></li>
+        <li><a href="#3-ai-recipe-suggestion-fr-ai">3. AI Recipe Suggestion (FR-AI)</a></li>
+        <li><a href="#4-cooking-history--rating-fr-ch">4. Cooking History &amp; Rating (FR-CH)</a></li>
+        <li><a href="#5-recipe-management-fr-rm">5. Recipe Management (FR-RM)</a></li>
+        <li><a href="#6-social-features-fr-sf---phase-2">6. Social Features (FR-SF) - Phase 2</a></li>
+      </ul>
+    </li>
+    <li><a href="#non-functional-requirements">Non-Functional Requirements</a>
+      <ul>
+        <li><a href="#1-performance-nfr-p">1. Performance (NFR-P)</a></li>
+        <li><a href="#2-scalability-nfr-s">2. Scalability (NFR-S)</a></li>
+        <li><a href="#3-availability-nfr-a">3. Availability (NFR-A)</a></li>
+        <li><a href="#4-security-nfr-sec">4. Security (NFR-SEC)</a></li>
+        <li><a href="#5-usability-nfr-u">5. Usability (NFR-U)</a></li>
+        <li><a href="#6-maintainability-nfr-m">6. Maintainability (NFR-M)</a></li>
+        <li><a href="#7-cost-efficiency-nfr-c">7. Cost Efficiency (NFR-C)</a></li>
+      </ul>
+    </li>
+    <li><a href="#acceptance-criteria">Acceptance Criteria</a>
+      <ul>
+        <li><a href="#mvp-release-criteria">MVP Release Criteria</a></li>
+        <li><a href="#phase-2-release-criteria">Phase 2 Release Criteria</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

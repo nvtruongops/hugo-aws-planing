@@ -1,0 +1,2022 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Privacy &amp; Data Protection - Smart Cooking App#
+Privacy Overview#
+Privacy Principles#
+
+Data Minimization: Collect only necessary data
+User Control: Users control their data visibility
+Transparency: Clear data usage policies
+Security: Protect data with encryption
+Compliance: GDPR-ready implementation
+
+Privacy Levels#
+
+Public: Visible to everyone
+Friends: Visible to accepted friends only
+Private: Visible to user only
+
+Privacy Settings System#
+Privacy Configuration#
+Default Privacy Settings:
+  profile_visibility: public
+  email_visibility: private
+  date_of_birth_visibility: friends
+  gender_visibility: public
+  country_visibility: public
+  recipes_visibility: public
+  ingredients_visibility: friends
+  preferences_visibility: friends
+  cooking_history_visibility: private
+  posts_visibility: publicPrivacy Settings Schema#
+// DynamoDB Privacy Settings Item
+{
+  PK: &#34;USER#&lt;user_id&gt;&#34;,
+  SK: &#34;PRIVACY&#34;,
+  entity_type: &#34;PRIVACY_SETTINGS&#34;,
+  
+  // Profile visibility
+  profile_visibility: &#34;public|friends|private&#34;,
+  email_visibility: &#34;private&#34;, // Always private
+  date_of_birth_visibility: &#34;friends&#34;,
+  gender_visibility: &#34;public&#34;,
+  country_visibility: &#34;public&#34;,
+  
+  // Content visibility
+  recipes_visibility: &#34;public&#34;,
+  ingredients_visibility: &#34;friends&#34;,
+  preferences_visibility: &#34;friends&#34;,
+  cooking_history_visibility: &#34;private&#34;,
+  posts_visibility: &#34;public&#34;,
+  
+  // Advanced settings
+  allow_friend_requests: true,
+  show_online_status: false,
+  allow_recipe_sharing: true,
+  
+  created_at: &#34;2025-01-20T10:00:00Z&#34;,
+  updated_at: &#34;2025-01-20T10:00:00Z&#34;
+}Privacy Filtering Implementation#
+Backend Privacy Filter#
+// shared/privacy-filter.js
+class PrivacyFilter {
+  constructor(ddb) {
+    this.ddb = ddb;
+  }
+
+  async filterUserData(targetUserId, requestingUserId, userData) {
+    // Self-access - return all data
+    if (targetUserId === requestingUserId) {
+      return userData;
+    }
+
+    // Get privacy settings
+    const privacySettings = await this.getPrivacySettings(targetUserId);
+    
+    // Check friendship status
+    const friendshipStatus = await this.getFriendshipStatus(targetUserId, requestingUserId);
+    
+    // Apply privacy filters
+    return this.applyPrivacyRules(userData, privacySettings, friendshipStatus);
+  }
+
+  async getPrivacySettings(userId) {
+    const result = await this.ddb.get({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: &#39;PRIVACY&#39;
+      }
+    });
+
+    return result.Item || this.getDefaultPrivacySettings();
+  }
+
+  async getFriendshipStatus(userId1, userId2) {
+    const result = await this.ddb.get({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        PK: `USER#${userId1}`,
+        SK: `FRIEND#${userId2}`
+      }
+    });
+
+    return result.Item?.status || &#39;none&#39;;
+  }
+
+  applyPrivacyRules(userData, privacySettings, friendshipStatus) {
+    const filteredData = { ...userData };
+
+    // Helper function to check visibility
+    const canView = (visibility) =&gt; {
+      switch (visibility) {
+        case &#39;public&#39;:
+          return true;
+        case &#39;friends&#39;:
+          return friendshipStatus === &#39;accepted&#39;;
+        case &#39;private&#39;:
+          return false;
+        default:
+          return false;
+      }
+    };
+
+    // Filter profile fields
+    if (!canView(privacySettings.email_visibility)) {
+      delete filteredData.email;
+    }
+    
+    if (!canView(privacySettings.date_of_birth_visibility)) {
+      delete filteredData.date_of_birth;
+    }
+    
+    if (!canView(privacySettings.gender_visibility)) {
+      delete filteredData.gender;
+    }
+    
+    if (!canView(privacySettings.country_visibility)) {
+      delete filteredData.country;
+    }
+
+    // Filter preferences
+    if (!canView(privacySettings.preferences_visibility)) {
+      delete filteredData.preferences;
+    }
+
+    // Filter ingredients
+    if (!canView(privacySettings.ingredients_visibility)) {
+      delete filteredData.ingredients;
+    }
+
+    return filteredData;
+  }
+
+  getDefaultPrivacySettings() {
+    return {
+      profile_visibility: &#39;public&#39;,
+      email_visibility: &#39;private&#39;,
+      date_of_birth_visibility: &#39;friends&#39;,
+      gender_visibility: &#39;public&#39;,
+      country_visibility: &#39;public&#39;,
+      recipes_visibility: &#39;public&#39;,
+      ingredients_visibility: &#39;friends&#39;,
+      preferences_visibility: &#39;friends&#39;,
+      cooking_history_visibility: &#39;private&#39;,
+      posts_visibility: &#39;public&#39;
+    };
+  }
+}
+
+module.exports = PrivacyFilter;Privacy-Aware API Endpoints#
+// user-profile Lambda with privacy filtering
+exports.handler = async (event, context) =&gt; {
+  const { httpMethod, pathParameters } = event;
+  const requestingUserId = event.requestContext.authorizer.claims.sub;
+  const targetUserId = pathParameters?.userId || requestingUserId;
+
+  const privacyFilter = new PrivacyFilter(ddb);
+
+  switch (httpMethod) {
+    case &#39;GET&#39;:
+      return await getUserProfile(targetUserId, requestingUserId, privacyFilter);
+    case &#39;PUT&#39;:
+      return await updateUserProfile(event, requestingUserId);
+    default:
+      return errorResponse(405, &#39;method_not_allowed&#39;);
+  }
+};
+
+async function getUserProfile(targetUserId, requestingUserId, privacyFilter) {
+  try {
+    // Get user profile
+    const profileResult = await ddb.get({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        PK: `USER#${targetUserId}`,
+        SK: &#39;PROFILE&#39;
+      }
+    });
+
+    if (!profileResult.Item) {
+      return errorResponse(404, &#39;user_not_found&#39;);
+    }
+
+    // Get user preferences
+    const preferencesResult = await ddb.get({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        PK: `USER#${targetUserId}`,
+        SK: &#39;PREFERENCES&#39;
+      }
+    });
+
+    // Get user ingredients
+    const ingredientsResult = await ddb.query({
+      TableName: process.env.DYNAMODB_TABLE,
+      KeyConditionExpression: &#39;PK = :pk AND begins_with(SK, :sk)&#39;,
+      ExpressionAttributeValues: {
+        &#39;:pk&#39;: `USER#${targetUserId}`,
+        &#39;:sk&#39;: &#39;INGREDIENT#&#39;
+      }
+    });
+
+    const userData = {
+      ...profileResult.Item,
+      preferences: preferencesResult.Item,
+      ingredients: ingredientsResult.Items || []
+    };
+
+    // Apply privacy filtering
+    const filteredData = await privacyFilter.filterUserData(
+      targetUserId, 
+      requestingUserId, 
+      userData
+    );
+
+    return successResponse(filteredData);
+
+  } catch (error) {
+    console.error(&#39;Get user profile error:&#39;, error);
+    return errorResponse(500, &#39;internal_error&#39;);
+  }
+}Privacy Settings Management#
+Update Privacy Settings API#
+// PUT /user/privacy endpoint
+async function updatePrivacySettings(event, userId) {
+  const updates = JSON.parse(event.body);
+  
+  // Validate privacy settings
+  const validSettings = [
+    &#39;profile_visibility&#39;,
+    &#39;date_of_birth_visibility&#39;,
+    &#39;gender_visibility&#39;,
+    &#39;country_visibility&#39;,
+    &#39;recipes_visibility&#39;,
+    &#39;ingredients_visibility&#39;,
+    &#39;preferences_visibility&#39;,
+    &#39;cooking_history_visibility&#39;,
+    &#39;posts_visibility&#39;,
+    &#39;allow_friend_requests&#39;,
+    &#39;show_online_status&#39;,
+    &#39;allow_recipe_sharing&#39;
+  ];
+
+  const validVisibility = [&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;];
+  
+  // Filter and validate updates
+  const filteredUpdates = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (validSettings.includes(key)) {
+      if (key.endsWith(&#39;_visibility&#39;) &amp;&amp; !validVisibility.includes(value)) {
+        return errorResponse(400, &#39;invalid_visibility&#39;, `Invalid visibility: ${value}`);
+      }
+      if (typeof value === &#39;boolean&#39; || validVisibility.includes(value)) {
+        filteredUpdates[key] = value;
+      }
+    }
+  }
+
+  // Email is always private (cannot be changed)
+  if (filteredUpdates.email_visibility) {
+    delete filteredUpdates.email_visibility;
+  }
+
+  try {
+    // Build update expression
+    const updateExpressions = [];
+    const expressionAttributeValues = {};
+    
+    for (const [key, value] of Object.entries(filteredUpdates)) {
+      updateExpressions.push(`${key} = :${key}`);
+      expressionAttributeValues[`:${key}`] = value;
+    }
+    
+    expressionAttributeValues[&#39;:updated_at&#39;] = new Date().toISOString();
+    updateExpressions.push(&#39;updated_at = :updated_at&#39;);
+
+    await ddb.update({
+      TableName: process.env.DYNAMODB_TABLE,
+      Key: {
+        PK: `USER#${userId}`,
+        SK: &#39;PRIVACY&#39;
+      },
+      UpdateExpression: `SET ${updateExpressions.join(&#39;, &#39;)}`,
+      ExpressionAttributeValues: expressionAttributeValues
+    });
+
+    return successResponse({
+      message: &#39;Privacy settings updated successfully&#39;,
+      updated_fields: Object.keys(filteredUpdates)
+    });
+
+  } catch (error) {
+    console.error(&#39;Update privacy settings error:&#39;, error);
+    return errorResponse(500, &#39;update_failed&#39;);
+  }
+}Frontend Privacy Controls#
+Privacy Settings Page#
+// src/public/js/privacy.js
+class PrivacySettings {
+  constructor() {
+    this.settings = null;
+    this.isLoading = true;
+    this.isSaving = false;
+    this.init();
+  }
+
+  async init() {
+    await this.loadPrivacySettings();
+    this.renderSettings();
+    this.bindEvents();
+  }
+
+  async loadPrivacySettings() {
+    try {
+      const response = await apiClient.get(&#39;/user/privacy&#39;);
+      this.settings = response;
+      this.isLoading = false;
+    } catch (error) {
+      this.showError(&#39;Failed to load privacy settings&#39;);
+      this.isLoading = false;
+    }
+  }
+
+  renderSettings() {
+    const container = document.getElementById(&#39;privacy-settings&#39;);
+    
+    if (this.isLoading) {
+      container.innerHTML = &#39;&lt;div class=&#34;loading&#34;&gt;Loading privacy settings...&lt;/div&gt;&#39;;
+      return;
+    }
+
+    if (!this.settings) {
+      container.innerHTML = &#39;&lt;div class=&#34;error&#34;&gt;Failed to load privacy settings&lt;/div&gt;&#39;;
+      return;
+    }
+
+    const visibilityOptions = [
+      { value: &#39;public&#39;, label: &#39;Public - Everyone can see&#39; },
+      { value: &#39;friends&#39;, label: &#39;Friends - Only friends can see&#39; },
+      { value: &#39;private&#39;, label: &#39;Private - Only you can see&#39; }
+    ];
+
+    container.innerHTML = `
+      &lt;div class=&#34;privacy-form&#34;&gt;
+        &lt;div class=&#34;section&#34;&gt;
+          &lt;h3&gt;Profile Privacy&lt;/h3&gt;
+          &lt;div class=&#34;form-grid&#34;&gt;
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Date of Birth&lt;/label&gt;
+              &lt;select id=&#34;date_of_birth_visibility&#34; value=&#34;${this.settings.date_of_birth_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.date_of_birth_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Gender&lt;/label&gt;
+              &lt;select id=&#34;gender_visibility&#34; value=&#34;${this.settings.gender_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.gender_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Country&lt;/label&gt;
+              &lt;select id=&#34;country_visibility&#34; value=&#34;${this.settings.country_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.country_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&#34;section&#34;&gt;
+          &lt;h3&gt;Content Privacy&lt;/h3&gt;
+          &lt;div class=&#34;form-grid&#34;&gt;
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Recipes&lt;/label&gt;
+              &lt;select id=&#34;recipes_visibility&#34; value=&#34;${this.settings.recipes_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.recipes_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Ingredients&lt;/label&gt;
+              &lt;select id=&#34;ingredients_visibility&#34; value=&#34;${this.settings.ingredients_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.ingredients_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Food Preferences&lt;/label&gt;
+              &lt;select id=&#34;preferences_visibility&#34; value=&#34;${this.settings.preferences_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.preferences_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+            
+            &lt;div class=&#34;form-group&#34;&gt;
+              &lt;label&gt;Posts&lt;/label&gt;
+              &lt;select id=&#34;posts_visibility&#34; value=&#34;${this.settings.posts_visibility}&#34;&gt;
+                ${visibilityOptions.map(opt =&gt; 
+                  `&lt;option value=&#34;${opt.value}&#34; ${this.settings.posts_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt;
+                    ${opt.label}
+                  &lt;/option&gt;`
+                ).join(&#39;&#39;)}
+              &lt;/select&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&#34;section&#34;&gt;
+          &lt;h3&gt;Social Settings&lt;/h3&gt;
+          &lt;div class=&#34;form-group&#34;&gt;
+            &lt;label class=&#34;checkbox-label&#34;&gt;
+              &lt;input type=&#34;checkbox&#34; id=&#34;allow_friend_requests&#34; ${this.settings.allow_friend_requests ? &#39;checked&#39; : &#39;&#39;}&gt;
+              Allow Friend Requests
+              &lt;small&gt;Let others send you friend requests&lt;/small&gt;
+            &lt;/label&gt;
+          &lt;/div&gt;
+          
+          &lt;div class=&#34;form-group&#34;&gt;
+            &lt;label class=&#34;checkbox-label&#34;&gt;
+              &lt;input type=&#34;checkbox&#34; id=&#34;show_online_status&#34; ${this.settings.show_online_status ? &#39;checked&#39; : &#39;&#39;}&gt;
+              Show Online Status
+              &lt;small&gt;Let friends see when you&#39;re online&lt;/small&gt;
+            &lt;/label&gt;
+          &lt;/div&gt;
+          
+          &lt;div class=&#34;form-group&#34;&gt;
+            &lt;label class=&#34;checkbox-label&#34;&gt;
+              &lt;input type=&#34;checkbox&#34; id=&#34;allow_recipe_sharing&#34; ${this.settings.allow_recipe_sharing ? &#39;checked&#39; : &#39;&#39;}&gt;
+              Allow Recipe Sharing
+              &lt;small&gt;Let others share your recipes&lt;/small&gt;
+            &lt;/label&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div class=&#34;form-actions&#34;&gt;
+          &lt;button id=&#34;save-privacy-settings&#34; class=&#34;btn btn-primary&#34; ${this.isSaving ? &#39;disabled&#39; : &#39;&#39;}&gt;
+            ${this.isSaving ? &#39;Saving...&#39; : &#39;Save Privacy Settings&#39;}
+          &lt;/button&gt;
+        &lt;/div&gt;
+      &lt;/div&gt;
+    `;
+  }
+
+  bindEvents() {
+    const saveButton = document.getElementById(&#39;save-privacy-settings&#39;);
+    if (saveButton) {
+      saveButton.addEventListener(&#39;click&#39;, () =&gt; this.saveSettings());
+    }
+
+    // Bind change events for all form elements
+    const formElements = document.querySelectorAll(&#39;#privacy-settings select, #privacy-settings input&#39;);
+    formElements.forEach(element =&gt; {
+      element.addEventListener(&#39;change&#39;, (e) =&gt; this.updateSetting(e.target.id, e.target.value || e.target.checked));
+    });
+  }
+
+  updateSetting(key, value) {
+    if (this.settings) {
+      this.settings[key] = value;
+    }
+  }
+
+  async saveSettings() {
+    if (!this.settings || this.isSaving) return;
+
+    this.isSaving = true;
+    this.updateSaveButton();
+
+    try {
+      await apiClient.put(&#39;/user/privacy&#39;, this.settings);
+      this.showSuccess(&#39;Privacy settings updated successfully&#39;);
+    } catch (error) {
+      this.showError(&#39;Failed to update privacy settings&#39;);
+    } finally {
+      this.isSaving = false;
+      this.updateSaveButton();
+    }
+  }
+
+  updateSaveButton() {
+    const saveButton = document.getElementById(&#39;save-privacy-settings&#39;);
+    if (saveButton) {
+      saveButton.disabled = this.isSaving;
+      saveButton.textContent = this.isSaving ? &#39;Saving...&#39; : &#39;Save Privacy Settings&#39;;
+    }
+  }
+
+  showSuccess(message) {
+    this.showNotification(message, &#39;success&#39;);
+  }
+
+  showError(message) {
+    this.showNotification(message, &#39;error&#39;);
+  }
+
+  showNotification(message, type) {
+    const notification = document.createElement(&#39;div&#39;);
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() =&gt; {
+      notification.remove();
+    }, 3000);
+  }
+}
+
+// Initialize privacy settings when page loads
+document.addEventListener(&#39;DOMContentLoaded&#39;, () =&gt; {
+  new PrivacySettings();
+});AI Data Usage Policy#
+AI Privacy Policy#
+## AI Agent Data Usage Policy
+
+### Data Used for AI Personalization
+The Smart Cooking AI uses the following information to provide personalized recipe suggestions:
+
+**Personal Information Used:**
+- Age range (derived from birth year) - for nutritional recommendations
+- Gender - for portion size recommendations  
+- Country - for regional cuisine preferences
+- Food preferences (cooking methods, favorite cuisines)
+- Allergies - **CRITICAL** for food safety (absolutely avoided)
+
+**Data NOT Used:**
+- Full name or email address
+- Exact location or address
+- Payment information
+- Browsing history outside the app
+- Personal messages or comments
+
+### Purpose &amp; Usage
+- **Primary Purpose**: Personalize recipe suggestions only
+- **No Advertising**: We do not use your data for advertising
+- **No Third-Party Sharing**: Your data is never sold or shared
+- **No Profiling**: We don&#39;t create profiles beyond cooking preferences
+
+### User Control
+- You can update your preferences anytime
+- You can delete your data anytime
+- AI suggestions are optional - you can use the app without them
+- You control what information is shared through privacy settings
+
+### Data Retention
+- AI suggestion history: 90 days (automatic cleanup)
+- Personal preferences: Until you delete your account
+- Anonymized usage patterns: May be kept for service improvement
+
+### Your Rights
+- Right to access your data
+- Right to correct your data  
+- Right to delete your data
+- Right to data portability
+- Right to object to processingGDPR Compliance#
+Data Subject Rights Implementation#
+// GDPR compliance endpoints
+exports.handler = async (event, context) =&gt; {
+  const { httpMethod, resource } = event;
+  const userId = event.requestContext.authorizer.claims.sub;
+
+  switch (resource) {
+    case &#39;/user/data-export&#39;:
+      return await exportUserData(userId);
+    case &#39;/user/data-delete&#39;:
+      return await deleteUserData(userId);
+    case &#39;/user/data-portability&#39;:
+      return await getPortableData(userId);
+    default:
+      return errorResponse(404, &#39;not_found&#39;);
+  }
+};
+
+// Right to Access - Export all user data
+async function exportUserData(userId) {
+  try {
+    const userData = {
+      profile: await getUserProfile(userId),
+      preferences: await getUserPreferences(userId),
+      ingredients: await getUserIngredients(userId),
+      cookingHistory: await getCookingHistory(userId),
+      aiSuggestions: await getAISuggestions(userId),
+      posts: await getUserPosts(userId),
+      friends: await getUserFriends(userId),
+      privacySettings: await getPrivacySettings(userId)
+    };
+
+    return successResponse({
+      message: &#39;Data export completed&#39;,
+      data: userData,
+      exportDate: new Date().toISOString(),
+      format: &#39;JSON&#39;
+    });
+  } catch (error) {
+    return errorResponse(500, &#39;export_failed&#39;);
+  }
+}
+
+// Right to Erasure - Delete all user data
+async function deleteUserData(userId) {
+  try {
+    // Delete from DynamoDB
+    await deleteAllUserItems(userId);
+    
+    // Delete from S3 (user images)
+    await deleteUserImages(userId);
+    
+    // Disable Cognito user
+    await disableCognitoUser(userId);
+
+    return successResponse({
+      message: &#39;All user data has been deleted&#39;,
+      deletedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    return errorResponse(500, &#39;deletion_failed&#39;);
+  }
+}Related Documents#
+
+40 - Auth
+13 - Security
+42 - Compliance
+11 - Database
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/41-privacy/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="41 - Privacy & Data Protection">
+  <meta property="og:description" content="Privacy &amp; Data Protection - Smart Cooking App#Privacy Overview#Privacy Principles#Data Minimization: Collect only necessary data User Control: Users control their data visibility Transparency: Clear data usage policies Security: Protect data with encryption Compliance: GDPR-ready implementation Privacy Levels#Public: Visible to everyone Friends: Visible to accepted friends only Private: Visible to user only Privacy Settings System#Privacy Configuration#Default Privacy Settings: profile_visibility: public email_visibility: private date_of_birth_visibility: friends gender_visibility: public country_visibility: public recipes_visibility: public ingredients_visibility: friends preferences_visibility: friends cooking_history_visibility: private posts_visibility: publicPrivacy Settings Schema#// DynamoDB Privacy Settings Item { PK: &#34;USER#&lt;user_id&gt;&#34;, SK: &#34;PRIVACY&#34;, entity_type: &#34;PRIVACY_SETTINGS&#34;, // Profile visibility profile_visibility: &#34;public|friends|private&#34;, email_visibility: &#34;private&#34;, // Always private date_of_birth_visibility: &#34;friends&#34;, gender_visibility: &#34;public&#34;, country_visibility: &#34;public&#34;, // Content visibility recipes_visibility: &#34;public&#34;, ingredients_visibility: &#34;friends&#34;, preferences_visibility: &#34;friends&#34;, cooking_history_visibility: &#34;private&#34;, posts_visibility: &#34;public&#34;, // Advanced settings allow_friend_requests: true, show_online_status: false, allow_recipe_sharing: true, created_at: &#34;2025-01-20T10:00:00Z&#34;, updated_at: &#34;2025-01-20T10:00:00Z&#34; }Privacy Filtering Implementation#Backend Privacy Filter#// shared/privacy-filter.js class PrivacyFilter { constructor(ddb) { this.ddb = ddb; } async filterUserData(targetUserId, requestingUserId, userData) { // Self-access - return all data if (targetUserId === requestingUserId) { return userData; } // Get privacy settings const privacySettings = await this.getPrivacySettings(targetUserId); // Check friendship status const friendshipStatus = await this.getFriendshipStatus(targetUserId, requestingUserId); // Apply privacy filters return this.applyPrivacyRules(userData, privacySettings, friendshipStatus); } async getPrivacySettings(userId) { const result = await this.ddb.get({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `USER#${userId}`, SK: &#39;PRIVACY&#39; } }); return result.Item || this.getDefaultPrivacySettings(); } async getFriendshipStatus(userId1, userId2) { const result = await this.ddb.get({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `USER#${userId1}`, SK: `FRIEND#${userId2}` } }); return result.Item?.status || &#39;none&#39;; } applyPrivacyRules(userData, privacySettings, friendshipStatus) { const filteredData = { ...userData }; // Helper function to check visibility const canView = (visibility) =&gt; { switch (visibility) { case &#39;public&#39;: return true; case &#39;friends&#39;: return friendshipStatus === &#39;accepted&#39;; case &#39;private&#39;: return false; default: return false; } }; // Filter profile fields if (!canView(privacySettings.email_visibility)) { delete filteredData.email; } if (!canView(privacySettings.date_of_birth_visibility)) { delete filteredData.date_of_birth; } if (!canView(privacySettings.gender_visibility)) { delete filteredData.gender; } if (!canView(privacySettings.country_visibility)) { delete filteredData.country; } // Filter preferences if (!canView(privacySettings.preferences_visibility)) { delete filteredData.preferences; } // Filter ingredients if (!canView(privacySettings.ingredients_visibility)) { delete filteredData.ingredients; } return filteredData; } getDefaultPrivacySettings() { return { profile_visibility: &#39;public&#39;, email_visibility: &#39;private&#39;, date_of_birth_visibility: &#39;friends&#39;, gender_visibility: &#39;public&#39;, country_visibility: &#39;public&#39;, recipes_visibility: &#39;public&#39;, ingredients_visibility: &#39;friends&#39;, preferences_visibility: &#39;friends&#39;, cooking_history_visibility: &#39;private&#39;, posts_visibility: &#39;public&#39; }; } } module.exports = PrivacyFilter;Privacy-Aware API Endpoints#// user-profile Lambda with privacy filtering exports.handler = async (event, context) =&gt; { const { httpMethod, pathParameters } = event; const requestingUserId = event.requestContext.authorizer.claims.sub; const targetUserId = pathParameters?.userId || requestingUserId; const privacyFilter = new PrivacyFilter(ddb); switch (httpMethod) { case &#39;GET&#39;: return await getUserProfile(targetUserId, requestingUserId, privacyFilter); case &#39;PUT&#39;: return await updateUserProfile(event, requestingUserId); default: return errorResponse(405, &#39;method_not_allowed&#39;); } }; async function getUserProfile(targetUserId, requestingUserId, privacyFilter) { try { // Get user profile const profileResult = await ddb.get({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `USER#${targetUserId}`, SK: &#39;PROFILE&#39; } }); if (!profileResult.Item) { return errorResponse(404, &#39;user_not_found&#39;); } // Get user preferences const preferencesResult = await ddb.get({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `USER#${targetUserId}`, SK: &#39;PREFERENCES&#39; } }); // Get user ingredients const ingredientsResult = await ddb.query({ TableName: process.env.DYNAMODB_TABLE, KeyConditionExpression: &#39;PK = :pk AND begins_with(SK, :sk)&#39;, ExpressionAttributeValues: { &#39;:pk&#39;: `USER#${targetUserId}`, &#39;:sk&#39;: &#39;INGREDIENT#&#39; } }); const userData = { ...profileResult.Item, preferences: preferencesResult.Item, ingredients: ingredientsResult.Items || [] }; // Apply privacy filtering const filteredData = await privacyFilter.filterUserData( targetUserId, requestingUserId, userData ); return successResponse(filteredData); } catch (error) { console.error(&#39;Get user profile error:&#39;, error); return errorResponse(500, &#39;internal_error&#39;); } }Privacy Settings Management#Update Privacy Settings API#// PUT /user/privacy endpoint async function updatePrivacySettings(event, userId) { const updates = JSON.parse(event.body); // Validate privacy settings const validSettings = [ &#39;profile_visibility&#39;, &#39;date_of_birth_visibility&#39;, &#39;gender_visibility&#39;, &#39;country_visibility&#39;, &#39;recipes_visibility&#39;, &#39;ingredients_visibility&#39;, &#39;preferences_visibility&#39;, &#39;cooking_history_visibility&#39;, &#39;posts_visibility&#39;, &#39;allow_friend_requests&#39;, &#39;show_online_status&#39;, &#39;allow_recipe_sharing&#39; ]; const validVisibility = [&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;]; // Filter and validate updates const filteredUpdates = {}; for (const [key, value] of Object.entries(updates)) { if (validSettings.includes(key)) { if (key.endsWith(&#39;_visibility&#39;) &amp;&amp; !validVisibility.includes(value)) { return errorResponse(400, &#39;invalid_visibility&#39;, `Invalid visibility: ${value}`); } if (typeof value === &#39;boolean&#39; || validVisibility.includes(value)) { filteredUpdates[key] = value; } } } // Email is always private (cannot be changed) if (filteredUpdates.email_visibility) { delete filteredUpdates.email_visibility; } try { // Build update expression const updateExpressions = []; const expressionAttributeValues = {}; for (const [key, value] of Object.entries(filteredUpdates)) { updateExpressions.push(`${key} = :${key}`); expressionAttributeValues[`:${key}`] = value; } expressionAttributeValues[&#39;:updated_at&#39;] = new Date().toISOString(); updateExpressions.push(&#39;updated_at = :updated_at&#39;); await ddb.update({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `USER#${userId}`, SK: &#39;PRIVACY&#39; }, UpdateExpression: `SET ${updateExpressions.join(&#39;, &#39;)}`, ExpressionAttributeValues: expressionAttributeValues }); return successResponse({ message: &#39;Privacy settings updated successfully&#39;, updated_fields: Object.keys(filteredUpdates) }); } catch (error) { console.error(&#39;Update privacy settings error:&#39;, error); return errorResponse(500, &#39;update_failed&#39;); } }Frontend Privacy Controls#Privacy Settings Page#// src/public/js/privacy.js class PrivacySettings { constructor() { this.settings = null; this.isLoading = true; this.isSaving = false; this.init(); } async init() { await this.loadPrivacySettings(); this.renderSettings(); this.bindEvents(); } async loadPrivacySettings() { try { const response = await apiClient.get(&#39;/user/privacy&#39;); this.settings = response; this.isLoading = false; } catch (error) { this.showError(&#39;Failed to load privacy settings&#39;); this.isLoading = false; } } renderSettings() { const container = document.getElementById(&#39;privacy-settings&#39;); if (this.isLoading) { container.innerHTML = &#39;&lt;div class=&#34;loading&#34;&gt;Loading privacy settings...&lt;/div&gt;&#39;; return; } if (!this.settings) { container.innerHTML = &#39;&lt;div class=&#34;error&#34;&gt;Failed to load privacy settings&lt;/div&gt;&#39;; return; } const visibilityOptions = [ { value: &#39;public&#39;, label: &#39;Public - Everyone can see&#39; }, { value: &#39;friends&#39;, label: &#39;Friends - Only friends can see&#39; }, { value: &#39;private&#39;, label: &#39;Private - Only you can see&#39; } ]; container.innerHTML = ` &lt;div class=&#34;privacy-form&#34;&gt; &lt;div class=&#34;section&#34;&gt; &lt;h3&gt;Profile Privacy&lt;/h3&gt; &lt;div class=&#34;form-grid&#34;&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Date of Birth&lt;/label&gt; &lt;select id=&#34;date_of_birth_visibility&#34; value=&#34;${this.settings.date_of_birth_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.date_of_birth_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Gender&lt;/label&gt; &lt;select id=&#34;gender_visibility&#34; value=&#34;${this.settings.gender_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.gender_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Country&lt;/label&gt; &lt;select id=&#34;country_visibility&#34; value=&#34;${this.settings.country_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.country_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;/div&gt; &lt;/div&gt; &lt;div class=&#34;section&#34;&gt; &lt;h3&gt;Content Privacy&lt;/h3&gt; &lt;div class=&#34;form-grid&#34;&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Recipes&lt;/label&gt; &lt;select id=&#34;recipes_visibility&#34; value=&#34;${this.settings.recipes_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.recipes_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Ingredients&lt;/label&gt; &lt;select id=&#34;ingredients_visibility&#34; value=&#34;${this.settings.ingredients_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.ingredients_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Food Preferences&lt;/label&gt; &lt;select id=&#34;preferences_visibility&#34; value=&#34;${this.settings.preferences_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.preferences_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label&gt;Posts&lt;/label&gt; &lt;select id=&#34;posts_visibility&#34; value=&#34;${this.settings.posts_visibility}&#34;&gt; ${visibilityOptions.map(opt =&gt; `&lt;option value=&#34;${opt.value}&#34; ${this.settings.posts_visibility === opt.value ? &#39;selected&#39; : &#39;&#39;}&gt; ${opt.label} &lt;/option&gt;` ).join(&#39;&#39;)} &lt;/select&gt; &lt;/div&gt; &lt;/div&gt; &lt;/div&gt; &lt;div class=&#34;section&#34;&gt; &lt;h3&gt;Social Settings&lt;/h3&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label class=&#34;checkbox-label&#34;&gt; &lt;input type=&#34;checkbox&#34; id=&#34;allow_friend_requests&#34; ${this.settings.allow_friend_requests ? &#39;checked&#39; : &#39;&#39;}&gt; Allow Friend Requests &lt;small&gt;Let others send you friend requests&lt;/small&gt; &lt;/label&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label class=&#34;checkbox-label&#34;&gt; &lt;input type=&#34;checkbox&#34; id=&#34;show_online_status&#34; ${this.settings.show_online_status ? &#39;checked&#39; : &#39;&#39;}&gt; Show Online Status &lt;small&gt;Let friends see when you&#39;re online&lt;/small&gt; &lt;/label&gt; &lt;/div&gt; &lt;div class=&#34;form-group&#34;&gt; &lt;label class=&#34;checkbox-label&#34;&gt; &lt;input type=&#34;checkbox&#34; id=&#34;allow_recipe_sharing&#34; ${this.settings.allow_recipe_sharing ? &#39;checked&#39; : &#39;&#39;}&gt; Allow Recipe Sharing &lt;small&gt;Let others share your recipes&lt;/small&gt; &lt;/label&gt; &lt;/div&gt; &lt;/div&gt; &lt;div class=&#34;form-actions&#34;&gt; &lt;button id=&#34;save-privacy-settings&#34; class=&#34;btn btn-primary&#34; ${this.isSaving ? &#39;disabled&#39; : &#39;&#39;}&gt; ${this.isSaving ? &#39;Saving...&#39; : &#39;Save Privacy Settings&#39;} &lt;/button&gt; &lt;/div&gt; &lt;/div&gt; `; } bindEvents() { const saveButton = document.getElementById(&#39;save-privacy-settings&#39;); if (saveButton) { saveButton.addEventListener(&#39;click&#39;, () =&gt; this.saveSettings()); } // Bind change events for all form elements const formElements = document.querySelectorAll(&#39;#privacy-settings select, #privacy-settings input&#39;); formElements.forEach(element =&gt; { element.addEventListener(&#39;change&#39;, (e) =&gt; this.updateSetting(e.target.id, e.target.value || e.target.checked)); }); } updateSetting(key, value) { if (this.settings) { this.settings[key] = value; } } async saveSettings() { if (!this.settings || this.isSaving) return; this.isSaving = true; this.updateSaveButton(); try { await apiClient.put(&#39;/user/privacy&#39;, this.settings); this.showSuccess(&#39;Privacy settings updated successfully&#39;); } catch (error) { this.showError(&#39;Failed to update privacy settings&#39;); } finally { this.isSaving = false; this.updateSaveButton(); } } updateSaveButton() { const saveButton = document.getElementById(&#39;save-privacy-settings&#39;); if (saveButton) { saveButton.disabled = this.isSaving; saveButton.textContent = this.isSaving ? &#39;Saving...&#39; : &#39;Save Privacy Settings&#39;; } } showSuccess(message) { this.showNotification(message, &#39;success&#39;); } showError(message) { this.showNotification(message, &#39;error&#39;); } showNotification(message, type) { const notification = document.createElement(&#39;div&#39;); notification.className = `notification ${type}`; notification.textContent = message; document.body.appendChild(notification); setTimeout(() =&gt; { notification.remove(); }, 3000); } } // Initialize privacy settings when page loads document.addEventListener(&#39;DOMContentLoaded&#39;, () =&gt; { new PrivacySettings(); });AI Data Usage Policy#AI Privacy Policy### AI Agent Data Usage Policy ### Data Used for AI Personalization The Smart Cooking AI uses the following information to provide personalized recipe suggestions: **Personal Information Used:** - Age range (derived from birth year) - for nutritional recommendations - Gender - for portion size recommendations - Country - for regional cuisine preferences - Food preferences (cooking methods, favorite cuisines) - Allergies - **CRITICAL** for food safety (absolutely avoided) **Data NOT Used:** - Full name or email address - Exact location or address - Payment information - Browsing history outside the app - Personal messages or comments ### Purpose &amp; Usage - **Primary Purpose**: Personalize recipe suggestions only - **No Advertising**: We do not use your data for advertising - **No Third-Party Sharing**: Your data is never sold or shared - **No Profiling**: We don&#39;t create profiles beyond cooking preferences ### User Control - You can update your preferences anytime - You can delete your data anytime - AI suggestions are optional - you can use the app without them - You control what information is shared through privacy settings ### Data Retention - AI suggestion history: 90 days (automatic cleanup) - Personal preferences: Until you delete your account - Anonymized usage patterns: May be kept for service improvement ### Your Rights - Right to access your data - Right to correct your data - Right to delete your data - Right to data portability - Right to object to processingGDPR Compliance#Data Subject Rights Implementation#// GDPR compliance endpoints exports.handler = async (event, context) =&gt; { const { httpMethod, resource } = event; const userId = event.requestContext.authorizer.claims.sub; switch (resource) { case &#39;/user/data-export&#39;: return await exportUserData(userId); case &#39;/user/data-delete&#39;: return await deleteUserData(userId); case &#39;/user/data-portability&#39;: return await getPortableData(userId); default: return errorResponse(404, &#39;not_found&#39;); } }; // Right to Access - Export all user data async function exportUserData(userId) { try { const userData = { profile: await getUserProfile(userId), preferences: await getUserPreferences(userId), ingredients: await getUserIngredients(userId), cookingHistory: await getCookingHistory(userId), aiSuggestions: await getAISuggestions(userId), posts: await getUserPosts(userId), friends: await getUserFriends(userId), privacySettings: await getPrivacySettings(userId) }; return successResponse({ message: &#39;Data export completed&#39;, data: userData, exportDate: new Date().toISOString(), format: &#39;JSON&#39; }); } catch (error) { return errorResponse(500, &#39;export_failed&#39;); } } // Right to Erasure - Delete all user data async function deleteUserData(userId) { try { // Delete from DynamoDB await deleteAllUserItems(userId); // Delete from S3 (user images) await deleteUserImages(userId); // Disable Cognito user await disableCognitoUser(userId); return successResponse({ message: &#39;All user data has been deleted&#39;, deletedAt: new Date().toISOString() }); } catch (error) { return errorResponse(500, &#39;deletion_failed&#39;); } }Related Documents#40 - Auth 13 - Security 42 - Compliance 11 - Database">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>41 - Privacy &amp; Data Protection | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/41-privacy/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="active">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>41 - Privacy &amp; Data Protection</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#privacy-overview">Privacy Overview</a>
+      <ul>
+        <li><a href="#privacy-principles">Privacy Principles</a></li>
+        <li><a href="#privacy-levels">Privacy Levels</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-settings-system">Privacy Settings System</a>
+      <ul>
+        <li><a href="#privacy-configuration">Privacy Configuration</a></li>
+        <li><a href="#privacy-settings-schema">Privacy Settings Schema</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-filtering-implementation">Privacy Filtering Implementation</a>
+      <ul>
+        <li><a href="#backend-privacy-filter">Backend Privacy Filter</a></li>
+        <li><a href="#privacy-aware-api-endpoints">Privacy-Aware API Endpoints</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-settings-management">Privacy Settings Management</a>
+      <ul>
+        <li><a href="#update-privacy-settings-api">Update Privacy Settings API</a></li>
+      </ul>
+    </li>
+    <li><a href="#frontend-privacy-controls">Frontend Privacy Controls</a>
+      <ul>
+        <li><a href="#privacy-settings-page">Privacy Settings Page</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-data-usage-policy">AI Data Usage Policy</a>
+      <ul>
+        <li><a href="#ai-privacy-policy">AI Privacy Policy</a></li>
+      </ul>
+    </li>
+    <li><a href="#gdpr-compliance">GDPR Compliance</a>
+      <ul>
+        <li><a href="#data-subject-rights-implementation">Data Subject Rights Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="privacy--data-protection---smart-cooking-app">Privacy &amp; Data Protection - Smart Cooking App<a class="anchor" href="#privacy--data-protection---smart-cooking-app">#</a></h1>
+<h2 id="privacy-overview">Privacy Overview<a class="anchor" href="#privacy-overview">#</a></h2>
+<h3 id="privacy-principles">Privacy Principles<a class="anchor" href="#privacy-principles">#</a></h3>
+<ol>
+<li><strong>Data Minimization</strong>: Collect only necessary data</li>
+<li><strong>User Control</strong>: Users control their data visibility</li>
+<li><strong>Transparency</strong>: Clear data usage policies</li>
+<li><strong>Security</strong>: Protect data with encryption</li>
+<li><strong>Compliance</strong>: GDPR-ready implementation</li>
+</ol>
+<h3 id="privacy-levels">Privacy Levels<a class="anchor" href="#privacy-levels">#</a></h3>
+<ul>
+<li><strong>Public</strong>: Visible to everyone</li>
+<li><strong>Friends</strong>: Visible to accepted friends only</li>
+<li><strong>Private</strong>: Visible to user only</li>
+</ul>
+<h2 id="privacy-settings-system">Privacy Settings System<a class="anchor" href="#privacy-settings-system">#</a></h2>
+<h3 id="privacy-configuration">Privacy Configuration<a class="anchor" href="#privacy-configuration">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Default Privacy Settings</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">profile_visibility</span>: <span style="color:#ae81ff">public</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">email_visibility</span>: <span style="color:#ae81ff">private</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">date_of_birth_visibility</span>: <span style="color:#ae81ff">friends</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">gender_visibility</span>: <span style="color:#ae81ff">public</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">country_visibility</span>: <span style="color:#ae81ff">public</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">recipes_visibility</span>: <span style="color:#ae81ff">public</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ingredients_visibility</span>: <span style="color:#ae81ff">friends</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">preferences_visibility</span>: <span style="color:#ae81ff">friends</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">cooking_history_visibility</span>: <span style="color:#ae81ff">private</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">posts_visibility</span>: <span style="color:#ae81ff">public</span></span></span></code></pre></div><h3 id="privacy-settings-schema">Privacy Settings Schema<a class="anchor" href="#privacy-settings-schema">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// DynamoDB Privacy Settings Item
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;PRIVACY&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;PRIVACY_SETTINGS&#34;</span>,
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Profile visibility
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">profile_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;public|friends|private&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">email_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;private&#34;</span>, <span style="color:#75715e">// Always private
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">date_of_birth_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">gender_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">country_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Content visibility
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">recipes_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ingredients_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">preferences_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">cooking_history_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;private&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">posts_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Advanced settings
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">allow_friend_requests</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">show_online_status</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">allow_recipe_sharing</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="privacy-filtering-implementation">Privacy Filtering Implementation<a class="anchor" href="#privacy-filtering-implementation">#</a></h2>
+<h3 id="backend-privacy-filter">Backend Privacy Filter<a class="anchor" href="#backend-privacy-filter">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/privacy-filter.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PrivacyFilter</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>(<span style="color:#a6e22e">ddb</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">ddb</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">ddb</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">filterUserData</span>(<span style="color:#a6e22e">targetUserId</span>, <span style="color:#a6e22e">requestingUserId</span>, <span style="color:#a6e22e">userData</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Self-access - return all data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">targetUserId</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">requestingUserId</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">userData</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Get privacy settings
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">privacySettings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getPrivacySettings</span>(<span style="color:#a6e22e">targetUserId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Check friendship status
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">friendshipStatus</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getFriendshipStatus</span>(<span style="color:#a6e22e">targetUserId</span>, <span style="color:#a6e22e">requestingUserId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Apply privacy filters
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">applyPrivacyRules</span>(<span style="color:#a6e22e">userData</span>, <span style="color:#a6e22e">privacySettings</span>, <span style="color:#a6e22e">friendshipStatus</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">getPrivacySettings</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">get</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PRIVACY&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Item</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getDefaultPrivacySettings</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">getFriendshipStatus</span>(<span style="color:#a6e22e">userId1</span>, <span style="color:#a6e22e">userId2</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">get</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId1</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`FRIEND#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId2</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Item</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">status</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;none&#39;</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">applyPrivacyRules</span>(<span style="color:#a6e22e">userData</span>, <span style="color:#a6e22e">privacySettings</span>, <span style="color:#a6e22e">friendshipStatus</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">filteredData</span> <span style="color:#f92672">=</span> { ...<span style="color:#a6e22e">userData</span> };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Helper function to check visibility
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">canView</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">visibility</span>) =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">visibility</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;public&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;friends&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">friendshipStatus</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;accepted&#39;</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;private&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">default</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Filter profile fields
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">email_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">email</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">date_of_birth_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">date_of_birth</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">gender_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">gender</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">country_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">country</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Filter preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">preferences_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">preferences</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Filter ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">canView</span>(<span style="color:#a6e22e">privacySettings</span>.<span style="color:#a6e22e">ingredients_visibility</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredData</span>.<span style="color:#a6e22e">ingredients</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">filteredData</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getDefaultPrivacySettings</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">profile_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">email_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;private&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">date_of_birth_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">gender_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">country_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredients_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">preferences_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cooking_history_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;private&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">posts_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">PrivacyFilter</span>;</span></span></code></pre></div><h3 id="privacy-aware-api-endpoints">Privacy-Aware API Endpoints<a class="anchor" href="#privacy-aware-api-endpoints">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// user-profile Lambda with privacy filtering
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">httpMethod</span>, <span style="color:#a6e22e">pathParameters</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">requestingUserId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">targetUserId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">pathParameters</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">userId</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">requestingUserId</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">privacyFilter</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PrivacyFilter</span>(<span style="color:#a6e22e">ddb</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">httpMethod</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;GET&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">targetUserId</span>, <span style="color:#a6e22e">requestingUserId</span>, <span style="color:#a6e22e">privacyFilter</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;PUT&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateUserProfile</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">requestingUserId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">default</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">405</span>, <span style="color:#e6db74">&#39;method_not_allowed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">targetUserId</span>, <span style="color:#a6e22e">requestingUserId</span>, <span style="color:#a6e22e">privacyFilter</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Get user profile
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">profileResult</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">get</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">targetUserId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PROFILE&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">profileResult</span>.<span style="color:#a6e22e">Item</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">404</span>, <span style="color:#e6db74">&#39;user_not_found&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Get user preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">preferencesResult</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">get</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">targetUserId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PREFERENCES&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Get user ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ingredientsResult</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND begins_with(SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">targetUserId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INGREDIENT#&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">profileResult</span>.<span style="color:#a6e22e">Item</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">preferences</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">preferencesResult</span>.<span style="color:#a6e22e">Item</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredientsResult</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> []
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Apply privacy filtering
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">filteredData</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">privacyFilter</span>.<span style="color:#a6e22e">filterUserData</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">targetUserId</span>, 
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">requestingUserId</span>, 
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userData</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>(<span style="color:#a6e22e">filteredData</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Get user profile error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;internal_error&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="privacy-settings-management">Privacy Settings Management<a class="anchor" href="#privacy-settings-management">#</a></h2>
+<h3 id="update-privacy-settings-api">Update Privacy Settings API<a class="anchor" href="#update-privacy-settings-api">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// PUT /user/privacy endpoint
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">updatePrivacySettings</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">updates</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate privacy settings
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validSettings</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;profile_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;date_of_birth_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;gender_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;country_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;recipes_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;ingredients_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;preferences_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;cooking_history_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;posts_visibility&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;allow_friend_requests&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;show_online_status&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;allow_recipe_sharing&#39;</span>
+</span></span><span style="display:flex;"><span>  ];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validVisibility</span> <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#39;public&#39;</span>, <span style="color:#e6db74">&#39;friends&#39;</span>, <span style="color:#e6db74">&#39;private&#39;</span>];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Filter and validate updates
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">filteredUpdates</span> <span style="color:#f92672">=</span> {};
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">value</span>] <span style="color:#66d9ef">of</span> Object.<span style="color:#a6e22e">entries</span>(<span style="color:#a6e22e">updates</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">validSettings</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">key</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">key</span>.<span style="color:#a6e22e">endsWith</span>(<span style="color:#e6db74">&#39;_visibility&#39;</span>) <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span><span style="color:#a6e22e">validVisibility</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">value</span>)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">400</span>, <span style="color:#e6db74">&#39;invalid_visibility&#39;</span>, <span style="color:#e6db74">`Invalid visibility: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">typeof</span> <span style="color:#a6e22e">value</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;boolean&#39;</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">validVisibility</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">value</span>)) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">filteredUpdates</span>[<span style="color:#a6e22e">key</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">value</span>;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Email is always private (cannot be changed)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">filteredUpdates</span>.<span style="color:#a6e22e">email_visibility</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">filteredUpdates</span>.<span style="color:#a6e22e">email_visibility</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Build update expression
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">updateExpressions</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">expressionAttributeValues</span> <span style="color:#f92672">=</span> {};
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">value</span>] <span style="color:#66d9ef">of</span> Object.<span style="color:#a6e22e">entries</span>(<span style="color:#a6e22e">filteredUpdates</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updateExpressions</span>.<span style="color:#a6e22e">push</span>(<span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">key</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> = :</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">key</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">expressionAttributeValues</span>[<span style="color:#e6db74">`:</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">key</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">value</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">expressionAttributeValues</span>[<span style="color:#e6db74">&#39;:updated_at&#39;</span>] <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updateExpressions</span>.<span style="color:#a6e22e">push</span>(<span style="color:#e6db74">&#39;updated_at = :updated_at&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PRIVACY&#39;</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`SET </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">updateExpressions</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">expressionAttributeValues</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Privacy settings updated successfully&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updated_fields</span><span style="color:#f92672">:</span> Object.<span style="color:#a6e22e">keys</span>(<span style="color:#a6e22e">filteredUpdates</span>)
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Update privacy settings error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;update_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="frontend-privacy-controls">Frontend Privacy Controls<a class="anchor" href="#frontend-privacy-controls">#</a></h2>
+<h3 id="privacy-settings-page">Privacy Settings Page<a class="anchor" href="#privacy-settings-page">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/public/js/privacy.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PrivacySettings</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isLoading</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">init</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">init</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">loadPrivacySettings</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">renderSettings</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">bindEvents</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">loadPrivacySettings</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">apiClient</span>.<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/user/privacy&#39;</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">response</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isLoading</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">showError</span>(<span style="color:#e6db74">&#39;Failed to load privacy settings&#39;</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isLoading</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">renderSettings</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">container</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">getElementById</span>(<span style="color:#e6db74">&#39;privacy-settings&#39;</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isLoading</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">container</span>.<span style="color:#a6e22e">innerHTML</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&lt;div class=&#34;loading&#34;&gt;Loading privacy settings...&lt;/div&gt;&#39;</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">container</span>.<span style="color:#a6e22e">innerHTML</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;&lt;div class=&#34;error&#34;&gt;Failed to load privacy settings&lt;/div&gt;&#39;</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">visibilityOptions</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>      { <span style="color:#a6e22e">value</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>, <span style="color:#a6e22e">label</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Public - Everyone can see&#39;</span> },
+</span></span><span style="display:flex;"><span>      { <span style="color:#a6e22e">value</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>, <span style="color:#a6e22e">label</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Friends - Only friends can see&#39;</span> },
+</span></span><span style="display:flex;"><span>      { <span style="color:#a6e22e">value</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;private&#39;</span>, <span style="color:#a6e22e">label</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Private - Only you can see&#39;</span> }
+</span></span><span style="display:flex;"><span>    ];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">container</span>.<span style="color:#a6e22e">innerHTML</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &lt;div class=&#34;privacy-form&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;div class=&#34;section&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;h3&gt;Profile Privacy&lt;/h3&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;div class=&#34;form-grid&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Date of Birth&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;date_of_birth_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">date_of_birth_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">date_of_birth_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Gender&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;gender_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">gender_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">gender_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Country&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;country_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">country_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">country_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;div class=&#34;section&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;h3&gt;Content Privacy&lt;/h3&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;div class=&#34;form-grid&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Recipes&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;recipes_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">recipes_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">recipes_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Ingredients&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;ingredients_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">ingredients_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">ingredients_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Food Preferences&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;preferences_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">preferences_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">preferences_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;label&gt;Posts&lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;select id=&#34;posts_visibility&#34; value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">posts_visibility</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">visibilityOptions</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">opt</span> =&gt; 
+</span></span><span style="display:flex;"><span>                  <span style="color:#e6db74">`&lt;option value=&#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">posts_visibility</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;selected&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                    </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">opt</span>.<span style="color:#a6e22e">label</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">                  &lt;/option&gt;`</span>
+</span></span><span style="display:flex;"><span>                ).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;/select&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;div class=&#34;section&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;h3&gt;Social Settings&lt;/h3&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;label class=&#34;checkbox-label&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;input type=&#34;checkbox&#34; id=&#34;allow_friend_requests&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">allow_friend_requests</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;checked&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              Allow Friend Requests
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;small&gt;Let others send you friend requests&lt;/small&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;label class=&#34;checkbox-label&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;input type=&#34;checkbox&#34; id=&#34;show_online_status&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">show_online_status</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;checked&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              Show Online Status
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;small&gt;Let friends see when you&#39;re online&lt;/small&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;div class=&#34;form-group&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;label class=&#34;checkbox-label&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;input type=&#34;checkbox&#34; id=&#34;allow_recipe_sharing&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>.<span style="color:#a6e22e">allow_recipe_sharing</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;checked&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              Allow Recipe Sharing
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">              &lt;small&gt;Let others share your recipes&lt;/small&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            &lt;/label&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;div class=&#34;form-actions&#34;&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;button id=&#34;save-privacy-settings&#34; class=&#34;btn btn-primary&#34; </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;disabled&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">            </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;Saving...&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Save Privacy Settings&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          &lt;/button&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">        &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &lt;/div&gt;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    `</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">bindEvents</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">saveButton</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">getElementById</span>(<span style="color:#e6db74">&#39;save-privacy-settings&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">saveButton</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">saveButton</span>.<span style="color:#a6e22e">addEventListener</span>(<span style="color:#e6db74">&#39;click&#39;</span>, () =&gt; <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">saveSettings</span>());
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Bind change events for all form elements
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">formElements</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">querySelectorAll</span>(<span style="color:#e6db74">&#39;#privacy-settings select, #privacy-settings input&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">formElements</span>.<span style="color:#a6e22e">forEach</span>(<span style="color:#a6e22e">element</span> =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">element</span>.<span style="color:#a6e22e">addEventListener</span>(<span style="color:#e6db74">&#39;change&#39;</span>, (<span style="color:#a6e22e">e</span>) =&gt; <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">updateSetting</span>(<span style="color:#a6e22e">e</span>.<span style="color:#a6e22e">target</span>.<span style="color:#a6e22e">id</span>, <span style="color:#a6e22e">e</span>.<span style="color:#a6e22e">target</span>.<span style="color:#a6e22e">value</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">e</span>.<span style="color:#a6e22e">target</span>.<span style="color:#a6e22e">checked</span>));
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">updateSetting</span>(<span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">value</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>[<span style="color:#a6e22e">key</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">value</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">saveSettings</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span>) <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">updateSaveButton</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">apiClient</span>.<span style="color:#a6e22e">put</span>(<span style="color:#e6db74">&#39;/user/privacy&#39;</span>, <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">settings</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">showSuccess</span>(<span style="color:#e6db74">&#39;Privacy settings updated successfully&#39;</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">showError</span>(<span style="color:#e6db74">&#39;Failed to update privacy settings&#39;</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">updateSaveButton</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">updateSaveButton</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">saveButton</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">getElementById</span>(<span style="color:#e6db74">&#39;save-privacy-settings&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">saveButton</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">saveButton</span>.<span style="color:#a6e22e">disabled</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">saveButton</span>.<span style="color:#a6e22e">textContent</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isSaving</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;Saving...&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Save Privacy Settings&#39;</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">showSuccess</span>(<span style="color:#a6e22e">message</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">showNotification</span>(<span style="color:#a6e22e">message</span>, <span style="color:#e6db74">&#39;success&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">showError</span>(<span style="color:#a6e22e">message</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">showNotification</span>(<span style="color:#a6e22e">message</span>, <span style="color:#e6db74">&#39;error&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">showNotification</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">type</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">notification</span> <span style="color:#f92672">=</span> document.<span style="color:#a6e22e">createElement</span>(<span style="color:#e6db74">&#39;div&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">notification</span>.<span style="color:#a6e22e">className</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`notification </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">type</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">notification</span>.<span style="color:#a6e22e">textContent</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">message</span>;
+</span></span><span style="display:flex;"><span>    document.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">appendChild</span>(<span style="color:#a6e22e">notification</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">setTimeout</span>(() =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">notification</span>.<span style="color:#a6e22e">remove</span>();
+</span></span><span style="display:flex;"><span>    }, <span style="color:#ae81ff">3000</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Initialize privacy settings when page loads
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>document.<span style="color:#a6e22e">addEventListener</span>(<span style="color:#e6db74">&#39;DOMContentLoaded&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PrivacySettings</span>();
+</span></span><span style="display:flex;"><span>});</span></span></code></pre></div><h2 id="ai-data-usage-policy">AI Data Usage Policy<a class="anchor" href="#ai-data-usage-policy">#</a></h2>
+<h3 id="ai-privacy-policy">AI Privacy Policy<a class="anchor" href="#ai-privacy-policy">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-markdown" data-lang="markdown"><span style="display:flex;"><span><span style="color:#75715e">## AI Agent Data Usage Policy
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### Data Used for AI Personalization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>The Smart Cooking AI uses the following information to provide personalized recipe suggestions:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**Personal Information Used:**</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Age range (derived from birth year) - for nutritional recommendations
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Gender - for portion size recommendations  
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Country - for regional cuisine preferences
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Food preferences (cooking methods, favorite cuisines)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Allergies - <span style="font-weight:bold">**CRITICAL**</span> for food safety (absolutely avoided)
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="font-weight:bold">**Data NOT Used:**</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Full name or email address
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Exact location or address
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Payment information
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Browsing history outside the app
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Personal messages or comments
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### Purpose &amp; Usage
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> **Primary Purpose**: Personalize recipe suggestions only
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **No Advertising**: We do not use your data for advertising
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **No Third-Party Sharing**: Your data is never sold or shared
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> **No Profiling**: We don&#39;t create profiles beyond cooking preferences
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### User Control
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> You can update your preferences anytime
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> You can delete your data anytime
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> AI suggestions are optional - you can use the app without them
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> You control what information is shared through privacy settings
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### Data Retention
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> AI suggestion history: 90 days (automatic cleanup)
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Personal preferences: Until you delete your account
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Anonymized usage patterns: May be kept for service improvement
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">### Your Rights
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">-</span> Right to access your data
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Right to correct your data  
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Right to delete your data
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">-</span> Right to data portability
+</span></span><span style="display:flex;"><span>- Right to object to processing</span></span></code></pre></div><h2 id="gdpr-compliance">GDPR Compliance<a class="anchor" href="#gdpr-compliance">#</a></h2>
+<h3 id="data-subject-rights-implementation">Data Subject Rights Implementation<a class="anchor" href="#data-subject-rights-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// GDPR compliance endpoints
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">httpMethod</span>, <span style="color:#a6e22e">resource</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">resource</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;/user/data-export&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">exportUserData</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;/user/data-delete&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deleteUserData</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;/user/data-portability&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getPortableData</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">default</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">404</span>, <span style="color:#e6db74">&#39;not_found&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Right to Access - Export all user data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">exportUserData</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">profile</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">preferences</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPreferences</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserIngredients</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cookingHistory</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiSuggestions</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getAISuggestions</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">posts</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPosts</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">friends</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserFriends</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">privacySettings</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getPrivacySettings</span>(<span style="color:#a6e22e">userId</span>)
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Data export completed&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">exportDate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">format</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;JSON&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;export_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Right to Erasure - Delete all user data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">deleteUserData</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Delete from DynamoDB
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deleteAllUserItems</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Delete from S3 (user images)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deleteUserImages</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Disable Cognito user
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">disableCognitoUser</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;All user data has been deleted&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">deletedAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;deletion_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="40-auth.md">40 - Auth</a></li>
+<li><a href="13-security.md">13 - Security</a></li>
+<li><a href="42-compliance.md">42 - Compliance</a></li>
+<li><a href="11-database.md">11 - Database</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/40-auth/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="40 - Authentication &amp; Authorization" />
+        <span>40 - Authentication &amp; Authorization</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/42-compliance/" class="flex align-center">
+        <span>42 - Compliance &amp; Governance</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="42 - Compliance &amp; Governance" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#privacy-overview">Privacy Overview</a>
+      <ul>
+        <li><a href="#privacy-principles">Privacy Principles</a></li>
+        <li><a href="#privacy-levels">Privacy Levels</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-settings-system">Privacy Settings System</a>
+      <ul>
+        <li><a href="#privacy-configuration">Privacy Configuration</a></li>
+        <li><a href="#privacy-settings-schema">Privacy Settings Schema</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-filtering-implementation">Privacy Filtering Implementation</a>
+      <ul>
+        <li><a href="#backend-privacy-filter">Backend Privacy Filter</a></li>
+        <li><a href="#privacy-aware-api-endpoints">Privacy-Aware API Endpoints</a></li>
+      </ul>
+    </li>
+    <li><a href="#privacy-settings-management">Privacy Settings Management</a>
+      <ul>
+        <li><a href="#update-privacy-settings-api">Update Privacy Settings API</a></li>
+      </ul>
+    </li>
+    <li><a href="#frontend-privacy-controls">Frontend Privacy Controls</a>
+      <ul>
+        <li><a href="#privacy-settings-page">Privacy Settings Page</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-data-usage-policy">AI Data Usage Policy</a>
+      <ul>
+        <li><a href="#ai-privacy-policy">AI Privacy Policy</a></li>
+      </ul>
+    </li>
+    <li><a href="#gdpr-compliance">GDPR Compliance</a>
+      <ul>
+        <li><a href="#data-subject-rights-implementation">Data Subject Rights Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

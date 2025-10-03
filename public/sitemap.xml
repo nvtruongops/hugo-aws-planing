@@ -2,15 +2,57 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
+    <loc>https://example.org/docs/dlc/00-overview/</loc>
+  </url><url>
     <loc>https://example.org/docs/summary/aws-services-diagram/</loc>
   </url><url>
-    <loc>https://example.org/docs/summary/</loc>
+    <loc>https://example.org/docs/dlc/01-requirements/</loc>
   </url><url>
     <loc>https://example.org/docs/summary/ai-agent-implementation/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/02-constraints/</loc>
   </url><url>
     <loc>https://example.org/docs/summary/database-diagram/</loc>
   </url><url>
     <loc>https://example.org/docs/summary/cost-analysis/</loc>
+  </url><url>
+    <loc>https://example.org/docs/summary/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/10-architecture/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/11-database/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/12-api-spec/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/13-security/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/14-ai-agent/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/20-backend/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/21-frontend/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/22-devops/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/23-tasks/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/30-cost-analysis/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/31-scaling/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/32-monitoring/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/40-auth/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/41-privacy/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/42-compliance/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/99-glossary/</loc>
+  </url><url>
+    <loc>https://example.org/docs/dlc/99-references/</loc>
   </url><url>
     <loc>https://example.org/categories/</loc>
   </url><url>

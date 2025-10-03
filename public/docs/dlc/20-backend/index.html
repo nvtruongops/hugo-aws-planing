@@ -1,0 +1,1273 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Backend Implementation - Smart Cooking App#
+Lambda Functions Architecture#
+Function Overview#
+Lambda Functions (11 total):
+  1. auth-handler (256MB, 10s)
+  2. recipe-crud (512MB, 30s) 
+  3. ai-suggestion (1024MB, 60s) ⭐ Core
+  4. user-profile (256MB, 10s)
+  5. cooking-history (256MB, 10s) ⭐ New
+  6. rating-handler (256MB, 10s) ⭐ New
+  7. ingredient-validator (256MB, 10s) ⭐ New
+  8. social-friends (256MB, 10s)
+  9. posts-handler (512MB, 30s)
+  10. notifications (256MB, 10s)
+  11. admin-ops (512MB, 30s)
+
+Runtime: Node.js 20 (all functions)
+Deployment: AWS SAM or CDKCore Lambda Functions#
+1. AI Suggestion Engine (ai-suggestion) ⭐#
+Purpose: Flexible DB/AI mix for recipe suggestions">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/20-backend/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="20 - Backend Implementation">
+  <meta property="og:description" content="Backend Implementation - Smart Cooking App#Lambda Functions Architecture#Function Overview#Lambda Functions (11 total): 1. auth-handler (256MB, 10s) 2. recipe-crud (512MB, 30s) 3. ai-suggestion (1024MB, 60s) ⭐ Core 4. user-profile (256MB, 10s) 5. cooking-history (256MB, 10s) ⭐ New 6. rating-handler (256MB, 10s) ⭐ New 7. ingredient-validator (256MB, 10s) ⭐ New 8. social-friends (256MB, 10s) 9. posts-handler (512MB, 30s) 10. notifications (256MB, 10s) 11. admin-ops (512MB, 30s) Runtime: Node.js 20 (all functions) Deployment: AWS SAM or CDKCore Lambda Functions#1. AI Suggestion Engine (ai-suggestion) ⭐#Purpose: Flexible DB/AI mix for recipe suggestions">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>20 - Backend Implementation | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/20-backend/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="active">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>20 - Backend Implementation</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#lambda-functions-architecture">Lambda Functions Architecture</a>
+      <ul>
+        <li><a href="#function-overview">Function Overview</a></li>
+      </ul>
+    </li>
+    <li><a href="#core-lambda-functions">Core Lambda Functions</a>
+      <ul>
+        <li><a href="#1-ai-suggestion-engine-ai-suggestion-">1. AI Suggestion Engine (ai-suggestion) ⭐</a></li>
+        <li><a href="#2-cooking-history-handler-cooking-history-">2. Cooking History Handler (cooking-history) ⭐</a></li>
+        <li><a href="#3-rating-handler-rating-handler-">3. Rating Handler (rating-handler) ⭐</a></li>
+        <li><a href="#4-ingredient-validator-ingredient-validator-">4. Ingredient Validator (ingredient-validator) ⭐</a></li>
+      </ul>
+    </li>
+    <li><a href="#shared-utilities">Shared Utilities</a>
+      <ul>
+        <li><a href="#dynamodb-helper">DynamoDB Helper</a></li>
+        <li><a href="#response-helpers">Response Helpers</a></li>
+        <li><a href="#bedrock-client">Bedrock Client</a></li>
+      </ul>
+    </li>
+    <li><a href="#error-handling--logging">Error Handling &amp; Logging</a>
+      <ul>
+        <li><a href="#centralized-error-handler">Centralized Error Handler</a></li>
+        <li><a href="#structured-logging">Structured Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="backend-implementation---smart-cooking-app">Backend Implementation - Smart Cooking App<a class="anchor" href="#backend-implementation---smart-cooking-app">#</a></h1>
+<h2 id="lambda-functions-architecture">Lambda Functions Architecture<a class="anchor" href="#lambda-functions-architecture">#</a></h2>
+<h3 id="function-overview">Function Overview<a class="anchor" href="#function-overview">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Lambda Functions (11 total)</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. auth-handler (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. recipe-crud (512MB, 30s) </span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. ai-suggestion (1024MB, 60s) ⭐ Core</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. user-profile (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. cooking-history (256MB, 10s) ⭐ New</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">6</span><span style="color:#ae81ff">. rating-handler (256MB, 10s) ⭐ New</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">7</span><span style="color:#ae81ff">. ingredient-validator (256MB, 10s) ⭐ New</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">8</span><span style="color:#ae81ff">. social-friends (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">9</span><span style="color:#ae81ff">. posts-handler (512MB, 30s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">10</span><span style="color:#ae81ff">. notifications (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">11</span><span style="color:#ae81ff">. admin-ops (512MB, 30s)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Runtime</span>: <span style="color:#ae81ff">Node.js 20 (all functions)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Deployment</span>: <span style="color:#ae81ff">AWS SAM or CDK</span></span></span></code></pre></div><h2 id="core-lambda-functions">Core Lambda Functions<a class="anchor" href="#core-lambda-functions">#</a></h2>
+<h3 id="1-ai-suggestion-engine-ai-suggestion-">1. AI Suggestion Engine (ai-suggestion) ⭐<a class="anchor" href="#1-ai-suggestion-engine-ai-suggestion-">#</a></h3>
+<p><strong>Purpose</strong>: Flexible DB/AI mix for recipe suggestions</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Main handler
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">recipe_count</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 1: Validate ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validation</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">validateIngredients</span>(<span style="color:#a6e22e">ingredients</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">invalid</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">===</span> <span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">length</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">400</span>, <span style="color:#e6db74">&#39;all_ingredients_invalid&#39;</span>, <span style="color:#a6e22e">validation</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 2: Get user context for AI personalization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userContext</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserContext</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 3: Query DB for approved recipes (diverse categories)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dbRecipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">queryDiverseRecipes</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">valid</span>, 
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userContext</span>, 
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_count</span>
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 4: Calculate AI gap
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiGap</span> <span style="color:#f92672">=</span> Math.<span style="color:#a6e22e">max</span>(<span style="color:#ae81ff">0</span>, <span style="color:#a6e22e">recipe_count</span> <span style="color:#f92672">-</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 5: Generate AI recipes if needed
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">aiGap</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> 
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">?</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">generateAIRecipes</span>(<span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">valid</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">aiGap</span>)
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">:</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 6: Save suggestion history
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">saveSuggestionHistory</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">valid</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">requestedCount</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe_count</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">dbCount</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiCount</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">invalidIngredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">invalid</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> [...<span style="color:#a6e22e">dbRecipes</span>, ...<span style="color:#a6e22e">aiRecipes</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">stats</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">requested</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe_count</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">from_database</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">from_ai</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">length</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">warnings</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validation</span>.<span style="color:#a6e22e">warnings</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;AI Suggestion Error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;ai_generation_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Validate ingredients with master table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">validateIngredients</span>(<span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">valid</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">invalid</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">warnings</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ingredient</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">normalized</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">ingredient</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Check exact match
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">exactMatch</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk AND GSI2SK = :sk&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INGREDIENT#SEARCH&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`NAME#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">valid</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Fuzzy search
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">similar</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fuzzySearchIngredients</span>(<span style="color:#a6e22e">normalized</span>);
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">confidence</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0.8</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Auto-correct
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">valid</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">warnings</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">original</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredient</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">corrected</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">confidence</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">confidence</span>
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Invalid - log and report
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">invalid</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">ingredient</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">logInvalidIngredient</span>(<span style="color:#a6e22e">ingredient</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">warnings</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">ingredient</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Nguyên liệu không hợp lệ&#39;</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">5</span>).<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">s</span> =&gt; <span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">name</span>),
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">reported</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>        });
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> { <span style="color:#a6e22e">valid</span>, <span style="color:#a6e22e">invalid</span>, <span style="color:#a6e22e">warnings</span> };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Query diverse recipes by categories
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">queryDiverseRecipes</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">count</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">categories</span> <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#39;stir-fry&#39;</span>, <span style="color:#e6db74">&#39;soup&#39;</span>, <span style="color:#e6db74">&#39;steam&#39;</span>, <span style="color:#e6db74">&#39;grill&#39;</span>, <span style="color:#e6db74">&#39;bake&#39;</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">results</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Try to get recipes from different categories
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">method</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">categories</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;=</span> <span style="color:#a6e22e">count</span>) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">FilterExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;is_approved = :approved AND contains(ingredients_list, :ing)&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`METHOD#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:approved&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:ing&#39;</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredients</span>[<span style="color:#ae81ff">0</span>] <span style="color:#75715e">// Main ingredient
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Limit</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>],
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">source</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;database&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">match_score</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">calculateMatchScore</span>(<span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>], <span style="color:#a6e22e">ingredients</span>)
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">results</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Generate AI recipes with Bedrock
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">generateAIRecipes</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">count</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">usedMethods</span> <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#39;stir-fry&#39;</span>, <span style="color:#e6db74">&#39;soup&#39;</span>, <span style="color:#e6db74">&#39;steam&#39;</span>, <span style="color:#e6db74">&#39;grill&#39;</span>, <span style="color:#e6db74">&#39;bake&#39;</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">let</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">&lt;</span> <span style="color:#a6e22e">count</span>; <span style="color:#a6e22e">i</span><span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">method</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">usedMethods</span>[<span style="color:#a6e22e">i</span> <span style="color:#f92672">%</span> <span style="color:#a6e22e">usedMethods</span>.<span style="color:#a6e22e">length</span>];
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">callBedrock</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">method</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">recipe</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`ai-gen-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">source</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ai&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">is_new</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">is_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">`AI generation failed for </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74">:`</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Continue with other recipes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipes</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="2-cooking-history-handler-cooking-history-">2. Cooking History Handler (cooking-history) ⭐<a class="anchor" href="#2-cooking-history-handler-cooking-history-">#</a></h3>
+<p><strong>Purpose</strong>: Track personal cooking sessions and favorites</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">httpMethod</span>, <span style="color:#a6e22e">pathParameters</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">httpMethod</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;POST&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">startCooking</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;PUT&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">completeCooking</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">pathParameters</span>.<span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;GET&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;DELETE&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deleteCookingHistory</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">pathParameters</span>.<span style="color:#a6e22e">id</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">default</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">405</span>, <span style="color:#e6db74">&#39;method_not_allowed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Start cooking session
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">startCooking</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">recipe_id</span>, <span style="color:#a6e22e">suggestion_id</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">historyId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">generateUUID</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`COOKING#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_id</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suggestion_id</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;cooking&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">history_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Bắt đầu nấu ăn!&#39;</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Complete cooking session
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">completeCooking</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">historyId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`COOKING#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SET #status = :status, cook_date = :date, updated_at = :updated&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeNames</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;#status&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;status&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:status&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;completed&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:date&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:updated&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Hoàn thành! Vui lòng đánh giá món ăn.&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">show_rating_form</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Get cooking history
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">favorites</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">queryStringParameters</span> <span style="color:#f92672">||</span> {};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">filterExpression</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">undefined</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">favorites</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;true&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">filterExpression</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;is_favorite = :favorite&#39;</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND begins_with(SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">FilterExpression</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">filterExpression</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;COOKING#&#39;</span>,
+</span></span><span style="display:flex;"><span>      ...(<span style="color:#a6e22e">filterExpression</span> <span style="color:#f92672">&amp;&amp;</span> { <span style="color:#e6db74">&#39;:favorite&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> })
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ScanIndexForward</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> <span style="color:#75715e">// Newest first
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">history</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> []
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="3-rating-handler-rating-handler-">3. Rating Handler (rating-handler) ⭐<a class="anchor" href="#3-rating-handler-rating-handler-">#</a></h3>
+<p><strong>Purpose</strong>: Auto-approval system based on ratings</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">recipe_id</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">pathParameters</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>, <span style="color:#a6e22e">history_id</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate rating
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">rating</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">rating</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">5</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">400</span>, <span style="color:#e6db74">&#39;invalid_rating&#39;</span>, <span style="color:#e6db74">&#39;Rating must be 1-5&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 1: Save rating
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">saveRating</span>(<span style="color:#a6e22e">recipe_id</span>, <span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>, <span style="color:#a6e22e">history_id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 2: Update cooking history
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">history_id</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateCookingHistory</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">history_id</span>, <span style="color:#a6e22e">rating</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 3: Calculate average rating
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">avgRating</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">calculateAverageRating</span>(<span style="color:#a6e22e">recipe_id</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ratingCount</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getRatingCount</span>(<span style="color:#a6e22e">recipe_id</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Step 4: Auto-approval check
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">avgRating</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">4.0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">approveRecipe</span>(<span style="color:#a6e22e">recipe_id</span>, <span style="color:#a6e22e">avgRating</span>, <span style="color:#a6e22e">ratingCount</span>);
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rating_saved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">auto_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Công thức đã được thêm vào database!&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating_saved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">auto_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Cảm ơn đánh giá của bạn!&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Rating Error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;rating_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Auto-approve recipe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">approveRecipe</span>(<span style="color:#a6e22e">recipeId</span>, <span style="color:#a6e22e">avgRating</span>, <span style="color:#a6e22e">ratingCount</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      SET is_approved = :approved, 
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          is_public = :public,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          approval_type = :type,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          average_rating = :rating,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          rating_count = :count,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          approved_at = :approved_at,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">          updated_at = :updated_at
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    `</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:approved&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:public&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;auto_rating&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:rating&#39;</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:count&#39;</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:approved_at&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:updated_at&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="4-ingredient-validator-ingredient-validator-">4. Ingredient Validator (ingredient-validator) ⭐<a class="anchor" href="#4-ingredient-validator-ingredient-validator-">#</a></h3>
+<p><strong>Purpose</strong>: Validate ingredients and fuzzy search</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">ingredients</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validation</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">validateIngredientsWithMaster</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>(<span style="color:#a6e22e">validation</span>);
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Fuzzy search for similar ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">fuzzySearchIngredients</span>(<span style="color:#a6e22e">searchTerm</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Simple fuzzy search implementation
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">allIngredients</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INGREDIENT#ACTIVE&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">results</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">item</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">allIngredients</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> []) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">similarity</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">calculateSimilarity</span>(<span style="color:#a6e22e">searchTerm</span>, <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">normalized_name</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">similarity</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0.3</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">confidence</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similarity</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">sort</span>((<span style="color:#a6e22e">a</span>, <span style="color:#a6e22e">b</span>) =&gt; <span style="color:#a6e22e">b</span>.<span style="color:#a6e22e">confidence</span> <span style="color:#f92672">-</span> <span style="color:#a6e22e">a</span>.<span style="color:#a6e22e">confidence</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Log invalid ingredient for admin review
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">logInvalidIngredient</span>(<span style="color:#a6e22e">ingredient</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">normalized</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">ingredient</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Log to CloudWatch
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">level</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;WARN&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">event</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;invalid_ingredient&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredient</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">normalized</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Increment report count in database
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INVALID_INGREDIENT#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ADD report_count :inc SET updated_at = :updated&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:inc&#39;</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:updated&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Create new report entry
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INVALID_INGREDIENT#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredient_name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredient</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">normalized_name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">normalized</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">report_count</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="shared-utilities">Shared Utilities<a class="anchor" href="#shared-utilities">#</a></h2>
+<h3 id="dynamodb-helper">DynamoDB Helper<a class="anchor" href="#dynamodb-helper">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/dynamodb.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDBClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-dynamodb&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDBDocumentClient</span>, <span style="color:#a6e22e">QueryCommand</span>, <span style="color:#a6e22e">PutCommand</span>, <span style="color:#a6e22e">UpdateCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/lib-dynamodb&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">client</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DynamoDBClient</span>({});
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ddb</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">DynamoDBDocumentClient</span>.<span style="color:#a6e22e">from</span>(<span style="color:#a6e22e">client</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">query</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>(<span style="color:#a6e22e">params</span>)),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">put</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>(<span style="color:#a6e22e">params</span>)),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">update</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">UpdateCommand</span>(<span style="color:#a6e22e">params</span>)),
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Add other operations as needed
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};</span></span></code></pre></div><h3 id="response-helpers">Response Helpers<a class="anchor" href="#response-helpers">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/responses.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">successResponse</span>(<span style="color:#a6e22e">data</span>, <span style="color:#a6e22e">statusCode</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">200</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Access-Control-Allow-Origin&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;*&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Access-Control-Allow-Headers&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Content-Type,Authorization&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">data</span>)
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#a6e22e">statusCode</span>, <span style="color:#a6e22e">error</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">details</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Access-Control-Allow-Origin&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;*&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">details</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">successResponse</span>, <span style="color:#a6e22e">errorResponse</span> };</span></span></code></pre></div><h3 id="bedrock-client">Bedrock Client<a class="anchor" href="#bedrock-client">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/bedrock-client.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">BedrockRuntimeClient</span>, <span style="color:#a6e22e">InvokeModelCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-bedrock-runtime&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">client</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">BedrockRuntimeClient</span>({ <span style="color:#a6e22e">region</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1&#39;</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">callBedrock</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">cookingMethod</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prompt</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">buildPrompt</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">cookingMethod</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">InvokeModelCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">modelId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anthropic.claude-3-haiku-20240307-v1:0&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">contentType</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">accept</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">anthropic_version</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bedrock-2023-05-31&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">max_tokens</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2048</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">messages</span><span style="color:#f92672">:</span> [{
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">content</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">prompt</span>
+</span></span><span style="display:flex;"><span>      }]
+</span></span><span style="display:flex;"><span>    })
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">responseBody</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">TextDecoder</span>().<span style="color:#a6e22e">decode</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>));
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">responseBody</span>.<span style="color:#a6e22e">content</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">text</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">buildPrompt</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">cookingMethod</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">?</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">getFullYear</span>() <span style="color:#f92672">-</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span> 
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#e6db74">`Bạn là đầu bếp chuyên nghiệp. Tạo công thức với:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Nguyên liệu**: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Phương pháp**: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">cookingMethod</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Người dùng**: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> tuổi`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;người lớn&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">, </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;không rõ giới tính&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Quốc gia**: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Việt Nam&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Dị ứng tránh**: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>) <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Không&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">Trả về JSON:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;name&#34;: &#34;Tên món&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cooking_method&#34;: &#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">cookingMethod</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;ingredients&#34;: [{&#34;ingredient_name&#34;: &#34;...&#34;, &#34;quantity&#34;: &#34;...&#34;}],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;instructions&#34;: [{&#34;step_number&#34;: 1, &#34;description&#34;: &#34;...&#34;}]
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}`</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">callBedrock</span> };</span></span></code></pre></div><h2 id="error-handling--logging">Error Handling &amp; Logging<a class="anchor" href="#error-handling--logging">#</a></h2>
+<h3 id="centralized-error-handler">Centralized Error Handler<a class="anchor" href="#centralized-error-handler">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/error-handler.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AppError</span> <span style="color:#66d9ef">extends</span> Error {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">statusCode</span>, <span style="color:#a6e22e">errorCode</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">message</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">statusCode</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">statusCode</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">errorCode</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">errorCode</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isOperational</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">handleError</span>(<span style="color:#a6e22e">error</span>, <span style="color:#a6e22e">context</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Lambda Error:&#39;</span>, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">stack</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">stack</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">context</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">functionName</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">requestId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">context</span>.<span style="color:#a6e22e">awsRequestId</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">isOperational</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">statusCode</span>, <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">errorCode</span>, <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;internal_server_error&#39;</span>, <span style="color:#e6db74">&#39;Something went wrong&#39;</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">AppError</span>, <span style="color:#a6e22e">handleError</span> };</span></span></code></pre></div><h3 id="structured-logging">Structured Logging<a class="anchor" href="#structured-logging">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// shared/logger.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">level</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">level</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>    ...<span style="color:#a6e22e">metadata</span>
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">info</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>) =&gt; <span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;INFO&#39;</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">warn</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>) =&gt; <span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;WARN&#39;</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>) =&gt; <span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;ERROR&#39;</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">meta</span>)
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="11-database.md">11 - Database</a></li>
+<li><a href="12-api-spec.md">12 - API Spec</a></li>
+<li><a href="21-frontend.md">21 - Frontend</a></li>
+<li><a href="22-devops.md">22 - DevOps</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/14-ai-agent/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="14 - AI Agent Design" />
+        <span>14 - AI Agent Design</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/21-frontend/" class="flex align-center">
+        <span>21 - Frontend Implementation</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="21 - Frontend Implementation" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#lambda-functions-architecture">Lambda Functions Architecture</a>
+      <ul>
+        <li><a href="#function-overview">Function Overview</a></li>
+      </ul>
+    </li>
+    <li><a href="#core-lambda-functions">Core Lambda Functions</a>
+      <ul>
+        <li><a href="#1-ai-suggestion-engine-ai-suggestion-">1. AI Suggestion Engine (ai-suggestion) ⭐</a></li>
+        <li><a href="#2-cooking-history-handler-cooking-history-">2. Cooking History Handler (cooking-history) ⭐</a></li>
+        <li><a href="#3-rating-handler-rating-handler-">3. Rating Handler (rating-handler) ⭐</a></li>
+        <li><a href="#4-ingredient-validator-ingredient-validator-">4. Ingredient Validator (ingredient-validator) ⭐</a></li>
+      </ul>
+    </li>
+    <li><a href="#shared-utilities">Shared Utilities</a>
+      <ul>
+        <li><a href="#dynamodb-helper">DynamoDB Helper</a></li>
+        <li><a href="#response-helpers">Response Helpers</a></li>
+        <li><a href="#bedrock-client">Bedrock Client</a></li>
+      </ul>
+    </li>
+    <li><a href="#error-handling--logging">Error Handling &amp; Logging</a>
+      <ul>
+        <li><a href="#centralized-error-handler">Centralized Error Handler</a></li>
+        <li><a href="#structured-logging">Structured Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,1974 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Authentication &amp; Authorization - Smart Cooking App#
+Authentication Overview#
+Authentication Strategy#
+
+Primary: Amazon Cognito User Pool
+Token Type: JWT (JSON Web Tokens)
+Session Management: Access &#43; Refresh tokens
+MFA: Optional (future enhancement)
+
+User Journey#
+Registration → Email Verification → Profile Setup → Dashboard Access👤 Cognito User Pool Configuration#
+User Pool Settings#
+Pool Name: smart-cooking-users
+Sign-in Options:
+  - Email (primary)
+  - Username (secondary)
+
+Password Policy:
+  Minimum Length: 8 characters
+  Require:
+    - Lowercase letters: Yes
+    - Uppercase letters: Yes
+    - Numbers: Yes
+    - Special characters: Optional
+  Temporary Password Expiry: 24 hours
+
+Account Recovery:
+  - Email verification code
+  - No SMS (cost optimization)
+
+Email Verification:
+  Required: Yes
+  Code Expiry: 24 hours
+  From Email: noreply@smartcooking.appCustom Attributes#
+Standard Attributes:
+  - email (required, mutable)
+  - name (required, mutable)
+  - birthdate (optional, mutable)
+  - gender (optional, mutable)
+
+Custom Attributes:
+  - custom:role (user|admin, immutable)
+  - custom:username (unique identifier, mutable)
+  - custom:country (Vietnam, US, etc., mutable)
+  - custom:onboarding_completed (boolean, mutable)App Client Configuration#
+App Client Name: smart-cooking-web-client
+Auth Flows:
+  - ALLOW_USER_PASSWORD_AUTH
+  - ALLOW_REFRESH_TOKEN_AUTH
+  - ALLOW_USER_SRP_AUTH
+
+Token Validity:
+  Access Token: 1 hour
+  ID Token: 1 hour
+  Refresh Token: 30 days
+
+Read/Write Attributes:
+  Read: email, name, birthdate, gender, custom:username, custom:country
+  Write: name, birthdate, gender, custom:username, custom:country
+
+OAuth 2.0 Settings:
+  Callback URLs: 
+    - https://smartcooking.app/auth/callback
+    - http://localhost:3000/auth/callback (dev)
+  Sign-out URLs:
+    - https://smartcooking.app/
+    - http://localhost:3000/ (dev)Authentication Flow#
+Registration Flow#
+sequenceDiagram
+    participant User
+    participant WebApp
+    participant Cognito
+    participant Lambda
+    participant DynamoDB
+
+    User-&gt;&gt;WebApp: Fill registration form
+    WebApp-&gt;&gt;Cognito: SignUp(email, password, attributes)
+    Cognito--&gt;&gt;WebApp: User created (unconfirmed)
+    Cognito-&gt;&gt;User: Send verification email
+    
+    User-&gt;&gt;User: Check email &amp; click link
+    User-&gt;&gt;WebApp: Enter verification code
+    WebApp-&gt;&gt;Cognito: ConfirmSignUp(code)
+    Cognito--&gt;&gt;WebApp: User confirmed
+    
+    Cognito-&gt;&gt;Lambda: Post-Confirmation Trigger
+    Lambda-&gt;&gt;DynamoDB: Create user profile
+    Lambda-&gt;&gt;DynamoDB: Set default privacy settings
+    Lambda--&gt;&gt;Cognito: Success
+    
+    WebApp-&gt;&gt;User: Registration completeLogin Flow#
+sequenceDiagram
+    participant User
+    participant WebApp
+    participant Cognito
+
+    User-&gt;&gt;WebApp: Enter email/password
+    WebApp-&gt;&gt;Cognito: InitiateAuth(email, password)
+    Cognito--&gt;&gt;WebApp: JWT tokens (Access, ID, Refresh)
+    WebApp-&gt;&gt;WebApp: Store tokens securely
+    WebApp-&gt;&gt;User: Redirect to dashboardToken Refresh Flow#
+sequenceDiagram
+    participant WebApp
+    participant Cognito
+
+    WebApp-&gt;&gt;WebApp: Access token expired
+    WebApp-&gt;&gt;Cognito: RefreshToken(refresh_token)
+    Cognito--&gt;&gt;WebApp: New access &amp; ID tokens
+    WebApp-&gt;&gt;WebApp: Update stored tokensJWT Token Structure#
+Access Token Claims#
+{
+  &#34;sub&#34;: &#34;uuid-123-456-789&#34;,
+  &#34;cognito:username&#34;: &#34;user@example.com&#34;,
+  &#34;email&#34;: &#34;user@example.com&#34;,
+  &#34;email_verified&#34;: true,
+  &#34;iss&#34;: &#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;,
+  &#34;client_id&#34;: &#34;abc123def456&#34;,
+  &#34;token_use&#34;: &#34;access&#34;,
+  &#34;scope&#34;: &#34;aws.cognito.signin.user.admin&#34;,
+  &#34;auth_time&#34;: 1706097600,
+  &#34;exp&#34;: 1706101200,
+  &#34;iat&#34;: 1706097600
+}ID Token Claims#
+{
+  &#34;sub&#34;: &#34;uuid-123-456-789&#34;,
+  &#34;cognito:username&#34;: &#34;user@example.com&#34;,
+  &#34;email&#34;: &#34;user@example.com&#34;,
+  &#34;name&#34;: &#34;John Doe&#34;,
+  &#34;birthdate&#34;: &#34;1990-01-15&#34;,
+  &#34;gender&#34;: &#34;male&#34;,
+  &#34;custom:role&#34;: &#34;user&#34;,
+  &#34;custom:username&#34;: &#34;johndoe&#34;,
+  &#34;custom:country&#34;: &#34;Vietnam&#34;,
+  &#34;custom:onboarding_completed&#34;: &#34;true&#34;,
+  &#34;iss&#34;: &#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;,
+  &#34;aud&#34;: &#34;abc123def456&#34;,
+  &#34;token_use&#34;: &#34;id&#34;,
+  &#34;auth_time&#34;: 1706097600,
+  &#34;exp&#34;: 1706101200,
+  &#34;iat&#34;: 1706097600
+}Post-Confirmation Lambda#
+Lambda Function: auth-handler#
+exports.handler = async (event, context) =&gt; {
+  console.log(&#39;Post-confirmation trigger:&#39;, JSON.stringify(event, null, 2));
+
+  const { userAttributes, userName } = event.request;
+  const userId = userAttributes.sub;
+
+  try {
+    // Create user profile in DynamoDB
+    await createUserProfile(userId, userAttributes);
+    
+    // Set default privacy settings
+    await createDefaultPrivacySettings(userId);
+    
+    // Log successful user creation
+    console.log(`User profile created successfully for: ${userId}`);
+    
+    return event;
+  } catch (error) {
+    console.error(&#39;Error in post-confirmation:&#39;, error);
+    throw error;
+  }
+};
+
+async function createUserProfile(userId, attributes) {
+  const userProfile = {
+    PK: `USER#${userId}`,
+    SK: &#39;PROFILE&#39;,
+    entity_type: &#39;USER_PROFILE&#39;,
+    user_id: userId,
+    email: attributes.email,
+    username: attributes[&#39;custom:username&#39;] || attributes.email,
+    full_name: attributes.name || &#39;&#39;,
+    date_of_birth: attributes.birthdate || null,
+    gender: attributes.gender || null,
+    country: attributes[&#39;custom:country&#39;] || null,
+    role: attributes[&#39;custom:role&#39;] || &#39;user&#39;,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    
+    // GSI1 for role-based queries
+    GSI1PK: `ROLE#${attributes[&#39;custom:role&#39;] || &#39;user&#39;}`,
+    GSI1SK: `USER#${new Date().toISOString()}`
+  };
+
+  await ddb.put({
+    TableName: process.env.DYNAMODB_TABLE,
+    Item: userProfile
+  });
+
+  // Create default preferences
+  const userPreferences = {
+    PK: `USER#${userId}`,
+    SK: &#39;PREFERENCES&#39;,
+    entity_type: &#39;USER_PREFERENCES&#39;,
+    dietary_restrictions: [],
+    allergies: [],
+    favorite_cuisines: [],
+    preferred_cooking_methods: [],
+    preferred_recipe_count: 1,
+    spice_level: &#39;medium&#39;,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  await ddb.put({
+    TableName: process.env.DYNAMODB_TABLE,
+    Item: userPreferences
+  });
+}
+
+async function createDefaultPrivacySettings(userId) {
+  const privacySettings = {
+    PK: `USER#${userId}`,
+    SK: &#39;PRIVACY&#39;,
+    entity_type: &#39;PRIVACY_SETTINGS&#39;,
+    profile_visibility: &#39;public&#39;,
+    email_visibility: &#39;private&#39;,
+    date_of_birth_visibility: &#39;friends&#39;,
+    gender_visibility: &#39;public&#39;,
+    country_visibility: &#39;public&#39;,
+    recipes_visibility: &#39;public&#39;,
+    ingredients_visibility: &#39;friends&#39;,
+    preferences_visibility: &#39;friends&#39;,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  };
+
+  await ddb.put({
+    TableName: process.env.DYNAMODB_TABLE,
+    Item: privacySettings
+  });
+}Authorization Implementation#
+API Gateway Authorizer#
+Authorizer Type: COGNITO_USER_POOLS
+User Pool: smart-cooking-users
+Token Source: Authorization header (Bearer token)
+Token Validation:
+  - Signature verification
+  - Expiration check
+  - Issuer validation
+Authorization Caching: 300 seconds (5 minutes)
+
+Identity Source: method.request.header.AuthorizationLambda Authorization Context#
+// Extract user context from Cognito authorizer
+exports.handler = async (event, context) =&gt; {
+  const claims = event.requestContext.authorizer.claims;
+  
+  const userContext = {
+    userId: claims.sub,
+    username: claims[&#39;cognito:username&#39;],
+    email: claims.email,
+    role: claims[&#39;custom:role&#39;] || &#39;user&#39;,
+    country: claims[&#39;custom:country&#39;],
+    isActive: true // Additional check can be added
+  };
+
+  // Role-based authorization
+  if (event.resource.includes(&#39;/admin/&#39;) &amp;&amp; userContext.role !== &#39;admin&#39;) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({
+        error: &#39;forbidden&#39;,
+        message: &#39;Admin access required&#39;
+      })
+    };
+  }
+
+  // Resource ownership check
+  const resourceUserId = event.pathParameters?.userId;
+  if (resourceUserId &amp;&amp; resourceUserId !== userContext.userId &amp;&amp; userContext.role !== &#39;admin&#39;) {
+    return {
+      statusCode: 403,
+      body: JSON.stringify({
+        error: &#39;forbidden&#39;,
+        message: &#39;You can only access your own resources&#39;
+      })
+    };
+  }
+
+  // Continue with business logic
+  return await processRequest(event, userContext);
+};Role-Based Access Control (RBAC)#
+const PERMISSIONS = {
+  user: [
+    &#39;read:own_profile&#39;,
+    &#39;write:own_profile&#39;,
+    &#39;read:own_ingredients&#39;,
+    &#39;write:own_ingredients&#39;,
+    &#39;read:public_recipes&#39;,
+    &#39;write:own_recipes&#39;,
+    &#39;read:ai_suggestions&#39;,
+    &#39;write:ai_suggestions&#39;,
+    &#39;read:own_cooking_history&#39;,
+    &#39;write:own_cooking_history&#39;,
+    &#39;write:recipe_ratings&#39;,
+    &#39;read:friends&#39;,
+    &#39;write:friends&#39;,
+    &#39;read:own_posts&#39;,
+    &#39;write:own_posts&#39;,
+    &#39;write:comments&#39;,
+    &#39;write:reactions&#39;
+  ],
+  admin: [
+    &#39;*&#39;, // All permissions
+    &#39;read:all_users&#39;,
+    &#39;write:user_status&#39;,
+    &#39;read:all_recipes&#39;,
+    &#39;write:recipe_approval&#39;,
+    &#39;read:statistics&#39;,
+    &#39;read:invalid_reports&#39;
+  ]
+};
+
+function hasPermission(role, permission) {
+  const rolePermissions = PERMISSIONS[role] || [];
+  return rolePermissions.includes(&#39;*&#39;) || rolePermissions.includes(permission);
+}
+
+function checkPermission(userRole, requiredPermission) {
+  if (!hasPermission(userRole, requiredPermission)) {
+    throw new Error(`Permission denied: ${requiredPermission} required`);
+  }
+}Frontend Authentication#
+Auth Service (Client-Side)#
+// src/public/js/auth.js
+class AuthService {
+  constructor() {
+    this.user = null;
+    this.isAuthenticated = false;
+    this.checkAuthState();
+  }
+
+  async checkAuthState() {
+    const token = this.getStoredToken();
+    if (token &amp;&amp; !this.isTokenExpired(token)) {
+      this.user = this.parseTokenClaims(token);
+      this.isAuthenticated = true;
+    } else {
+      this.clearAuth();
+    }
+  }
+
+  async login(email, password) {
+    try {
+      const response = await fetch(&#39;/auth/login&#39;, {
+        method: &#39;POST&#39;,
+        headers: {
+          &#39;Content-Type&#39;: &#39;application/json&#39;
+        },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || &#39;Login failed&#39;);
+      }
+
+      const data = await response.json();
+      this.setAuth(data.access_token, data.user);
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async register(userData) {
+    try {
+      const response = await fetch(&#39;/auth/register&#39;, {
+        method: &#39;POST&#39;,
+        headers: {
+          &#39;Content-Type&#39;: &#39;application/json&#39;
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || &#39;Registration failed&#39;);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async logout() {
+    try {
+      await fetch(&#39;/auth/logout&#39;, {
+        method: &#39;POST&#39;,
+        headers: {
+          &#39;Authorization&#39;: `Bearer ${this.getStoredToken()}`
+        }
+      });
+    } catch (error) {
+      console.error(&#39;Logout error:&#39;, error);
+    } finally {
+      this.clearAuth();
+      window.location.href = &#39;/&#39;;
+    }
+  }
+
+  setAuth(token, user) {
+    localStorage.setItem(&#39;access_token&#39;, token);
+    this.user = user;
+    this.isAuthenticated = true;
+  }
+
+  clearAuth() {
+    localStorage.removeItem(&#39;access_token&#39;);
+    this.user = null;
+    this.isAuthenticated = false;
+  }
+
+  getStoredToken() {
+    return localStorage.getItem(&#39;access_token&#39;);
+  }
+
+  isTokenExpired(token) {
+    try {
+      const payload = JSON.parse(atob(token.split(&#39;.&#39;)[1]));
+      return payload.exp * 1000 &lt; Date.now();
+    } catch (error) {
+      return true;
+    }
+  }
+
+  parseTokenClaims(token) {
+    try {
+      const payload = JSON.parse(atob(token.split(&#39;.&#39;)[1]));
+      return {
+        userId: payload.sub,
+        email: payload.email,
+        username: payload[&#39;cognito:username&#39;],
+        role: payload[&#39;custom:role&#39;] || &#39;user&#39;
+      };
+    } catch (error) {
+      return null;
+    }
+  }
+
+  getAuthHeaders() {
+    const token = this.getStoredToken();
+    return token ? { &#39;Authorization&#39;: `Bearer ${token}` } : {};
+  }
+}
+
+// Global auth service instance
+const authService = new AuthService();Auth Middleware (Server-Side)#
+// src/middleware/auth.js
+const authService = require(&#39;../services/authService&#39;);
+
+const requireAuth = (req, res, next) =&gt; {
+  const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken;
+  
+  if (!token) {
+    return res.redirect(&#39;/auth/login&#39;);
+  }
+
+  try {
+    const user = authService.extractUserFromToken(token);
+    req.user = user;
+    res.locals.user = user;
+    next();
+  } catch (error) {
+    res.clearCookie(&#39;accessToken&#39;);
+    return res.redirect(&#39;/auth/login&#39;);
+  }
+};
+
+const requireAdmin = (req, res, next) =&gt; {
+  requireAuth(req, res, () =&gt; {
+    if (req.user.role !== &#39;admin&#39;) {
+      return res.status(403).render(&#39;error&#39;, {
+        title: &#39;Access Denied&#39;,
+        message: &#39;Admin privileges required&#39;
+      });
+    }
+    next();
+  });
+};
+
+const optionalAuth = (req, res, next) =&gt; {
+  const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken;
+  
+  if (token) {
+    try {
+      const user = authService.extractUserFromToken(token);
+      req.user = user;
+      res.locals.user = user;
+    } catch (error) {
+      res.clearCookie(&#39;accessToken&#39;);
+    }
+  }
+  
+  next();
+};
+
+module.exports = { requireAuth, requireAdmin, optionalAuth };API Client with Auth#
+// src/services/apiClient.js
+class ApiClient {
+  constructor(baseURL) {
+    this.baseURL = baseURL || process.env.API_URL;
+  }
+
+  async request(endpoint, options = {}) {
+    const url = `${this.baseURL}${endpoint}`;
+    const token = localStorage.getItem(&#39;access_token&#39;);
+    
+    const config = {
+      headers: {
+        &#39;Content-Type&#39;: &#39;application/json&#39;,
+        ...options.headers
+      },
+      ...options
+    };
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+      const response = await fetch(url, config);
+      
+      if (response.status === 401) {
+        // Token expired, redirect to login
+        localStorage.removeItem(&#39;access_token&#39;);
+        window.location.href = &#39;/auth/login&#39;;
+        return;
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || &#39;Request failed&#39;);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async get(endpoint, options = {}) {
+    return this.request(endpoint, { method: &#39;GET&#39;, ...options });
+  }
+
+  async post(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: &#39;POST&#39;,
+      body: JSON.stringify(data),
+      ...options
+    });
+  }
+
+  async put(endpoint, data, options = {}) {
+    return this.request(endpoint, {
+      method: &#39;PUT&#39;,
+      body: JSON.stringify(data),
+      ...options
+    });
+  }
+
+  async delete(endpoint, options = {}) {
+    return this.request(endpoint, { method: &#39;DELETE&#39;, ...options });
+  }
+}
+
+const apiClient = new ApiClient();
+module.exports = apiClient;Security Best Practices#
+Token Storage#
+// Secure token storage (avoid localStorage for sensitive data)
+class SecureTokenStorage {
+  private static readonly ACCESS_TOKEN_KEY = &#39;access_token&#39;;
+  private static readonly REFRESH_TOKEN_KEY = &#39;refresh_token&#39;;
+
+  static setTokens(accessToken: string, refreshToken: string) {
+    // Use httpOnly cookies in production
+    if (typeof window !== &#39;undefined&#39;) {
+      // For demo purposes - use secure cookies in production
+      document.cookie = `${this.ACCESS_TOKEN_KEY}=${accessToken}; Secure; SameSite=Strict; Max-Age=3600`;
+      document.cookie = `${this.REFRESH_TOKEN_KEY}=${refreshToken}; Secure; SameSite=Strict; Max-Age=2592000`;
+    }
+  }
+
+  static clearTokens() {
+    if (typeof window !== &#39;undefined&#39;) {
+      document.cookie = `${this.ACCESS_TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+      document.cookie = `${this.REFRESH_TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+    }
+  }
+}Input Validation#
+// Validation schemas for auth endpoints
+const registrationSchema = {
+  email: {
+    type: &#39;string&#39;,
+    format: &#39;email&#39;,
+    required: true
+  },
+  password: {
+    type: &#39;string&#39;,
+    minLength: 8,
+    pattern: &#39;^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)&#39;,
+    required: true
+  },
+  fullName: {
+    type: &#39;string&#39;,
+    minLength: 2,
+    maxLength: 100,
+    required: true
+  },
+  username: {
+    type: &#39;string&#39;,
+    minLength: 3,
+    maxLength: 30,
+    pattern: &#39;^[a-zA-Z0-9_]&#43;$&#39;,
+    required: true
+  }
+};Related Documents#
+
+13 - Security
+41 - Privacy
+21 - Frontend
+20 - Backend
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/40-auth/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="40 - Authentication & Authorization">
+  <meta property="og:description" content="Authentication &amp; Authorization - Smart Cooking App#Authentication Overview#Authentication Strategy#Primary: Amazon Cognito User Pool Token Type: JWT (JSON Web Tokens) Session Management: Access &#43; Refresh tokens MFA: Optional (future enhancement) User Journey#Registration → Email Verification → Profile Setup → Dashboard Access👤 Cognito User Pool Configuration#User Pool Settings#Pool Name: smart-cooking-users Sign-in Options: - Email (primary) - Username (secondary) Password Policy: Minimum Length: 8 characters Require: - Lowercase letters: Yes - Uppercase letters: Yes - Numbers: Yes - Special characters: Optional Temporary Password Expiry: 24 hours Account Recovery: - Email verification code - No SMS (cost optimization) Email Verification: Required: Yes Code Expiry: 24 hours From Email: noreply@smartcooking.appCustom Attributes#Standard Attributes: - email (required, mutable) - name (required, mutable) - birthdate (optional, mutable) - gender (optional, mutable) Custom Attributes: - custom:role (user|admin, immutable) - custom:username (unique identifier, mutable) - custom:country (Vietnam, US, etc., mutable) - custom:onboarding_completed (boolean, mutable)App Client Configuration#App Client Name: smart-cooking-web-client Auth Flows: - ALLOW_USER_PASSWORD_AUTH - ALLOW_REFRESH_TOKEN_AUTH - ALLOW_USER_SRP_AUTH Token Validity: Access Token: 1 hour ID Token: 1 hour Refresh Token: 30 days Read/Write Attributes: Read: email, name, birthdate, gender, custom:username, custom:country Write: name, birthdate, gender, custom:username, custom:country OAuth 2.0 Settings: Callback URLs: - https://smartcooking.app/auth/callback - http://localhost:3000/auth/callback (dev) Sign-out URLs: - https://smartcooking.app/ - http://localhost:3000/ (dev)Authentication Flow#Registration Flow#sequenceDiagram participant User participant WebApp participant Cognito participant Lambda participant DynamoDB User-&gt;&gt;WebApp: Fill registration form WebApp-&gt;&gt;Cognito: SignUp(email, password, attributes) Cognito--&gt;&gt;WebApp: User created (unconfirmed) Cognito-&gt;&gt;User: Send verification email User-&gt;&gt;User: Check email &amp; click link User-&gt;&gt;WebApp: Enter verification code WebApp-&gt;&gt;Cognito: ConfirmSignUp(code) Cognito--&gt;&gt;WebApp: User confirmed Cognito-&gt;&gt;Lambda: Post-Confirmation Trigger Lambda-&gt;&gt;DynamoDB: Create user profile Lambda-&gt;&gt;DynamoDB: Set default privacy settings Lambda--&gt;&gt;Cognito: Success WebApp-&gt;&gt;User: Registration completeLogin Flow#sequenceDiagram participant User participant WebApp participant Cognito User-&gt;&gt;WebApp: Enter email/password WebApp-&gt;&gt;Cognito: InitiateAuth(email, password) Cognito--&gt;&gt;WebApp: JWT tokens (Access, ID, Refresh) WebApp-&gt;&gt;WebApp: Store tokens securely WebApp-&gt;&gt;User: Redirect to dashboardToken Refresh Flow#sequenceDiagram participant WebApp participant Cognito WebApp-&gt;&gt;WebApp: Access token expired WebApp-&gt;&gt;Cognito: RefreshToken(refresh_token) Cognito--&gt;&gt;WebApp: New access &amp; ID tokens WebApp-&gt;&gt;WebApp: Update stored tokensJWT Token Structure#Access Token Claims#{ &#34;sub&#34;: &#34;uuid-123-456-789&#34;, &#34;cognito:username&#34;: &#34;user@example.com&#34;, &#34;email&#34;: &#34;user@example.com&#34;, &#34;email_verified&#34;: true, &#34;iss&#34;: &#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;, &#34;client_id&#34;: &#34;abc123def456&#34;, &#34;token_use&#34;: &#34;access&#34;, &#34;scope&#34;: &#34;aws.cognito.signin.user.admin&#34;, &#34;auth_time&#34;: 1706097600, &#34;exp&#34;: 1706101200, &#34;iat&#34;: 1706097600 }ID Token Claims#{ &#34;sub&#34;: &#34;uuid-123-456-789&#34;, &#34;cognito:username&#34;: &#34;user@example.com&#34;, &#34;email&#34;: &#34;user@example.com&#34;, &#34;name&#34;: &#34;John Doe&#34;, &#34;birthdate&#34;: &#34;1990-01-15&#34;, &#34;gender&#34;: &#34;male&#34;, &#34;custom:role&#34;: &#34;user&#34;, &#34;custom:username&#34;: &#34;johndoe&#34;, &#34;custom:country&#34;: &#34;Vietnam&#34;, &#34;custom:onboarding_completed&#34;: &#34;true&#34;, &#34;iss&#34;: &#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;, &#34;aud&#34;: &#34;abc123def456&#34;, &#34;token_use&#34;: &#34;id&#34;, &#34;auth_time&#34;: 1706097600, &#34;exp&#34;: 1706101200, &#34;iat&#34;: 1706097600 }Post-Confirmation Lambda#Lambda Function: auth-handler#exports.handler = async (event, context) =&gt; { console.log(&#39;Post-confirmation trigger:&#39;, JSON.stringify(event, null, 2)); const { userAttributes, userName } = event.request; const userId = userAttributes.sub; try { // Create user profile in DynamoDB await createUserProfile(userId, userAttributes); // Set default privacy settings await createDefaultPrivacySettings(userId); // Log successful user creation console.log(`User profile created successfully for: ${userId}`); return event; } catch (error) { console.error(&#39;Error in post-confirmation:&#39;, error); throw error; } }; async function createUserProfile(userId, attributes) { const userProfile = { PK: `USER#${userId}`, SK: &#39;PROFILE&#39;, entity_type: &#39;USER_PROFILE&#39;, user_id: userId, email: attributes.email, username: attributes[&#39;custom:username&#39;] || attributes.email, full_name: attributes.name || &#39;&#39;, date_of_birth: attributes.birthdate || null, gender: attributes.gender || null, country: attributes[&#39;custom:country&#39;] || null, role: attributes[&#39;custom:role&#39;] || &#39;user&#39;, is_active: true, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), // GSI1 for role-based queries GSI1PK: `ROLE#${attributes[&#39;custom:role&#39;] || &#39;user&#39;}`, GSI1SK: `USER#${new Date().toISOString()}` }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: userProfile }); // Create default preferences const userPreferences = { PK: `USER#${userId}`, SK: &#39;PREFERENCES&#39;, entity_type: &#39;USER_PREFERENCES&#39;, dietary_restrictions: [], allergies: [], favorite_cuisines: [], preferred_cooking_methods: [], preferred_recipe_count: 1, spice_level: &#39;medium&#39;, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: userPreferences }); } async function createDefaultPrivacySettings(userId) { const privacySettings = { PK: `USER#${userId}`, SK: &#39;PRIVACY&#39;, entity_type: &#39;PRIVACY_SETTINGS&#39;, profile_visibility: &#39;public&#39;, email_visibility: &#39;private&#39;, date_of_birth_visibility: &#39;friends&#39;, gender_visibility: &#39;public&#39;, country_visibility: &#39;public&#39;, recipes_visibility: &#39;public&#39;, ingredients_visibility: &#39;friends&#39;, preferences_visibility: &#39;friends&#39;, created_at: new Date().toISOString(), updated_at: new Date().toISOString() }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: privacySettings }); }Authorization Implementation#API Gateway Authorizer#Authorizer Type: COGNITO_USER_POOLS User Pool: smart-cooking-users Token Source: Authorization header (Bearer token) Token Validation: - Signature verification - Expiration check - Issuer validation Authorization Caching: 300 seconds (5 minutes) Identity Source: method.request.header.AuthorizationLambda Authorization Context#// Extract user context from Cognito authorizer exports.handler = async (event, context) =&gt; { const claims = event.requestContext.authorizer.claims; const userContext = { userId: claims.sub, username: claims[&#39;cognito:username&#39;], email: claims.email, role: claims[&#39;custom:role&#39;] || &#39;user&#39;, country: claims[&#39;custom:country&#39;], isActive: true // Additional check can be added }; // Role-based authorization if (event.resource.includes(&#39;/admin/&#39;) &amp;&amp; userContext.role !== &#39;admin&#39;) { return { statusCode: 403, body: JSON.stringify({ error: &#39;forbidden&#39;, message: &#39;Admin access required&#39; }) }; } // Resource ownership check const resourceUserId = event.pathParameters?.userId; if (resourceUserId &amp;&amp; resourceUserId !== userContext.userId &amp;&amp; userContext.role !== &#39;admin&#39;) { return { statusCode: 403, body: JSON.stringify({ error: &#39;forbidden&#39;, message: &#39;You can only access your own resources&#39; }) }; } // Continue with business logic return await processRequest(event, userContext); };Role-Based Access Control (RBAC)#const PERMISSIONS = { user: [ &#39;read:own_profile&#39;, &#39;write:own_profile&#39;, &#39;read:own_ingredients&#39;, &#39;write:own_ingredients&#39;, &#39;read:public_recipes&#39;, &#39;write:own_recipes&#39;, &#39;read:ai_suggestions&#39;, &#39;write:ai_suggestions&#39;, &#39;read:own_cooking_history&#39;, &#39;write:own_cooking_history&#39;, &#39;write:recipe_ratings&#39;, &#39;read:friends&#39;, &#39;write:friends&#39;, &#39;read:own_posts&#39;, &#39;write:own_posts&#39;, &#39;write:comments&#39;, &#39;write:reactions&#39; ], admin: [ &#39;*&#39;, // All permissions &#39;read:all_users&#39;, &#39;write:user_status&#39;, &#39;read:all_recipes&#39;, &#39;write:recipe_approval&#39;, &#39;read:statistics&#39;, &#39;read:invalid_reports&#39; ] }; function hasPermission(role, permission) { const rolePermissions = PERMISSIONS[role] || []; return rolePermissions.includes(&#39;*&#39;) || rolePermissions.includes(permission); } function checkPermission(userRole, requiredPermission) { if (!hasPermission(userRole, requiredPermission)) { throw new Error(`Permission denied: ${requiredPermission} required`); } }Frontend Authentication#Auth Service (Client-Side)#// src/public/js/auth.js class AuthService { constructor() { this.user = null; this.isAuthenticated = false; this.checkAuthState(); } async checkAuthState() { const token = this.getStoredToken(); if (token &amp;&amp; !this.isTokenExpired(token)) { this.user = this.parseTokenClaims(token); this.isAuthenticated = true; } else { this.clearAuth(); } } async login(email, password) { try { const response = await fetch(&#39;/auth/login&#39;, { method: &#39;POST&#39;, headers: { &#39;Content-Type&#39;: &#39;application/json&#39; }, body: JSON.stringify({ email, password }) }); if (!response.ok) { const error = await response.json(); throw new Error(error.message || &#39;Login failed&#39;); } const data = await response.json(); this.setAuth(data.access_token, data.user); return data; } catch (error) { throw error; } } async register(userData) { try { const response = await fetch(&#39;/auth/register&#39;, { method: &#39;POST&#39;, headers: { &#39;Content-Type&#39;: &#39;application/json&#39; }, body: JSON.stringify(userData) }); if (!response.ok) { const error = await response.json(); throw new Error(error.message || &#39;Registration failed&#39;); } return await response.json(); } catch (error) { throw error; } } async logout() { try { await fetch(&#39;/auth/logout&#39;, { method: &#39;POST&#39;, headers: { &#39;Authorization&#39;: `Bearer ${this.getStoredToken()}` } }); } catch (error) { console.error(&#39;Logout error:&#39;, error); } finally { this.clearAuth(); window.location.href = &#39;/&#39;; } } setAuth(token, user) { localStorage.setItem(&#39;access_token&#39;, token); this.user = user; this.isAuthenticated = true; } clearAuth() { localStorage.removeItem(&#39;access_token&#39;); this.user = null; this.isAuthenticated = false; } getStoredToken() { return localStorage.getItem(&#39;access_token&#39;); } isTokenExpired(token) { try { const payload = JSON.parse(atob(token.split(&#39;.&#39;)[1])); return payload.exp * 1000 &lt; Date.now(); } catch (error) { return true; } } parseTokenClaims(token) { try { const payload = JSON.parse(atob(token.split(&#39;.&#39;)[1])); return { userId: payload.sub, email: payload.email, username: payload[&#39;cognito:username&#39;], role: payload[&#39;custom:role&#39;] || &#39;user&#39; }; } catch (error) { return null; } } getAuthHeaders() { const token = this.getStoredToken(); return token ? { &#39;Authorization&#39;: `Bearer ${token}` } : {}; } } // Global auth service instance const authService = new AuthService();Auth Middleware (Server-Side)#// src/middleware/auth.js const authService = require(&#39;../services/authService&#39;); const requireAuth = (req, res, next) =&gt; { const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken; if (!token) { return res.redirect(&#39;/auth/login&#39;); } try { const user = authService.extractUserFromToken(token); req.user = user; res.locals.user = user; next(); } catch (error) { res.clearCookie(&#39;accessToken&#39;); return res.redirect(&#39;/auth/login&#39;); } }; const requireAdmin = (req, res, next) =&gt; { requireAuth(req, res, () =&gt; { if (req.user.role !== &#39;admin&#39;) { return res.status(403).render(&#39;error&#39;, { title: &#39;Access Denied&#39;, message: &#39;Admin privileges required&#39; }); } next(); }); }; const optionalAuth = (req, res, next) =&gt; { const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken; if (token) { try { const user = authService.extractUserFromToken(token); req.user = user; res.locals.user = user; } catch (error) { res.clearCookie(&#39;accessToken&#39;); } } next(); }; module.exports = { requireAuth, requireAdmin, optionalAuth };API Client with Auth#// src/services/apiClient.js class ApiClient { constructor(baseURL) { this.baseURL = baseURL || process.env.API_URL; } async request(endpoint, options = {}) { const url = `${this.baseURL}${endpoint}`; const token = localStorage.getItem(&#39;access_token&#39;); const config = { headers: { &#39;Content-Type&#39;: &#39;application/json&#39;, ...options.headers }, ...options }; if (token) { config.headers.Authorization = `Bearer ${token}`; } try { const response = await fetch(url, config); if (response.status === 401) { // Token expired, redirect to login localStorage.removeItem(&#39;access_token&#39;); window.location.href = &#39;/auth/login&#39;; return; } if (!response.ok) { const error = await response.json(); throw new Error(error.message || &#39;Request failed&#39;); } return await response.json(); } catch (error) { throw error; } } async get(endpoint, options = {}) { return this.request(endpoint, { method: &#39;GET&#39;, ...options }); } async post(endpoint, data, options = {}) { return this.request(endpoint, { method: &#39;POST&#39;, body: JSON.stringify(data), ...options }); } async put(endpoint, data, options = {}) { return this.request(endpoint, { method: &#39;PUT&#39;, body: JSON.stringify(data), ...options }); } async delete(endpoint, options = {}) { return this.request(endpoint, { method: &#39;DELETE&#39;, ...options }); } } const apiClient = new ApiClient(); module.exports = apiClient;Security Best Practices#Token Storage#// Secure token storage (avoid localStorage for sensitive data) class SecureTokenStorage { private static readonly ACCESS_TOKEN_KEY = &#39;access_token&#39;; private static readonly REFRESH_TOKEN_KEY = &#39;refresh_token&#39;; static setTokens(accessToken: string, refreshToken: string) { // Use httpOnly cookies in production if (typeof window !== &#39;undefined&#39;) { // For demo purposes - use secure cookies in production document.cookie = `${this.ACCESS_TOKEN_KEY}=${accessToken}; Secure; SameSite=Strict; Max-Age=3600`; document.cookie = `${this.REFRESH_TOKEN_KEY}=${refreshToken}; Secure; SameSite=Strict; Max-Age=2592000`; } } static clearTokens() { if (typeof window !== &#39;undefined&#39;) { document.cookie = `${this.ACCESS_TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`; document.cookie = `${this.REFRESH_TOKEN_KEY}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`; } } }Input Validation#// Validation schemas for auth endpoints const registrationSchema = { email: { type: &#39;string&#39;, format: &#39;email&#39;, required: true }, password: { type: &#39;string&#39;, minLength: 8, pattern: &#39;^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)&#39;, required: true }, fullName: { type: &#39;string&#39;, minLength: 2, maxLength: 100, required: true }, username: { type: &#39;string&#39;, minLength: 3, maxLength: 30, pattern: &#39;^[a-zA-Z0-9_]&#43;$&#39;, required: true } };Related Documents#13 - Security 41 - Privacy 21 - Frontend 20 - Backend">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>40 - Authentication &amp; Authorization | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/40-auth/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="active">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>40 - Authentication &amp; Authorization</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#authentication-overview">Authentication Overview</a>
+      <ul>
+        <li><a href="#authentication-strategy">Authentication Strategy</a></li>
+        <li><a href="#user-journey">User Journey</a></li>
+      </ul>
+    </li>
+    <li><a href="#-cognito-user-pool-configuration">👤 Cognito User Pool Configuration</a>
+      <ul>
+        <li><a href="#user-pool-settings">User Pool Settings</a></li>
+        <li><a href="#custom-attributes">Custom Attributes</a></li>
+        <li><a href="#app-client-configuration">App Client Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#authentication-flow">Authentication Flow</a>
+      <ul>
+        <li><a href="#registration-flow">Registration Flow</a></li>
+        <li><a href="#login-flow">Login Flow</a></li>
+        <li><a href="#token-refresh-flow">Token Refresh Flow</a></li>
+      </ul>
+    </li>
+    <li><a href="#jwt-token-structure">JWT Token Structure</a>
+      <ul>
+        <li><a href="#access-token-claims">Access Token Claims</a></li>
+        <li><a href="#id-token-claims">ID Token Claims</a></li>
+      </ul>
+    </li>
+    <li><a href="#post-confirmation-lambda">Post-Confirmation Lambda</a>
+      <ul>
+        <li><a href="#lambda-function-auth-handler">Lambda Function: auth-handler</a></li>
+      </ul>
+    </li>
+    <li><a href="#authorization-implementation">Authorization Implementation</a>
+      <ul>
+        <li><a href="#api-gateway-authorizer">API Gateway Authorizer</a></li>
+        <li><a href="#lambda-authorization-context">Lambda Authorization Context</a></li>
+        <li><a href="#role-based-access-control-rbac">Role-Based Access Control (RBAC)</a></li>
+      </ul>
+    </li>
+    <li><a href="#frontend-authentication">Frontend Authentication</a>
+      <ul>
+        <li><a href="#auth-service-client-side">Auth Service (Client-Side)</a></li>
+        <li><a href="#auth-middleware-server-side">Auth Middleware (Server-Side)</a></li>
+        <li><a href="#api-client-with-auth">API Client with Auth</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-best-practices">Security Best Practices</a>
+      <ul>
+        <li><a href="#token-storage">Token Storage</a></li>
+        <li><a href="#input-validation">Input Validation</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="authentication--authorization---smart-cooking-app">Authentication &amp; Authorization - Smart Cooking App<a class="anchor" href="#authentication--authorization---smart-cooking-app">#</a></h1>
+<h2 id="authentication-overview">Authentication Overview<a class="anchor" href="#authentication-overview">#</a></h2>
+<h3 id="authentication-strategy">Authentication Strategy<a class="anchor" href="#authentication-strategy">#</a></h3>
+<ul>
+<li><strong>Primary</strong>: Amazon Cognito User Pool</li>
+<li><strong>Token Type</strong>: JWT (JSON Web Tokens)</li>
+<li><strong>Session Management</strong>: Access + Refresh tokens</li>
+<li><strong>MFA</strong>: Optional (future enhancement)</li>
+</ul>
+<h3 id="user-journey">User Journey<a class="anchor" href="#user-journey">#</a></h3>
+<pre tabindex="0"><code>Registration → Email Verification → Profile Setup → Dashboard Access</code></pre><h2 id="-cognito-user-pool-configuration">👤 Cognito User Pool Configuration<a class="anchor" href="#-cognito-user-pool-configuration">#</a></h2>
+<h3 id="user-pool-settings">User Pool Settings<a class="anchor" href="#user-pool-settings">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Pool Name</span>: <span style="color:#ae81ff">smart-cooking-users</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Sign-in Options</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Email (primary)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Username (secondary)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Password Policy</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Minimum Length</span>: <span style="color:#ae81ff">8</span> <span style="color:#ae81ff">characters</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Require</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Lowercase letters</span>: <span style="color:#66d9ef">Yes</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Uppercase letters</span>: <span style="color:#66d9ef">Yes</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Numbers</span>: <span style="color:#66d9ef">Yes</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Special characters</span>: <span style="color:#ae81ff">Optional</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Temporary Password Expiry</span>: <span style="color:#ae81ff">24</span> <span style="color:#ae81ff">hours</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Account Recovery</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Email verification code</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#66d9ef">No</span> <span style="color:#ae81ff">SMS (cost optimization)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Email Verification</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Required</span>: <span style="color:#66d9ef">Yes</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Code Expiry</span>: <span style="color:#ae81ff">24</span> <span style="color:#ae81ff">hours</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">From Email</span>: <span style="color:#ae81ff">noreply@smartcooking.app</span></span></span></code></pre></div><h3 id="custom-attributes">Custom Attributes<a class="anchor" href="#custom-attributes">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Standard Attributes</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">email (required, mutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">name (required, mutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">birthdate (optional, mutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">gender (optional, mutable)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Custom Attributes</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">custom:role (user|admin, immutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">custom:username (unique identifier, mutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">custom:country (Vietnam, US, etc., mutable)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">custom:onboarding_completed (boolean, mutable)</span></span></span></code></pre></div><h3 id="app-client-configuration">App Client Configuration<a class="anchor" href="#app-client-configuration">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">App Client Name</span>: <span style="color:#ae81ff">smart-cooking-web-client</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Auth Flows</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ALLOW_USER_PASSWORD_AUTH</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ALLOW_REFRESH_TOKEN_AUTH</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">ALLOW_USER_SRP_AUTH</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Token Validity</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Access Token</span>: <span style="color:#ae81ff">1</span> <span style="color:#ae81ff">hour</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ID Token</span>: <span style="color:#ae81ff">1</span> <span style="color:#ae81ff">hour</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Refresh Token</span>: <span style="color:#ae81ff">30</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Read/Write Attributes</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Read</span>: <span style="color:#ae81ff">email, name, birthdate, gender, custom:username, custom:country</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Write</span>: <span style="color:#ae81ff">name, birthdate, gender, custom:username, custom:country</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">OAuth 2.0 Settings</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Callback URLs</span>: 
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">https://smartcooking.app/auth/callback</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">http://localhost:3000/auth/callback (dev)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Sign-out URLs</span>:
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">https://smartcooking.app/</span>
+</span></span><span style="display:flex;"><span>    - <span style="color:#ae81ff">http://localhost:3000/ (dev)</span></span></span></code></pre></div><h2 id="authentication-flow">Authentication Flow<a class="anchor" href="#authentication-flow">#</a></h2>
+<h3 id="registration-flow">Registration Flow<a class="anchor" href="#registration-flow">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant WebApp
+    participant Cognito
+    participant Lambda
+    participant DynamoDB
+
+    User-&gt;&gt;WebApp: Fill registration form
+    WebApp-&gt;&gt;Cognito: SignUp(email, password, attributes)
+    Cognito--&gt;&gt;WebApp: User created (unconfirmed)
+    Cognito-&gt;&gt;User: Send verification email
+    
+    User-&gt;&gt;User: Check email &amp; click link
+    User-&gt;&gt;WebApp: Enter verification code
+    WebApp-&gt;&gt;Cognito: ConfirmSignUp(code)
+    Cognito--&gt;&gt;WebApp: User confirmed
+    
+    Cognito-&gt;&gt;Lambda: Post-Confirmation Trigger
+    Lambda-&gt;&gt;DynamoDB: Create user profile
+    Lambda-&gt;&gt;DynamoDB: Set default privacy settings
+    Lambda--&gt;&gt;Cognito: Success
+    
+    WebApp-&gt;&gt;User: Registration complete</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h3 id="login-flow">Login Flow<a class="anchor" href="#login-flow">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant WebApp
+    participant Cognito
+
+    User-&gt;&gt;WebApp: Enter email/password
+    WebApp-&gt;&gt;Cognito: InitiateAuth(email, password)
+    Cognito--&gt;&gt;WebApp: JWT tokens (Access, ID, Refresh)
+    WebApp-&gt;&gt;WebApp: Store tokens securely
+    WebApp-&gt;&gt;User: Redirect to dashboard</pre><h3 id="token-refresh-flow">Token Refresh Flow<a class="anchor" href="#token-refresh-flow">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant WebApp
+    participant Cognito
+
+    WebApp-&gt;&gt;WebApp: Access token expired
+    WebApp-&gt;&gt;Cognito: RefreshToken(refresh_token)
+    Cognito--&gt;&gt;WebApp: New access &amp; ID tokens
+    WebApp-&gt;&gt;WebApp: Update stored tokens</pre><h2 id="jwt-token-structure">JWT Token Structure<a class="anchor" href="#jwt-token-structure">#</a></h2>
+<h3 id="access-token-claims">Access Token Claims<a class="anchor" href="#access-token-claims">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;sub&#34;</span>: <span style="color:#e6db74">&#34;uuid-123-456-789&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cognito:username&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email_verified&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;iss&#34;</span>: <span style="color:#e6db74">&#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;client_id&#34;</span>: <span style="color:#e6db74">&#34;abc123def456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;token_use&#34;</span>: <span style="color:#e6db74">&#34;access&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;scope&#34;</span>: <span style="color:#e6db74">&#34;aws.cognito.signin.user.admin&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;auth_time&#34;</span>: <span style="color:#ae81ff">1706097600</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;exp&#34;</span>: <span style="color:#ae81ff">1706101200</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;iat&#34;</span>: <span style="color:#ae81ff">1706097600</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="id-token-claims">ID Token Claims<a class="anchor" href="#id-token-claims">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;sub&#34;</span>: <span style="color:#e6db74">&#34;uuid-123-456-789&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cognito:username&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;John Doe&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;birthdate&#34;</span>: <span style="color:#e6db74">&#34;1990-01-15&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;gender&#34;</span>: <span style="color:#e6db74">&#34;male&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;custom:role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;custom:username&#34;</span>: <span style="color:#e6db74">&#34;johndoe&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;custom:country&#34;</span>: <span style="color:#e6db74">&#34;Vietnam&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;custom:onboarding_completed&#34;</span>: <span style="color:#e6db74">&#34;true&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;iss&#34;</span>: <span style="color:#e6db74">&#34;https://cognito-idp.us-east-1.amazonaws.com/us-east-1_ABC123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;aud&#34;</span>: <span style="color:#e6db74">&#34;abc123def456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;token_use&#34;</span>: <span style="color:#e6db74">&#34;id&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;auth_time&#34;</span>: <span style="color:#ae81ff">1706097600</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;exp&#34;</span>: <span style="color:#ae81ff">1706101200</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;iat&#34;</span>: <span style="color:#ae81ff">1706097600</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="post-confirmation-lambda">Post-Confirmation Lambda<a class="anchor" href="#post-confirmation-lambda">#</a></h2>
+<h3 id="lambda-function-auth-handler">Lambda Function: auth-handler<a class="anchor" href="#lambda-function-auth-handler">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;Post-confirmation trigger:&#39;</span>, <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">event</span>, <span style="color:#66d9ef">null</span>, <span style="color:#ae81ff">2</span>));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">userAttributes</span>, <span style="color:#a6e22e">userName</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">request</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userAttributes</span>.<span style="color:#a6e22e">sub</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Create user profile in DynamoDB
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">createUserProfile</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">userAttributes</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Set default privacy settings
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">createDefaultPrivacySettings</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Log successful user creation
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">`User profile created successfully for: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">event</span>;
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Error in post-confirmation:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">createUserProfile</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">attributes</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userProfile</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PROFILE&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;USER_PROFILE&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>[<span style="color:#e6db74">&#39;custom:username&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#a6e22e">attributes</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">full_name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>.<span style="color:#a6e22e">name</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">date_of_birth</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>.<span style="color:#a6e22e">birthdate</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>[<span style="color:#e6db74">&#39;custom:country&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">attributes</span>[<span style="color:#e6db74">&#39;custom:role&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">is_active</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// GSI1 for role-based queries
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">GSI1PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`ROLE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">attributes</span>[<span style="color:#e6db74">&#39;custom:role&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;user&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">GSI1SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userProfile</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Create default preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userPreferences</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PREFERENCES&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;USER_PREFERENCES&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dietary_restrictions</span><span style="color:#f92672">:</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">allergies</span><span style="color:#f92672">:</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">favorite_cuisines</span><span style="color:#f92672">:</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">:</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">preferred_recipe_count</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">spice_level</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;medium&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userPreferences</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">createDefaultPrivacySettings</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">privacySettings</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PRIVACY&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PRIVACY_SETTINGS&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">profile_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">email_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;private&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">date_of_birth_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">gender_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">country_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipes_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;public&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">preferences_visibility</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;friends&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">privacySettings</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="authorization-implementation">Authorization Implementation<a class="anchor" href="#authorization-implementation">#</a></h2>
+<h3 id="api-gateway-authorizer">API Gateway Authorizer<a class="anchor" href="#api-gateway-authorizer">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Authorizer Type</span>: <span style="color:#ae81ff">COGNITO_USER_POOLS</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">User Pool</span>: <span style="color:#ae81ff">smart-cooking-users</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Token Source</span>: <span style="color:#ae81ff">Authorization header (Bearer token)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Token Validation</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Signature verification</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Expiration check</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Issuer validation</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Authorization Caching</span>: <span style="color:#ae81ff">300</span> <span style="color:#ae81ff">seconds (5 minutes)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Identity Source</span>: <span style="color:#ae81ff">method.request.header.Authorization</span></span></span></code></pre></div><h3 id="lambda-authorization-context">Lambda Authorization Context<a class="anchor" href="#lambda-authorization-context">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Extract user context from Cognito authorizer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">handler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">claims</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">requestContext</span>.<span style="color:#a6e22e">authorizer</span>.<span style="color:#a6e22e">claims</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userContext</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">sub</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">claims</span>[<span style="color:#e6db74">&#39;cognito:username&#39;</span>],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">claims</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">claims</span>[<span style="color:#e6db74">&#39;custom:role&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">claims</span>[<span style="color:#e6db74">&#39;custom:country&#39;</span>],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">isActive</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span> <span style="color:#75715e">// Additional check can be added
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Role-based authorization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">resource</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#e6db74">&#39;/admin/&#39;</span>) <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">role</span> <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#39;admin&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">403</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;forbidden&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Admin access required&#39;</span>
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Resource ownership check
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">resourceUserId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">pathParameters</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">userId</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">resourceUserId</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">resourceUserId</span> <span style="color:#f92672">!==</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">userId</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">role</span> <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#39;admin&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">403</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;forbidden&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;You can only access your own resources&#39;</span>
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Continue with business logic
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">processRequest</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userContext</span>);
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h3 id="role-based-access-control-rbac">Role-Based Access Control (RBAC)<a class="anchor" href="#role-based-access-control-rbac">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">PERMISSIONS</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">user</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:own_profile&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:own_profile&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:own_ingredients&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:own_ingredients&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:public_recipes&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:own_recipes&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:ai_suggestions&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:ai_suggestions&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:own_cooking_history&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:own_cooking_history&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:recipe_ratings&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:friends&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:friends&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:own_posts&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:own_posts&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:comments&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:reactions&#39;</span>
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">admin</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;*&#39;</span>, <span style="color:#75715e">// All permissions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#e6db74">&#39;read:all_users&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:user_status&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:all_recipes&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;write:recipe_approval&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:statistics&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;read:invalid_reports&#39;</span>
+</span></span><span style="display:flex;"><span>  ]
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">hasPermission</span>(<span style="color:#a6e22e">role</span>, <span style="color:#a6e22e">permission</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">rolePermissions</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">PERMISSIONS</span>[<span style="color:#a6e22e">role</span>] <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">rolePermissions</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#e6db74">&#39;*&#39;</span>) <span style="color:#f92672">||</span> <span style="color:#a6e22e">rolePermissions</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">permission</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">checkPermission</span>(<span style="color:#a6e22e">userRole</span>, <span style="color:#a6e22e">requiredPermission</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">hasPermission</span>(<span style="color:#a6e22e">userRole</span>, <span style="color:#a6e22e">requiredPermission</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">`Permission denied: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">requiredPermission</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> required`</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="frontend-authentication">Frontend Authentication<a class="anchor" href="#frontend-authentication">#</a></h2>
+<h3 id="auth-service-client-side">Auth Service (Client-Side)<a class="anchor" href="#auth-service-client-side">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/public/js/auth.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AuthService</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isAuthenticated</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">checkAuthState</span>();
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">checkAuthState</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getStoredToken</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">token</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isTokenExpired</span>(<span style="color:#a6e22e">token</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">parseTokenClaims</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isAuthenticated</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">clearAuth</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">login</span>(<span style="color:#a6e22e">email</span>, <span style="color:#a6e22e">password</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;/auth/login&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({ <span style="color:#a6e22e">email</span>, <span style="color:#a6e22e">password</span> })
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">ok</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">error</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Login failed&#39;</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">data</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">setAuth</span>(<span style="color:#a6e22e">data</span>.<span style="color:#a6e22e">access_token</span>, <span style="color:#a6e22e">data</span>.<span style="color:#a6e22e">user</span>);
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">data</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">register</span>(<span style="color:#a6e22e">userData</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;/auth/register&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>
+</span></span><span style="display:flex;"><span>        },
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">userData</span>)
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">ok</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">error</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Registration failed&#39;</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">logout</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#e6db74">&#39;/auth/logout&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#e6db74">&#39;Authorization&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getStoredToken</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Logout error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">clearAuth</span>();
+</span></span><span style="display:flex;"><span>      window.<span style="color:#a6e22e">location</span>.<span style="color:#a6e22e">href</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;/&#39;</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">setAuth</span>(<span style="color:#a6e22e">token</span>, <span style="color:#a6e22e">user</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">setItem</span>(<span style="color:#e6db74">&#39;access_token&#39;</span>, <span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isAuthenticated</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">clearAuth</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">removeItem</span>(<span style="color:#e6db74">&#39;access_token&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isAuthenticated</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getStoredToken</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">getItem</span>(<span style="color:#e6db74">&#39;access_token&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">isTokenExpired</span>(<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">payload</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">atob</span>(<span style="color:#a6e22e">token</span>.<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;.&#39;</span>)[<span style="color:#ae81ff">1</span>]));
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">payload</span>.<span style="color:#a6e22e">exp</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1000</span> <span style="color:#f92672">&lt;</span> Date.<span style="color:#a6e22e">now</span>();
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">parseTokenClaims</span>(<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">payload</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">atob</span>(<span style="color:#a6e22e">token</span>.<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;.&#39;</span>)[<span style="color:#ae81ff">1</span>]));
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">payload</span>.<span style="color:#a6e22e">sub</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">payload</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">payload</span>[<span style="color:#e6db74">&#39;cognito:username&#39;</span>],
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">payload</span>[<span style="color:#e6db74">&#39;custom:role&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;user&#39;</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getAuthHeaders</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getStoredToken</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">?</span> { <span style="color:#e6db74">&#39;Authorization&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">token</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span> } <span style="color:#f92672">:</span> {};
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Global auth service instance
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authService</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">AuthService</span>();</span></span></code></pre></div><h3 id="auth-middleware-server-side">Auth Middleware (Server-Side)<a class="anchor" href="#auth-middleware-server-side">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/middleware/auth.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authService</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../services/authService&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">requireAuth</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">headers</span>.<span style="color:#a6e22e">authorization</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">&#39;Bearer &#39;</span>, <span style="color:#e6db74">&#39;&#39;</span>) <span style="color:#f92672">||</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/auth/login&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">extractUserFromToken</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">locals</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">clearCookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/auth/login&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">requireAdmin</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">requireAuth</span>(<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span>.<span style="color:#a6e22e">role</span> <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#39;admin&#39;</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">status</span>(<span style="color:#ae81ff">403</span>).<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;error&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Access Denied&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Admin privileges required&#39;</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">optionalAuth</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">headers</span>.<span style="color:#a6e22e">authorization</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">&#39;Bearer &#39;</span>, <span style="color:#e6db74">&#39;&#39;</span>) <span style="color:#f92672">||</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">extractUserFromToken</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">locals</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">clearCookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">requireAuth</span>, <span style="color:#a6e22e">requireAdmin</span>, <span style="color:#a6e22e">optionalAuth</span> };</span></span></code></pre></div><h3 id="api-client-with-auth">API Client with Auth<a class="anchor" href="#api-client-with-auth">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/services/apiClient.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ApiClient</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>(<span style="color:#a6e22e">baseURL</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">baseURL</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">baseURL</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">API_URL</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">options</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">url</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">baseURL</span><span style="color:#e6db74">}${</span><span style="color:#a6e22e">endpoint</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">getItem</span>(<span style="color:#e6db74">&#39;access_token&#39;</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">config</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>        ...<span style="color:#a6e22e">options</span>.<span style="color:#a6e22e">headers</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">options</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">config</span>.<span style="color:#a6e22e">headers</span>.<span style="color:#a6e22e">Authorization</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`Bearer </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">token</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fetch</span>(<span style="color:#a6e22e">url</span>, <span style="color:#a6e22e">config</span>);
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">status</span> <span style="color:#f92672">===</span> <span style="color:#ae81ff">401</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Token expired, redirect to login
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">localStorage</span>.<span style="color:#a6e22e">removeItem</span>(<span style="color:#e6db74">&#39;access_token&#39;</span>);
+</span></span><span style="display:flex;"><span>        window.<span style="color:#a6e22e">location</span>.<span style="color:#a6e22e">href</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;/auth/login&#39;</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">ok</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">error</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Request failed&#39;</span>);
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">json</span>();
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">get</span>(<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">options</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">endpoint</span>, { <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GET&#39;</span>, ...<span style="color:#a6e22e">options</span> });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">post</span>(<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">data</span>, <span style="color:#a6e22e">options</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">endpoint</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;POST&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">data</span>),
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">options</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">put</span>(<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">data</span>, <span style="color:#a6e22e">options</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">endpoint</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PUT&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">data</span>),
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">options</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#66d9ef">delete</span>(<span style="color:#a6e22e">endpoint</span>, <span style="color:#a6e22e">options</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">endpoint</span>, { <span style="color:#a6e22e">method</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;DELETE&#39;</span>, ...<span style="color:#a6e22e">options</span> });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">apiClient</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">ApiClient</span>();
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">apiClient</span>;</span></span></code></pre></div><h2 id="security-best-practices">Security Best Practices<a class="anchor" href="#security-best-practices">#</a></h2>
+<h3 id="token-storage">Token Storage<a class="anchor" href="#token-storage">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// Secure token storage (avoid localStorage for sensitive data)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SecureTokenStorage</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">readonly</span> <span style="color:#a6e22e">ACCESS_TOKEN_KEY</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;access_token&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">private</span> <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">readonly</span> <span style="color:#a6e22e">REFRESH_TOKEN_KEY</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;refresh_token&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">static</span> <span style="color:#a6e22e">setTokens</span>(<span style="color:#a6e22e">accessToken</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">refreshToken</span>: <span style="color:#66d9ef">string</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Use httpOnly cookies in production
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">typeof</span> window <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#39;undefined&#39;</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// For demo purposes - use secure cookies in production
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      document.<span style="color:#a6e22e">cookie</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">ACCESS_TOKEN_KEY</span><span style="color:#e6db74">}</span><span style="color:#e6db74">=</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">accessToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">; Secure; SameSite=Strict; Max-Age=3600`</span>;
+</span></span><span style="display:flex;"><span>      document.<span style="color:#a6e22e">cookie</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">REFRESH_TOKEN_KEY</span><span style="color:#e6db74">}</span><span style="color:#e6db74">=</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">refreshToken</span><span style="color:#e6db74">}</span><span style="color:#e6db74">; Secure; SameSite=Strict; Max-Age=2592000`</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">static</span> <span style="color:#a6e22e">clearTokens() {</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#66d9ef">typeof</span> window <span style="color:#f92672">!==</span> <span style="color:#e6db74">&#39;undefined&#39;</span>) {
+</span></span><span style="display:flex;"><span>      document.<span style="color:#a6e22e">cookie</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">ACCESS_TOKEN_KEY</span><span style="color:#e6db74">}</span><span style="color:#e6db74">=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`</span>;
+</span></span><span style="display:flex;"><span>      document.<span style="color:#a6e22e">cookie</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">REFRESH_TOKEN_KEY</span><span style="color:#e6db74">}</span><span style="color:#e6db74">=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="input-validation">Input Validation<a class="anchor" href="#input-validation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Validation schemas for auth endpoints
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">registrationSchema</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;string&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">format</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;email&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">required</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">password</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;string&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">minLength</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">8</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pattern</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">required</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">fullName</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;string&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">minLength</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">maxLength</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">100</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">required</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;string&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">minLength</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">maxLength</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">30</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">pattern</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;^[a-zA-Z0-9_]+$&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">required</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="13-security.md">13 - Security</a></li>
+<li><a href="41-privacy.md">41 - Privacy</a></li>
+<li><a href="21-frontend.md">21 - Frontend</a></li>
+<li><a href="20-backend.md">20 - Backend</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/32-monitoring/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="32 - Monitoring &amp; Observability" />
+        <span>32 - Monitoring &amp; Observability</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/41-privacy/" class="flex align-center">
+        <span>41 - Privacy &amp; Data Protection</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="41 - Privacy &amp; Data Protection" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#authentication-overview">Authentication Overview</a>
+      <ul>
+        <li><a href="#authentication-strategy">Authentication Strategy</a></li>
+        <li><a href="#user-journey">User Journey</a></li>
+      </ul>
+    </li>
+    <li><a href="#-cognito-user-pool-configuration">👤 Cognito User Pool Configuration</a>
+      <ul>
+        <li><a href="#user-pool-settings">User Pool Settings</a></li>
+        <li><a href="#custom-attributes">Custom Attributes</a></li>
+        <li><a href="#app-client-configuration">App Client Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#authentication-flow">Authentication Flow</a>
+      <ul>
+        <li><a href="#registration-flow">Registration Flow</a></li>
+        <li><a href="#login-flow">Login Flow</a></li>
+        <li><a href="#token-refresh-flow">Token Refresh Flow</a></li>
+      </ul>
+    </li>
+    <li><a href="#jwt-token-structure">JWT Token Structure</a>
+      <ul>
+        <li><a href="#access-token-claims">Access Token Claims</a></li>
+        <li><a href="#id-token-claims">ID Token Claims</a></li>
+      </ul>
+    </li>
+    <li><a href="#post-confirmation-lambda">Post-Confirmation Lambda</a>
+      <ul>
+        <li><a href="#lambda-function-auth-handler">Lambda Function: auth-handler</a></li>
+      </ul>
+    </li>
+    <li><a href="#authorization-implementation">Authorization Implementation</a>
+      <ul>
+        <li><a href="#api-gateway-authorizer">API Gateway Authorizer</a></li>
+        <li><a href="#lambda-authorization-context">Lambda Authorization Context</a></li>
+        <li><a href="#role-based-access-control-rbac">Role-Based Access Control (RBAC)</a></li>
+      </ul>
+    </li>
+    <li><a href="#frontend-authentication">Frontend Authentication</a>
+      <ul>
+        <li><a href="#auth-service-client-side">Auth Service (Client-Side)</a></li>
+        <li><a href="#auth-middleware-server-side">Auth Middleware (Server-Side)</a></li>
+        <li><a href="#api-client-with-auth">API Client with Auth</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-best-practices">Security Best Practices</a>
+      <ul>
+        <li><a href="#token-storage">Token Storage</a></li>
+        <li><a href="#input-validation">Input Validation</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

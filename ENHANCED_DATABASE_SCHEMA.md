@@ -1,6 +1,6 @@
 # DATABASE SCHEMA - ENHANCED VERSION
 
-## 🎯 Cập Nhật Schema Cho Features Mới
+##    Cập Nhật Schema Cho Features Mới
 
 ### THAY ĐỔI 1: Thêm field vào `users`
 
@@ -196,7 +196,7 @@ Table ai_suggestions {
 
 ---
 
-## 📊 Storage Estimates (Updated)
+##    Storage Estimates (Updated)
 
 | Item | Count | Size | Total |
 |------|-------|------|-------|
@@ -211,7 +211,7 @@ Table ai_suggestions {
 
 ---
 
-## 🎯 GSI Design Summary
+##    GSI Design Summary
 
 ### GSI1: User-based queries
 - **PK**: `USER#<user_id>` hoặc `ROLE#<role>`
@@ -283,7 +283,7 @@ await ddb.updateTable({
 
 ---
 
-## 🚀 Kết luận
+##    Kết luận
 
 **Schema updates**:
 - ✅ Minimal changes (backward compatible)

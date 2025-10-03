@@ -1,6 +1,6 @@
 # USER FLOW - MVP SIMPLIFIED
 
-## 🎯 Core User Journey (Demo Focus)
+##    Core User Journey (Demo Focus)
 
 ### Flow 1: Đăng ký & Setup (5 phút)
 
@@ -58,7 +58,7 @@
 │  🫚 Gừng            [x]                     │
 │  + Thêm nguyên liệu                         │
 │                                             │
-│  [🤖 Gợi ý món ăn]  ← BUTTON CHÍNH          │
+│  [   Gợi ý món ăn]  ← BUTTON CHÍNH          │
 └────────────────┬────────────────────────────┘
                  │ Click
                  ▼
@@ -155,7 +155,7 @@
 
 ---
 
-## 📊 User Metrics (Demo)
+##    User Metrics (Demo)
 
 ### Phase 1: 100 Users (Tuần 1-2)
 - **Signup rate**: 80% complete profile
@@ -197,7 +197,7 @@
 
 ---
 
-## 🎯 Success Metrics (Báo cáo)
+##    Success Metrics (Báo cáo)
 
 ✅ **Technical**:
 - AI response time < 5s

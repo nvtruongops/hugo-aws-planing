@@ -1,6 +1,6 @@
 # PHÂN TÍCH YÊU CẦU MỚI - ENHANCED AI SUGGESTION
 
-## 🎯 4 Yêu Cầu Chính
+##    4 Yêu Cầu Chính
 
 ### 1. ✅ Số Món Muốn Nấu (1-5 món)
 **Đánh giá**: EXCELLENT - Cải thiện UX đáng kể
@@ -215,7 +215,7 @@ const categoryDistribution = [
 
 ---
 
-## 📊 TỔNG HỢP ĐÁNH GIÁ
+##    TỔNG HỢP ĐÁNH GIÁ
 
 | Feature | Priority | Complexity | MVP | Cost Impact |
 |---------|----------|------------|-----|-------------|
@@ -241,7 +241,7 @@ const categoryDistribution = [
 
 ---
 
-## 💰 Chi Phí Ước Tính
+##    Chi Phí Ước Tính
 
 ### Trước (1,000 users):
 - AI cost: $15/tháng (1 recipe per request)
@@ -256,4 +256,4 @@ const categoryDistribution = [
 - ✅ Premium tier: 5 món (giới hạn cost)
 - ✅ Prioritize DB recipes (auto save cost)
 
-**Kết luận**: Features tốt, nên implement! 🚀
+**Kết luận**: Features tốt, nên implement!   

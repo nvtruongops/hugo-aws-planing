@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AI DLC - Together Smart Cooking App#
+Tài liệu chi tiết về dự án Together - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.
+Cấu trúc tài liệu#
+Project Foundation (00-02)#
+
+00 - Overview - Tổng quan dự án
+01 - Requirements - Yêu cầu chức năng &amp; phi chức năng
+02 - Constraints - Ràng buộc dự án
+
+Design &amp; Architecture (10-14)#
+
+10 - Architecture - Kiến trúc hệ thống
+11 - Database - Thiết kế cơ sở dữ liệu
+12 - API Spec - Đặc tả API
+13 - Security - Bảo mật hệ thống
+14 - AI Agent - Thiết kế AI Agent
+
+   Implementation (20-23)#
+
+20 - Backend - Triển khai Backend
+21 - Frontend - Triển khai Frontend
+22 - DevOps - DevOps &amp; CI/CD
+23 - Tasks - Phân chia công việc
+
+Cost &amp; Operation (30-32)#
+
+30 - Cost Analysis - Phân tích chi phí
+31 - Scaling - Chiến lược mở rộng
+32 - Monitoring - Giám sát hệ thống
+
+User &amp; Privacy (40-42)#
+
+40 - Auth - Xác thực người dùng
+41 - Privacy - Cài đặt quyền riêng tư
+42 - Compliance - Tuân thủ GDPR
+
+   Appendix (99-xx)#
+
+99 - Glossary - Thuật ngữ
+99 - References - Tài liệu tham khảo
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="AI DLC">
+  <meta property="og:description" content="AI DLC - Together Smart Cooking App#
+Tài liệu chi tiết về dự án Together - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.  
+Cấu trúc tài liệu#
+Project Foundation (00-02)#
+00 - Overview - Tổng quan dự án 01 - Requirements - Yêu cầu chức năng &amp; phi chức năng 02 - Constraints - Ràng buộc dự án Design &amp; Architecture (10-14)#
+10 - Architecture - Kiến trúc hệ thống 11 - Database - Thiết kế cơ sở dữ liệu 12 - API Spec - Đặc tả API 13 - Security - Bảo mật hệ thống 14 - AI Agent - Thiết kế AI Agent 💻 Implementation (20-23)#
+20 - Backend - Triển khai Backend 21 - Frontend - Triển khai Frontend 22 - DevOps - DevOps &amp; CI/CD 23 - Tasks - Phân chia công việc Cost &amp; Operation (30-32)#
+30 - Cost Analysis - Phân tích chi phí 31 - Scaling - Chiến lược mở rộng 32 - Monitoring - Giám sát hệ thống User &amp; Privacy (40-42)#
+40 - Auth - Xác thực người dùng 41 - Privacy - Cài đặt quyền riêng tư 42 - Compliance - Tuân thủ GDPR    Appendix (99-xx)#
+99 - Glossary - Thuật ngữ 99 - References - Tài liệu tham khảo">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="website">
+<title>AI DLC | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+<link rel="alternate" type="application/rss+xml" href="https://example.org/docs/dlc/index.xml" title="Together" />
+
+  
+</head>
+<body dir="ltr" class="book-kind-section book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="active">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>AI DLC</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#cấu-trúc-tài-liệu">Cấu trúc tài liệu</a>
+      <ul>
+        <li><a href="#project-foundation-00-02">Project Foundation (00-02)</a></li>
+        <li><a href="#design--architecture-10-14">Design &amp; Architecture (10-14)</a></li>
+        <li><a href="#-implementation-20-23">💻 Implementation (20-23)</a></li>
+        <li><a href="#cost--operation-30-32">Cost &amp; Operation (30-32)</a></li>
+        <li><a href="#user--privacy-40-42">User &amp; Privacy (40-42)</a></li>
+        <li><a href="#-appendix-99-xx">   Appendix (99-xx)</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="ai-dlc---together-smart-cooking-app">AI DLC - Together Smart Cooking App<a class="anchor" href="#ai-dlc---together-smart-cooking-app">#</a></h1>
+<p>Tài liệu chi tiết về dự án <strong>Together</strong> - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.</p>
+<h2 id="cấu-trúc-tài-liệu">Cấu trúc tài liệu<a class="anchor" href="#c%e1%ba%a5u-tr%c3%bac-t%c3%a0i-li%e1%bb%87u">#</a></h2>
+<h3 id="project-foundation-00-02">Project Foundation (00-02)<a class="anchor" href="#project-foundation-00-02">#</a></h3>
+<ul>
+<li><a href="00-overview">00 - Overview</a> - Tổng quan dự án</li>
+<li><a href="01-requirements">01 - Requirements</a> - Yêu cầu chức năng &amp; phi chức năng</li>
+<li><a href="02-constraints">02 - Constraints</a> - Ràng buộc dự án</li>
+</ul>
+<h3 id="design--architecture-10  4">Design &amp; Architecture (10-14)<a class="anchor" href="#design--architecture-10-14">#</a></h3>
+<ul>
+<li><a href="10-architecture">10 - Architecture</a> - Kiến trúc hệ thống</li>
+<li><a href="11-database">11 - Database</a> - Thiết kế cơ sở dữ liệu</li>
+<li><a href="12-api-spec">12 - API Spec</a> - Đặc tả API</li>
+<li><a href="13-security">13 - Security</a> - Bảo mật hệ thống</li>
+<li><a href="14-ai-agent">14 - AI Agent</a> - Thiết kế AI Agent</li>
+</ul>
+<h3 id="-implementation-20-23">💻 Implementation (20-23)<a class="anchor" href="#-implementation-20-23">#</a></h3>
+<ul>
+<li><a href="20-backend">20 - Backend</a> - Triển khai Backend</li>
+<li><a href="21-frontend">21 - Frontend</a> - Triển khai Frontend</li>
+<li><a href="22-devops">22 - DevOps</a> - DevOps &amp; CI/CD</li>
+<li><a href="23-tasks">23 - Tasks</a> - Phân chia công việc</li>
+</ul>
+<h3 id="cost--operation-30-32">Cost &amp; Operation (30-32)<a class="anchor" href="#cost--operation-30-32">#</a></h3>
+<ul>
+<li><a href="30-cost-analysis">30 - Cost Analysis</a> - Phân tích chi phí</li>
+<li><a href="31-scaling">31 - Scaling</a> - Chiến lược mở rộng</li>
+<li><a href="32-monitoring">32 - Monitoring</a> - Giám sát hệ thống</li>
+</ul>
+<h3 id="user--privacy-40-42">User &amp; Privacy (40-42)<a class="anchor" href="#user--privacy-40-42">#</a></h3>
+<ul>
+<li><a href="40-auth">40 - Auth</a> - Xác thực người dùng</li>
+<li><a href="41-privacy">41 - Privacy</a> - Cài đặt quyền riêng tư</li>
+<li><a href="42-compliance">42 - Compliance</a> - Tuân thủ GDPR</li>
+</ul>
+<h3 id="-appendix-99-xx">   Appendix (99-xx)<a class="anchor" href="#-appendix-99-xx">#</a></h3>
+<ul>
+<li><a href="99-glossary">99 - Glossary</a> - Thuật ngữ</li>
+<li><a href="99-references">99 - References</a> - Tài liệu tham khảo</li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/cost-analysis/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="Phân Tích Chi Phí" />
+        <span>Phân Tích Chi Phí</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/00-overview/" class="flex align-center">
+        <span>00 - Project Overview</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="00 - Project Overview" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+      
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#cấu-trúc-tài-liệu">Cấu trúc tài liệu</a>
+      <ul>
+        <li><a href="#project-foundation-00-02">Project Foundation (00-02)</a></li>
+        <li><a href="#design--architecture-10-14">Design &amp; Architecture (10-14)</a></li>
+        <li><a href="#-implementation-20-23">💻 Implementation (20-23)</a></li>
+        <li><a href="#cost--operation-30-32">Cost &amp; Operation (30-32)</a></li>
+        <li><a href="#user--privacy-40-42">User &amp; Privacy (40-42)</a></li>
+        <li><a href="#-appendix-99-xx">   Appendix (99-xx)</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

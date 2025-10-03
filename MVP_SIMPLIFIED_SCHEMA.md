@@ -1,6 +1,6 @@
 # DATABASE SCHEMA - MVP SIMPLIFIED
 
-## 🎯 Chỉ 4 Bảng Cần Thiết
+##    Chỉ 4 Bảng Cần Thiết
 
 ### 1. users (Tài khoản)
 ```sql
@@ -51,7 +51,7 @@ Table ai_suggestions {
 
 ---
 
-## 💾 DynamoDB Design (Single Table)
+##    DynamoDB Design (Single Table)
 
 **Table Name**: `smart-cooking-mvp`
 
@@ -75,7 +75,7 @@ Table ai_suggestions {
 
 ---
 
-## 📊 Storage Estimates (1,000 users)
+##    Storage Estimates (1,000 users)
 
 | Item | Count | Size | Total |
 |------|-------|------|-------|
@@ -91,7 +91,7 @@ Table ai_suggestions {
 
 ## ✅ Ưu điểm so với schema phức tạp
 
-- 🚀 **Nhanh**: Deploy trong 2 tuần thay vì 2 tháng
-- 💰 **Rẻ**: $60-80/tháng thay vì $133-168
+-    **Nhanh**: Deploy trong 2 tuần thay vì 2 tháng
+-    **Rẻ**: $60-80/tháng thay vì $133-168
 - 🧪 **Đơn giản**: Dễ demo, dễ debug
-- 📊 **Đủ**: Chứng minh được AI suggestion core feature
+-    **Đủ**: Chứng minh được AI suggestion core feature

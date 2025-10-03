@@ -1,6 +1,6 @@
 # COST ANALYSIS - MVP SIMPLIFIED
 
-## 💰 Chi Phí Hàng Tháng (MVP - Báo cáo)
+##    Chi Phí Hàng Tháng (MVP - Báo cáo)
 
 ### Chi Tiết Chi Phí
 
@@ -18,7 +18,7 @@
 
 ---
 
-## 📊 So Sánh: Full Version vs MVP
+##    So Sánh: Full Version vs MVP
 
 | Metric | Full Version | MVP | Difference |
 |--------|--------------|-----|------------|
@@ -31,7 +31,7 @@
 
 ---
 
-## 💡 Chi Phí Theo Quy Mô (MVP)
+##    Chi Phí Theo Quy Mô (MVP)
 
 ### Phase 1: 100 Users (Beta Test)
 - **Chi phí/tháng**: $32
@@ -53,7 +53,7 @@
 
 ---
 
-## 📈 Chi Phí Projection (6 tuần)
+##    Chi Phí Projection (6 tuần)
 
 | Tuần | Users | Chi Phí | Tích Lũy | Note |
 |------|-------|---------|----------|------|
@@ -68,7 +68,7 @@
 
 ---
 
-## 🎯 Tối Ưu Chi Phí MVP
+##    Tối Ưu Chi Phí MVP
 
 ### 1. AI/ML Costs (~20% tổng chi phí)
 - ✅ Dùng **Claude 3 Haiku** (rẻ nhất)
@@ -97,7 +97,7 @@
 
 ---
 
-## 💰 Budget Recommendations
+##    Budget Recommendations
 
 ### Cho 6 Tuần Demo/Báo Cáo
 
@@ -121,7 +121,7 @@
 
 ---
 
-## 📊 ROI Analysis (Nếu cần)
+##    ROI Analysis (Nếu cần)
 
 ### Không cần monetize cho báo cáo
 Nhưng nếu muốn test business model:
@@ -162,7 +162,7 @@ Nhưng nếu muốn test business model:
 
 ---
 
-## 🎯 Success Metrics
+##    Success Metrics
 
 ✅ **Technical**:
 - Deploy thành công < 2 tuần

@@ -1,6 +1,6 @@
 # COST ANALYSIS - ENHANCED FEATURES
 
-## 💰 Chi Phí So Sánh (1,000 users)
+##    Chi Phí So Sánh (1,000 users)
 
 ### Version Comparison
 
@@ -16,7 +16,7 @@
 
 ---
 
-## 📊 Bedrock Cost Analysis (Key Variable)
+##    Bedrock Cost Analysis (Key Variable)
 
 ### Scenario 1: DB đủ recipes (Best Case)
 ```
@@ -81,7 +81,7 @@ Total cost: $77 + $9 = $86/tháng
 
 ---
 
-## 💡 Cost Optimization Strategies
+##    Cost Optimization Strategies
 
 ### Strategy 1: Freemium Tiers
 ```javascript
@@ -160,7 +160,7 @@ if (cacheHit) {
 
 ---
 
-## 📈 Cost Projection (6 months)
+##    Cost Projection (6 months)
 
 ### With Optimization Strategies
 
@@ -177,7 +177,7 @@ if (cacheHit) {
 
 ---
 
-## 🎯 Cost by Feature
+##    Cost by Feature
 
 ### Invalid Ingredient Reporting
 ```
@@ -225,7 +225,7 @@ Total: $0-18/month (depends on AI usage)
 
 ---
 
-## 💰 Final Cost Summary
+##    Final Cost Summary
 
 ### Conservative Estimate (1,000 users)
 ```
@@ -283,7 +283,7 @@ Premium ($2.99/month):
 
 ---
 
-## 🎯 Recommendations
+##    Recommendations
 
 1. ✅ **Implement all 4 features** - Cost increase acceptable
 2. ✅ **Use freemium tier** - Control AI costs

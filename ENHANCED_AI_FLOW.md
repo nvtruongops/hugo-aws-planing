@@ -1,6 +1,6 @@
 # UPDATED AI SUGGESTION FLOW - ENHANCED VERSION
 
-## 🎯 Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)
+##    Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)
 
 ### Mermaid Diagram
 
@@ -50,7 +50,7 @@ sequenceDiagram
 
 ---
 
-## 📋 Detailed Flow Steps
+##    Detailed Flow Steps
 
 ### Step 1: Validate Ingredients với Reporting
 
@@ -308,7 +308,7 @@ async function getFlexibleSuggestions(request, userId) {
 
 ---
 
-## 📊 Example Scenarios
+##    Example Scenarios
 
 ### Scenario 1: DB đủ recipes
 ```

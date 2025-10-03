@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Compliance &amp; Governance - Smart Cooking App#
+Compliance Overview#
+Compliance Standards#
+
+GDPR: EU General Data Protection Regulation
+CCPA: California Consumer Privacy Act (future)
+SOC 2 Type II: Security controls (future)
+ISO 27001: Information security (future)
+
+Governance Framework#
+
+Data Governance: Clear data handling policies
+Security Governance: Regular security assessments
+Privacy Governance: User privacy protection
+Operational Governance: Incident response procedures
+
+GDPR Compliance Implementation#
+Legal Basis for Processing#
+Data Processing Legal Basis:
+  User Registration: Contract (Art. 6(1)(b))
+  AI Personalization: Legitimate Interest (Art. 6(1)(f))
+  Marketing Communications: Consent (Art. 6(1)(a))
+  Legal Compliance: Legal Obligation (Art. 6(1)(c))
+  Security Monitoring: Legitimate Interest (Art. 6(1)(f))Data Subject Rights Implementation#
+Right to Access (Art. 15)#
+// GET /user/data-export
+async function exportUserData(userId) {
+  const exportData = {
+    personalData: {
+      profile: await getUserProfile(userId),
+      preferences: await getUserPreferences(userId),
+      privacySettings: await getPrivacySettings(userId)
+    },
+    activityData: {
+      cookingHistory: await getCookingHistory(userId),
+      aiSuggestions: await getAISuggestions(userId),
+      recipes: await getUserRecipes(userId),
+      posts: await getUserPosts(userId)
+    },
+    socialData: {
+      friends: await getUserFriends(userId),
+      comments: await getUserComments(userId),
+      reactions: await getUserReactions(userId)
+    },
+    metadata: {
+      exportDate: new Date().toISOString(),
+      dataRetentionPeriod: &#34;Until account deletion&#34;,
+      legalBasis: &#34;Contract and Legitimate Interest&#34;,
+      dataController: &#34;Smart Cooking App&#34;,
+      contactEmail: &#34;privacy@smartcooking.app&#34;
+    }
+  };
+
+  return {
+    statusCode: 200,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;,
+      &#39;Content-Disposition&#39;: &#39;attachment; filename=&#34;user-data-export.json&#34;&#39;
+    },
+    body: JSON.stringify(exportData, null, 2)
+  };
+}Right to Rectification (Art. 16)#
+// PUT /user/profile - Allow users to correct their data
+async function updateUserProfile(event, userId) {
+  const updates = JSON.parse(event.body);
+  
+  // Validate and sanitize updates
+  const allowedFields = [
+    &#39;full_name&#39;, &#39;date_of_birth&#39;, &#39;gender&#39;, &#39;country&#39;,
+    &#39;dietary_restrictions&#39;, &#39;allergies&#39;, &#39;favorite_cuisines&#39;
+  ];
+  
+  const validatedUpdates = {};
+  for (const [key, value] of Object.entries(updates)) {
+    if (allowedFields.includes(key)) {
+      validatedUpdates[key] = sanitizeInput(value);
+    }
+  }
+
+  // Log data rectification for audit
+  await logDataRectification(userId, validatedUpdates);
+
+  // Update the data
+  await updateUserData(userId, validatedUpdates);
+
+  return successResponse({
+    message: &#39;Profile updated successfully&#39;,
+    updatedFields: Object.keys(validatedUpdates),
+    updatedAt: new Date().toISOString()
+  });
+}Right to Erasure (Art. 17)#
+// DELETE /user/account - Complete data deletion
+async function deleteUserAccount(userId) {
+  try {
+    // 1. Anonymize user-generated content (recipes, comments)
+    await anonymizeUserContent(userId);
+    
+    // 2. Delete personal data from DynamoDB
+    await deletePersonalData(userId);
+    
+    // 3. Delete files from S3
+    await deleteUserFiles(userId);
+    
+    // 4. Disable Cognito user
+    await disableCognitoUser(userId);
+    
+    // 5. Log deletion for compliance
+    await logDataDeletion(userId);
+
+    return successResponse({
+      message: &#39;Account and all personal data have been deleted&#39;,
+      deletedAt: new Date().toISOString(),
+      retainedData: &#39;Anonymized recipes and comments (no personal identifiers)&#39;
+    });
+  } catch (error) {
+    console.error(&#39;Account deletion error:&#39;, error);
+    return errorResponse(500, &#39;deletion_failed&#39;);
+  }
+}
+
+async function anonymizeUserContent(userId) {
+  // Keep recipes but remove personal identifiers
+  await ddb.update({
+    TableName: process.env.DYNAMODB_TABLE,
+    Key: { PK: `RECIPE#${recipeId}`, SK: &#39;METADATA&#39; },
+    UpdateExpression: &#39;SET created_by = :anon, user_id = :anon&#39;,
+    ExpressionAttributeValues: {
+      &#39;:anon&#39;: &#39;anonymous-user&#39;
+    }
+  });
+  
+  // Similar for comments, posts, etc.
+}Right to Data Portability (Art. 20)#
+// GET /user/data-portability
+async function getPortableData(userId) {
+  const portableData = {
+    format: &#34;JSON&#34;,
+    version: &#34;1.0&#34;,
+    exportDate: new Date().toISOString(),
+    user: {
+      profile: await getUserProfile(userId),
+      preferences: await getUserPreferences(userId),
+      ingredients: await getUserIngredients(userId)
+    },
+    recipes: await getUserRecipes(userId),
+    cookingHistory: await getCookingHistory(userId),
+    // Exclude system-generated data like AI suggestions
+    // Include only user-created content
+  };
+
+  return {
+    statusCode: 200,
+    headers: {
+      &#39;Content-Type&#39;: &#39;application/json&#39;,
+      &#39;Content-Disposition&#39;: &#39;attachment; filename=&#34;portable-data.json&#34;&#39;
+    },
+    body: JSON.stringify(portableData, null, 2)
+  };
+}Right to Object (Art. 21)#
+// PUT /user/data-processing-objection
+async function handleDataProcessingObjection(userId, objectionType) {
+  switch (objectionType) {
+    case &#39;ai_personalization&#39;:
+      // Disable AI personalization
+      await updateUserPreferences(userId, { 
+        ai_personalization_enabled: false 
+      });
+      break;
+      
+    case &#39;marketing&#39;:
+      // Disable marketing communications
+      await updateUserPreferences(userId, { 
+        marketing_emails_enabled: false 
+      });
+      break;
+      
+    case &#39;analytics&#39;:
+      // Disable analytics tracking
+      await updateUserPreferences(userId, { 
+        analytics_tracking_enabled: false 
+      });
+      break;
+  }
+
+  await logDataProcessingObjection(userId, objectionType);
+  
+  return successResponse({
+    message: `Data processing objection recorded for: ${objectionType}`,
+    effectiveDate: new Date().toISOString()
+  });
+}Data Protection Impact Assessment (DPIA)#
+DPIA Summary#
+Processing Activity: AI Recipe Suggestion System
+Risk Level: Medium
+DPIA Required: Yes (automated decision-making with profiling)
+
+Data Categories:
+  - Personal identifiers (email, username)
+  - Demographic data (age, gender, country)
+  - Behavioral data (cooking preferences, ingredient usage)
+  - Health data (allergies, dietary restrictions)
+
+Risks Identified:
+  1. AI bias in recipe suggestions
+  2. Inference of health conditions from dietary data
+  3. Potential data breaches
+  4. Unauthorized access to personal preferences
+
+Mitigation Measures:
+  1. Regular AI model bias testing
+  2. Encryption of sensitive data
+  3. Access controls and audit logging
+  4. User consent and transparencyPrivacy by Design Implementation#
+// Privacy-preserving AI suggestions
+class PrivacyAwareAI {
+  async generateSuggestions(userId, ingredients) {
+    // 1. Data minimization - only use necessary data
+    const userContext = await this.getMinimalUserContext(userId);
+    
+    // 2. Purpose limitation - only for recipe suggestions
+    const suggestions = await this.generateRecipes(ingredients, userContext);
+    
+    // 3. Storage limitation - TTL for AI suggestions
+    await this.saveSuggestionsWithTTL(userId, suggestions, 90); // 90 days
+    
+    // 4. Transparency - log what data was used
+    await this.logAIDataUsage(userId, userContext);
+    
+    return suggestions;
+  }
+
+  async getMinimalUserContext(userId) {
+    // Only get data necessary for AI personalization
+    const profile = await getUserProfile(userId);
+    const preferences = await getUserPreferences(userId);
+    
+    return {
+      age_range: this.getAgeRange(profile.date_of_birth), // Not exact age
+      gender: profile.gender,
+      country: profile.country,
+      allergies: preferences.allergies, // Critical for safety
+      cooking_methods: preferences.preferred_cooking_methods,
+      cuisines: preferences.favorite_cuisines
+    };
+  }
+
+  getAgeRange(birthDate) {
+    if (!birthDate) return null;
+    const age = new Date().getFullYear() - new Date(birthDate).getFullYear();
+    return `${Math.floor(age / 10) * 10}-${Math.floor(age / 10) * 10 &#43; 9}`;
+  }
+}Consent Management#
+Consent Categories#
+Consent Types:
+  essential: 
+    description: &#34;Essential for app functionality&#34;
+    required: true
+    legal_basis: &#34;Contract&#34;
+    
+  ai_personalization:
+    description: &#34;AI recipe personalization&#34;
+    required: false
+    legal_basis: &#34;Consent&#34;
+    
+  analytics:
+    description: &#34;Usage analytics and improvements&#34;
+    required: false
+    legal_basis: &#34;Legitimate Interest&#34;
+    
+  marketing:
+    description: &#34;Marketing communications&#34;
+    required: false
+    legal_basis: &#34;Consent&#34;Consent Management Implementation#
+// Consent management system
+class ConsentManager {
+  async recordConsent(userId, consentData) {
+    const consentRecord = {
+      PK: `USER#${userId}`,
+      SK: `CONSENT#${new Date().toISOString()}`,
+      entity_type: &#39;CONSENT_RECORD&#39;,
+      user_id: userId,
+      consents: consentData,
+      ip_address: this.hashIP(consentData.ip_address),
+      user_agent: consentData.user_agent,
+      timestamp: new Date().toISOString(),
+      version: &#39;1.0&#39; // Consent form version
+    };
+
+    await ddb.put({
+      TableName: process.env.DYNAMODB_TABLE,
+      Item: consentRecord
+    });
+
+    // Update current consent status
+    await this.updateCurrentConsent(userId, consentData);
+  }
+
+  async updateCurrentConsent(userId, consentData) {
+    await ddb.put({
+      TableName: process.env.DYNAMODB_TABLE,
+      Item: {
+        PK: `USER#${userId}`,
+        SK: &#39;CONSENT_CURRENT&#39;,
+        entity_type: &#39;CURRENT_CONSENT&#39;,
+        essential: true, // Always true
+        ai_personalization: consentData.ai_personalization || false,
+        analytics: consentData.analytics || false,
+        marketing: consentData.marketing || false,
+        updated_at: new Date().toISOString()
+      }
+    });
+  }
+
+  async withdrawConsent(userId, consentType) {
+    // Record consent withdrawal
+    await this.recordConsent(userId, {
+      [consentType]: false,
+      action: &#39;withdraw&#39;,
+      timestamp: new Date().toISOString()
+    });
+
+    // Take action based on consent type
+    switch (consentType) {
+      case &#39;ai_personalization&#39;:
+        await this.disableAIPersonalization(userId);
+        break;
+      case &#39;marketing&#39;:
+        await this.unsubscribeMarketing(userId);
+        break;
+      case &#39;analytics&#39;:
+        await this.disableAnalytics(userId);
+        break;
+    }
+  }
+
+  hashIP(ipAddress) {
+    // Hash IP for privacy while maintaining audit trail
+    return crypto.createHash(&#39;sha256&#39;).update(ipAddress).digest(&#39;hex&#39;);
+  }
+}🔍 Audit &amp; Compliance Monitoring#
+Audit Logging#
+// Comprehensive audit logging
+class AuditLogger {
+  async logDataAccess(userId, dataType, accessor, purpose) {
+    const auditLog = {
+      PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`,
+      SK: `ACCESS#${new Date().toISOString()}#${generateUUID()}`,
+      entity_type: &#39;AUDIT_LOG&#39;,
+      event_type: &#39;data_access&#39;,
+      user_id: userId,
+      data_type: dataType,
+      accessed_by: accessor,
+      purpose: purpose,
+      timestamp: new Date().toISOString(),
+      ip_address: this.hashIP(this.getClientIP()),
+      user_agent: this.getUserAgent()
+    };
+
+    await ddb.put({
+      TableName: process.env.DYNAMODB_TABLE,
+      Item: auditLog
+    });
+  }
+
+  async logDataModification(userId, dataType, changes, reason) {
+    const auditLog = {
+      PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`,
+      SK: `MODIFY#${new Date().toISOString()}#${generateUUID()}`,
+      entity_type: &#39;AUDIT_LOG&#39;,
+      event_type: &#39;data_modification&#39;,
+      user_id: userId,
+      data_type: dataType,
+      changes: changes,
+      reason: reason,
+      timestamp: new Date().toISOString()
+    };
+
+    await ddb.put({
+      TableName: process.env.DYNAMODB_TABLE,
+      Item: auditLog
+    });
+  }
+
+  async logDataDeletion(userId, dataType, reason) {
+    const auditLog = {
+      PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`,
+      SK: `DELETE#${new Date().toISOString()}#${generateUUID()}`,
+      entity_type: &#39;AUDIT_LOG&#39;,
+      event_type: &#39;data_deletion&#39;,
+      user_id: userId,
+      data_type: dataType,
+      reason: reason,
+      timestamp: new Date().toISOString()
+    };
+
+    await ddb.put({
+      TableName: process.env.DYNAMODB_TABLE,
+      Item: auditLog
+    });
+  }
+}Compliance Monitoring Dashboard#
+// Compliance metrics for admin dashboard
+async function getComplianceMetrics() {
+  const metrics = {
+    gdpr_requests: {
+      data_exports: await countGDPRRequests(&#39;data_export&#39;),
+      data_deletions: await countGDPRRequests(&#39;data_deletion&#39;),
+      data_rectifications: await countGDPRRequests(&#39;data_rectification&#39;),
+      processing_objections: await countGDPRRequests(&#39;processing_objection&#39;)
+    },
+    consent_metrics: {
+      ai_personalization_rate: await getConsentRate(&#39;ai_personalization&#39;),
+      marketing_consent_rate: await getConsentRate(&#39;marketing&#39;),
+      analytics_consent_rate: await getConsentRate(&#39;analytics&#39;)
+    },
+    data_retention: {
+      ai_suggestions_cleanup: await getCleanupStats(&#39;ai_suggestions&#39;),
+      old_logs_cleanup: await getCleanupStats(&#39;audit_logs&#39;),
+      inactive_users: await getInactiveUserCount()
+    },
+    security_incidents: {
+      failed_logins: await getFailedLoginCount(),
+      suspicious_activities: await getSuspiciousActivityCount(),
+      data_breaches: 0 // Manual tracking
+    }
+  };
+
+  return metrics;
+}Data Retention Policies#
+Retention Schedule#
+Data Retention Policies:
+  User Profiles:
+    Retention: Until account deletion
+    Legal Basis: Contract
+    
+  AI Suggestions:
+    Retention: 90 days
+    Cleanup: Automatic (DynamoDB TTL)
+    Legal Basis: Legitimate Interest
+    
+  Cooking History:
+    Retention: 2 years
+    Archive: S3 after 1 year
+    Legal Basis: Contract
+    
+  Audit Logs:
+    Retention: 7 years
+    Legal Basis: Legal Obligation
+    
+  Marketing Data:
+    Retention: Until consent withdrawn
+    Legal Basis: Consent
+    
+  Analytics Data:
+    Retention: 26 months (anonymized)
+    Legal Basis: Legitimate InterestAutomated Data Cleanup#
+// Scheduled Lambda for data cleanup
+exports.dataCleanupHandler = async (event, context) =&gt; {
+  const cleanupTasks = [
+    cleanupExpiredAISuggestions(),
+    cleanupOldAuditLogs(),
+    cleanupInactiveUsers(),
+    cleanupExpiredSessions()
+  ];
+
+  const results = await Promise.allSettled(cleanupTasks);
+  
+  const summary = {
+    ai_suggestions_cleaned: results[0].value || 0,
+    audit_logs_archived: results[1].value || 0,
+    inactive_users_notified: results[2].value || 0,
+    sessions_expired: results[3].value || 0,
+    cleanup_date: new Date().toISOString()
+  };
+
+  // Log cleanup summary
+  console.log(&#39;Data cleanup completed:&#39;, JSON.stringify(summary));
+  
+  return summary;
+};
+
+async function cleanupExpiredAISuggestions() {
+  // DynamoDB TTL handles this automatically
+  // This function just reports the count
+  const expiredCount = await countExpiredItems(&#39;ai_suggestions&#39;);
+  return expiredCount;
+}Related Documents#
+
+41 - Privacy
+40 - Auth
+13 - Security
+32 - Monitoring
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/42-compliance/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="42 - Compliance & Governance">
+  <meta property="og:description" content="Compliance &amp; Governance - Smart Cooking App#Compliance Overview#Compliance Standards#GDPR: EU General Data Protection Regulation CCPA: California Consumer Privacy Act (future) SOC 2 Type II: Security controls (future) ISO 27001: Information security (future) Governance Framework#Data Governance: Clear data handling policies Security Governance: Regular security assessments Privacy Governance: User privacy protection Operational Governance: Incident response procedures GDPR Compliance Implementation#Legal Basis for Processing#Data Processing Legal Basis: User Registration: Contract (Art. 6(1)(b)) AI Personalization: Legitimate Interest (Art. 6(1)(f)) Marketing Communications: Consent (Art. 6(1)(a)) Legal Compliance: Legal Obligation (Art. 6(1)(c)) Security Monitoring: Legitimate Interest (Art. 6(1)(f))Data Subject Rights Implementation#Right to Access (Art. 15)#// GET /user/data-export async function exportUserData(userId) { const exportData = { personalData: { profile: await getUserProfile(userId), preferences: await getUserPreferences(userId), privacySettings: await getPrivacySettings(userId) }, activityData: { cookingHistory: await getCookingHistory(userId), aiSuggestions: await getAISuggestions(userId), recipes: await getUserRecipes(userId), posts: await getUserPosts(userId) }, socialData: { friends: await getUserFriends(userId), comments: await getUserComments(userId), reactions: await getUserReactions(userId) }, metadata: { exportDate: new Date().toISOString(), dataRetentionPeriod: &#34;Until account deletion&#34;, legalBasis: &#34;Contract and Legitimate Interest&#34;, dataController: &#34;Smart Cooking App&#34;, contactEmail: &#34;privacy@smartcooking.app&#34; } }; return { statusCode: 200, headers: { &#39;Content-Type&#39;: &#39;application/json&#39;, &#39;Content-Disposition&#39;: &#39;attachment; filename=&#34;user-data-export.json&#34;&#39; }, body: JSON.stringify(exportData, null, 2) }; }Right to Rectification (Art. 16)#// PUT /user/profile - Allow users to correct their data async function updateUserProfile(event, userId) { const updates = JSON.parse(event.body); // Validate and sanitize updates const allowedFields = [ &#39;full_name&#39;, &#39;date_of_birth&#39;, &#39;gender&#39;, &#39;country&#39;, &#39;dietary_restrictions&#39;, &#39;allergies&#39;, &#39;favorite_cuisines&#39; ]; const validatedUpdates = {}; for (const [key, value] of Object.entries(updates)) { if (allowedFields.includes(key)) { validatedUpdates[key] = sanitizeInput(value); } } // Log data rectification for audit await logDataRectification(userId, validatedUpdates); // Update the data await updateUserData(userId, validatedUpdates); return successResponse({ message: &#39;Profile updated successfully&#39;, updatedFields: Object.keys(validatedUpdates), updatedAt: new Date().toISOString() }); }Right to Erasure (Art. 17)#// DELETE /user/account - Complete data deletion async function deleteUserAccount(userId) { try { // 1. Anonymize user-generated content (recipes, comments) await anonymizeUserContent(userId); // 2. Delete personal data from DynamoDB await deletePersonalData(userId); // 3. Delete files from S3 await deleteUserFiles(userId); // 4. Disable Cognito user await disableCognitoUser(userId); // 5. Log deletion for compliance await logDataDeletion(userId); return successResponse({ message: &#39;Account and all personal data have been deleted&#39;, deletedAt: new Date().toISOString(), retainedData: &#39;Anonymized recipes and comments (no personal identifiers)&#39; }); } catch (error) { console.error(&#39;Account deletion error:&#39;, error); return errorResponse(500, &#39;deletion_failed&#39;); } } async function anonymizeUserContent(userId) { // Keep recipes but remove personal identifiers await ddb.update({ TableName: process.env.DYNAMODB_TABLE, Key: { PK: `RECIPE#${recipeId}`, SK: &#39;METADATA&#39; }, UpdateExpression: &#39;SET created_by = :anon, user_id = :anon&#39;, ExpressionAttributeValues: { &#39;:anon&#39;: &#39;anonymous-user&#39; } }); // Similar for comments, posts, etc. }Right to Data Portability (Art. 20)#// GET /user/data-portability async function getPortableData(userId) { const portableData = { format: &#34;JSON&#34;, version: &#34;1.0&#34;, exportDate: new Date().toISOString(), user: { profile: await getUserProfile(userId), preferences: await getUserPreferences(userId), ingredients: await getUserIngredients(userId) }, recipes: await getUserRecipes(userId), cookingHistory: await getCookingHistory(userId), // Exclude system-generated data like AI suggestions // Include only user-created content }; return { statusCode: 200, headers: { &#39;Content-Type&#39;: &#39;application/json&#39;, &#39;Content-Disposition&#39;: &#39;attachment; filename=&#34;portable-data.json&#34;&#39; }, body: JSON.stringify(portableData, null, 2) }; }Right to Object (Art. 21)#// PUT /user/data-processing-objection async function handleDataProcessingObjection(userId, objectionType) { switch (objectionType) { case &#39;ai_personalization&#39;: // Disable AI personalization await updateUserPreferences(userId, { ai_personalization_enabled: false }); break; case &#39;marketing&#39;: // Disable marketing communications await updateUserPreferences(userId, { marketing_emails_enabled: false }); break; case &#39;analytics&#39;: // Disable analytics tracking await updateUserPreferences(userId, { analytics_tracking_enabled: false }); break; } await logDataProcessingObjection(userId, objectionType); return successResponse({ message: `Data processing objection recorded for: ${objectionType}`, effectiveDate: new Date().toISOString() }); }Data Protection Impact Assessment (DPIA)#DPIA Summary#Processing Activity: AI Recipe Suggestion System Risk Level: Medium DPIA Required: Yes (automated decision-making with profiling) Data Categories: - Personal identifiers (email, username) - Demographic data (age, gender, country) - Behavioral data (cooking preferences, ingredient usage) - Health data (allergies, dietary restrictions) Risks Identified: 1. AI bias in recipe suggestions 2. Inference of health conditions from dietary data 3. Potential data breaches 4. Unauthorized access to personal preferences Mitigation Measures: 1. Regular AI model bias testing 2. Encryption of sensitive data 3. Access controls and audit logging 4. User consent and transparencyPrivacy by Design Implementation#// Privacy-preserving AI suggestions class PrivacyAwareAI { async generateSuggestions(userId, ingredients) { // 1. Data minimization - only use necessary data const userContext = await this.getMinimalUserContext(userId); // 2. Purpose limitation - only for recipe suggestions const suggestions = await this.generateRecipes(ingredients, userContext); // 3. Storage limitation - TTL for AI suggestions await this.saveSuggestionsWithTTL(userId, suggestions, 90); // 90 days // 4. Transparency - log what data was used await this.logAIDataUsage(userId, userContext); return suggestions; } async getMinimalUserContext(userId) { // Only get data necessary for AI personalization const profile = await getUserProfile(userId); const preferences = await getUserPreferences(userId); return { age_range: this.getAgeRange(profile.date_of_birth), // Not exact age gender: profile.gender, country: profile.country, allergies: preferences.allergies, // Critical for safety cooking_methods: preferences.preferred_cooking_methods, cuisines: preferences.favorite_cuisines }; } getAgeRange(birthDate) { if (!birthDate) return null; const age = new Date().getFullYear() - new Date(birthDate).getFullYear(); return `${Math.floor(age / 10) * 10}-${Math.floor(age / 10) * 10 &#43; 9}`; } }Consent Management#Consent Categories#Consent Types: essential: description: &#34;Essential for app functionality&#34; required: true legal_basis: &#34;Contract&#34; ai_personalization: description: &#34;AI recipe personalization&#34; required: false legal_basis: &#34;Consent&#34; analytics: description: &#34;Usage analytics and improvements&#34; required: false legal_basis: &#34;Legitimate Interest&#34; marketing: description: &#34;Marketing communications&#34; required: false legal_basis: &#34;Consent&#34;Consent Management Implementation#// Consent management system class ConsentManager { async recordConsent(userId, consentData) { const consentRecord = { PK: `USER#${userId}`, SK: `CONSENT#${new Date().toISOString()}`, entity_type: &#39;CONSENT_RECORD&#39;, user_id: userId, consents: consentData, ip_address: this.hashIP(consentData.ip_address), user_agent: consentData.user_agent, timestamp: new Date().toISOString(), version: &#39;1.0&#39; // Consent form version }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: consentRecord }); // Update current consent status await this.updateCurrentConsent(userId, consentData); } async updateCurrentConsent(userId, consentData) { await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: { PK: `USER#${userId}`, SK: &#39;CONSENT_CURRENT&#39;, entity_type: &#39;CURRENT_CONSENT&#39;, essential: true, // Always true ai_personalization: consentData.ai_personalization || false, analytics: consentData.analytics || false, marketing: consentData.marketing || false, updated_at: new Date().toISOString() } }); } async withdrawConsent(userId, consentType) { // Record consent withdrawal await this.recordConsent(userId, { [consentType]: false, action: &#39;withdraw&#39;, timestamp: new Date().toISOString() }); // Take action based on consent type switch (consentType) { case &#39;ai_personalization&#39;: await this.disableAIPersonalization(userId); break; case &#39;marketing&#39;: await this.unsubscribeMarketing(userId); break; case &#39;analytics&#39;: await this.disableAnalytics(userId); break; } } hashIP(ipAddress) { // Hash IP for privacy while maintaining audit trail return crypto.createHash(&#39;sha256&#39;).update(ipAddress).digest(&#39;hex&#39;); } }🔍 Audit &amp; Compliance Monitoring#Audit Logging#// Comprehensive audit logging class AuditLogger { async logDataAccess(userId, dataType, accessor, purpose) { const auditLog = { PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`, SK: `ACCESS#${new Date().toISOString()}#${generateUUID()}`, entity_type: &#39;AUDIT_LOG&#39;, event_type: &#39;data_access&#39;, user_id: userId, data_type: dataType, accessed_by: accessor, purpose: purpose, timestamp: new Date().toISOString(), ip_address: this.hashIP(this.getClientIP()), user_agent: this.getUserAgent() }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: auditLog }); } async logDataModification(userId, dataType, changes, reason) { const auditLog = { PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`, SK: `MODIFY#${new Date().toISOString()}#${generateUUID()}`, entity_type: &#39;AUDIT_LOG&#39;, event_type: &#39;data_modification&#39;, user_id: userId, data_type: dataType, changes: changes, reason: reason, timestamp: new Date().toISOString() }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: auditLog }); } async logDataDeletion(userId, dataType, reason) { const auditLog = { PK: `AUDIT#${new Date().toISOString().split(&#39;T&#39;)[0]}`, SK: `DELETE#${new Date().toISOString()}#${generateUUID()}`, entity_type: &#39;AUDIT_LOG&#39;, event_type: &#39;data_deletion&#39;, user_id: userId, data_type: dataType, reason: reason, timestamp: new Date().toISOString() }; await ddb.put({ TableName: process.env.DYNAMODB_TABLE, Item: auditLog }); } }Compliance Monitoring Dashboard#// Compliance metrics for admin dashboard async function getComplianceMetrics() { const metrics = { gdpr_requests: { data_exports: await countGDPRRequests(&#39;data_export&#39;), data_deletions: await countGDPRRequests(&#39;data_deletion&#39;), data_rectifications: await countGDPRRequests(&#39;data_rectification&#39;), processing_objections: await countGDPRRequests(&#39;processing_objection&#39;) }, consent_metrics: { ai_personalization_rate: await getConsentRate(&#39;ai_personalization&#39;), marketing_consent_rate: await getConsentRate(&#39;marketing&#39;), analytics_consent_rate: await getConsentRate(&#39;analytics&#39;) }, data_retention: { ai_suggestions_cleanup: await getCleanupStats(&#39;ai_suggestions&#39;), old_logs_cleanup: await getCleanupStats(&#39;audit_logs&#39;), inactive_users: await getInactiveUserCount() }, security_incidents: { failed_logins: await getFailedLoginCount(), suspicious_activities: await getSuspiciousActivityCount(), data_breaches: 0 // Manual tracking } }; return metrics; }Data Retention Policies#Retention Schedule#Data Retention Policies: User Profiles: Retention: Until account deletion Legal Basis: Contract AI Suggestions: Retention: 90 days Cleanup: Automatic (DynamoDB TTL) Legal Basis: Legitimate Interest Cooking History: Retention: 2 years Archive: S3 after 1 year Legal Basis: Contract Audit Logs: Retention: 7 years Legal Basis: Legal Obligation Marketing Data: Retention: Until consent withdrawn Legal Basis: Consent Analytics Data: Retention: 26 months (anonymized) Legal Basis: Legitimate InterestAutomated Data Cleanup#// Scheduled Lambda for data cleanup exports.dataCleanupHandler = async (event, context) =&gt; { const cleanupTasks = [ cleanupExpiredAISuggestions(), cleanupOldAuditLogs(), cleanupInactiveUsers(), cleanupExpiredSessions() ]; const results = await Promise.allSettled(cleanupTasks); const summary = { ai_suggestions_cleaned: results[0].value || 0, audit_logs_archived: results[1].value || 0, inactive_users_notified: results[2].value || 0, sessions_expired: results[3].value || 0, cleanup_date: new Date().toISOString() }; // Log cleanup summary console.log(&#39;Data cleanup completed:&#39;, JSON.stringify(summary)); return summary; }; async function cleanupExpiredAISuggestions() { // DynamoDB TTL handles this automatically // This function just reports the count const expiredCount = await countExpiredItems(&#39;ai_suggestions&#39;); return expiredCount; }Related Documents#41 - Privacy 40 - Auth 13 - Security 32 - Monitoring">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>42 - Compliance &amp; Governance | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/42-compliance/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="active">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>42 - Compliance &amp; Governance</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#compliance-overview">Compliance Overview</a>
+      <ul>
+        <li><a href="#compliance-standards">Compliance Standards</a></li>
+        <li><a href="#governance-framework">Governance Framework</a></li>
+      </ul>
+    </li>
+    <li><a href="#gdpr-compliance-implementation">GDPR Compliance Implementation</a>
+      <ul>
+        <li><a href="#legal-basis-for-processing">Legal Basis for Processing</a></li>
+        <li><a href="#data-subject-rights-implementation">Data Subject Rights Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-protection-impact-assessment-dpia">Data Protection Impact Assessment (DPIA)</a>
+      <ul>
+        <li><a href="#dpia-summary">DPIA Summary</a></li>
+        <li><a href="#privacy-by-design-implementation">Privacy by Design Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#consent-management">Consent Management</a>
+      <ul>
+        <li><a href="#consent-categories">Consent Categories</a></li>
+        <li><a href="#consent-management-implementation">Consent Management Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#-audit--compliance-monitoring">🔍 Audit &amp; Compliance Monitoring</a>
+      <ul>
+        <li><a href="#audit-logging">Audit Logging</a></li>
+        <li><a href="#compliance-monitoring-dashboard">Compliance Monitoring Dashboard</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-retention-policies">Data Retention Policies</a>
+      <ul>
+        <li><a href="#retention-schedule">Retention Schedule</a></li>
+        <li><a href="#automated-data-cleanup">Automated Data Cleanup</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="compliance--governance---smart-cooking-app">Compliance &amp; Governance - Smart Cooking App<a class="anchor" href="#compliance--governance---smart-cooking-app">#</a></h1>
+<h2 id="compliance-overview">Compliance Overview<a class="anchor" href="#compliance-overview">#</a></h2>
+<h3 id="compliance-standards">Compliance Standards<a class="anchor" href="#compliance-standards">#</a></h3>
+<ul>
+<li><strong>GDPR</strong>: EU General Data Protection Regulation</li>
+<li><strong>CCPA</strong>: California Consumer Privacy Act (future)</li>
+<li><strong>SOC 2 Type II</strong>: Security controls (future)</li>
+<li><strong>ISO 27001</strong>: Information security (future)</li>
+</ul>
+<h3 id="governance-framework">Governance Framework<a class="anchor" href="#governance-framework">#</a></h3>
+<ul>
+<li><strong>Data Governance</strong>: Clear data handling policies</li>
+<li><strong>Security Governance</strong>: Regular security assessments</li>
+<li><strong>Privacy Governance</strong>: User privacy protection</li>
+<li><strong>Operational Governance</strong>: Incident response procedures</li>
+</ul>
+<h2 id="gdpr-compliance-implementation">GDPR Compliance Implementation<a class="anchor" href="#gdpr-compliance-implementation">#</a></h2>
+<h3 id="legal-basis-for-processing">Legal Basis for Processing<a class="anchor" href="#legal-basis-for-processing">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Data Processing Legal Basis</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">User Registration</span>: <span style="color:#ae81ff">Contract (Art. 6(1)(b))</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">AI Personalization</span>: <span style="color:#ae81ff">Legitimate Interest (Art. 6(1)(f))</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Marketing Communications</span>: <span style="color:#ae81ff">Consent (Art. 6(1)(a))</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Legal Compliance</span>: <span style="color:#ae81ff">Legal Obligation (Art. 6(1)(c))</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Security Monitoring</span>: <span style="color:#ae81ff">Legitimate Interest (Art. 6(1)(f))</span></span></span></code></pre></div><h3 id="data-subject-rights-implementation">Data Subject Rights Implementation<a class="anchor" href="#data-subject-rights-implementation">#</a></h3>
+<h4 id="right-to-access-art-15">Right to Access (Art. 15)<a class="anchor" href="#right-to-access-art-15">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// GET /user/data-export
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">exportUserData</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">exportData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">personalData</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">profile</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">preferences</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPreferences</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">privacySettings</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getPrivacySettings</span>(<span style="color:#a6e22e">userId</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">activityData</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cookingHistory</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">aiSuggestions</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getAISuggestions</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserRecipes</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">posts</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPosts</span>(<span style="color:#a6e22e">userId</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">socialData</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">friends</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserFriends</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">comments</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserComments</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">reactions</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserReactions</span>(<span style="color:#a6e22e">userId</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">metadata</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">exportDate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">dataRetentionPeriod</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Until account deletion&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">legalBasis</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Contract and Legitimate Interest&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">dataController</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;Smart Cooking App&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">contactEmail</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;privacy@smartcooking.app&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Disposition&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;attachment; filename=&#34;user-data-export.json&#34;&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">exportData</span>, <span style="color:#66d9ef">null</span>, <span style="color:#ae81ff">2</span>)
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="right-to-rectification-art-16">Right to Rectification (Art. 16)<a class="anchor" href="#right-to-rectification-art-16">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// PUT /user/profile - Allow users to correct their data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">updateUserProfile</span>(<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">updates</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">event</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate and sanitize updates
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">allowedFields</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;full_name&#39;</span>, <span style="color:#e6db74">&#39;date_of_birth&#39;</span>, <span style="color:#e6db74">&#39;gender&#39;</span>, <span style="color:#e6db74">&#39;country&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;dietary_restrictions&#39;</span>, <span style="color:#e6db74">&#39;allergies&#39;</span>, <span style="color:#e6db74">&#39;favorite_cuisines&#39;</span>
+</span></span><span style="display:flex;"><span>  ];
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validatedUpdates</span> <span style="color:#f92672">=</span> {};
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">key</span>, <span style="color:#a6e22e">value</span>] <span style="color:#66d9ef">of</span> Object.<span style="color:#a6e22e">entries</span>(<span style="color:#a6e22e">updates</span>)) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">allowedFields</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">key</span>)) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">validatedUpdates</span>[<span style="color:#a6e22e">key</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">sanitizeInput</span>(<span style="color:#a6e22e">value</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Log data rectification for audit
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">logDataRectification</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">validatedUpdates</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Update the data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateUserData</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">validatedUpdates</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Profile updated successfully&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updatedFields</span><span style="color:#f92672">:</span> Object.<span style="color:#a6e22e">keys</span>(<span style="color:#a6e22e">validatedUpdates</span>),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">updatedAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="right-to-erasure-art-17">Right to Erasure (Art. 17)<a class="anchor" href="#right-to-erasure-art-17">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// DELETE /user/account - Complete data deletion
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">deleteUserAccount</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. Anonymize user-generated content (recipes, comments)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">anonymizeUserContent</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. Delete personal data from DynamoDB
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deletePersonalData</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 3. Delete files from S3
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">deleteUserFiles</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 4. Disable Cognito user
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">disableCognitoUser</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 5. Log deletion for compliance
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">logDataDeletion</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Account and all personal data have been deleted&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">deletedAt</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">retainedData</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Anonymized recipes and comments (no personal identifiers)&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Account deletion error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">errorResponse</span>(<span style="color:#ae81ff">500</span>, <span style="color:#e6db74">&#39;deletion_failed&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">anonymizeUserContent</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Keep recipes but remove personal identifiers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>, <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span> },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SET created_by = :anon, user_id = :anon&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:anon&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anonymous-user&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Similar for comments, posts, etc.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}</span></span></code></pre></div><h4 id="right-to-data-portability-art-20">Right to Data Portability (Art. 20)<a class="anchor" href="#right-to-data-portability-art-20">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// GET /user/data-portability
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getPortableData</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">portableData</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">format</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;JSON&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">version</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;1.0&#34;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">exportDate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">user</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">profile</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">preferences</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPreferences</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserIngredients</span>(<span style="color:#a6e22e">userId</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipes</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserRecipes</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cookingHistory</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">userId</span>),
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Exclude system-generated data like AI suggestions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// Include only user-created content
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">headers</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Type&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Content-Disposition&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;attachment; filename=&#34;portable-data.json&#34;&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">portableData</span>, <span style="color:#66d9ef">null</span>, <span style="color:#ae81ff">2</span>)
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="right-to-object-art-21">Right to Object (Art. 21)<a class="anchor" href="#right-to-object-art-21">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// PUT /user/data-processing-objection
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">handleDataProcessingObjection</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">objectionType</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">objectionType</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;ai_personalization&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Disable AI personalization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateUserPreferences</span>(<span style="color:#a6e22e">userId</span>, { 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ai_personalization_enabled</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> 
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;marketing&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Disable marketing communications
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateUserPreferences</span>(<span style="color:#a6e22e">userId</span>, { 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">marketing_emails_enabled</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> 
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;analytics&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Disable analytics tracking
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">updateUserPreferences</span>(<span style="color:#a6e22e">userId</span>, { 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">analytics_tracking_enabled</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> 
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">logDataProcessingObjection</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">objectionType</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">successResponse</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Data processing objection recorded for: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">objectionType</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">effectiveDate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="data-protection-impact-assessment-dpia">Data Protection Impact Assessment (DPIA)<a class="anchor" href="#data-protection-impact-assessment-dpia">#</a></h2>
+<h3 id="dpia-summary">DPIA Summary<a class="anchor" href="#dpia-summary">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Processing Activity</span>: <span style="color:#ae81ff">AI Recipe Suggestion System</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Risk Level</span>: <span style="color:#ae81ff">Medium</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">DPIA Required</span>: <span style="color:#66d9ef">Yes</span> <span style="color:#ae81ff">(automated decision-making with profiling)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Data Categories</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Personal identifiers (email, username)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Demographic data (age, gender, country)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Behavioral data (cooking preferences, ingredient usage)</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Health data (allergies, dietary restrictions)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Risks Identified</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. AI bias in recipe suggestions</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Inference of health conditions from dietary data</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Potential data breaches</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. Unauthorized access to personal preferences</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Mitigation Measures</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. Regular AI model bias testing</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Encryption of sensitive data</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Access controls and audit logging</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. User consent and transparency</span></span></span></code></pre></div><h3 id="privacy-by-design-implementation">Privacy by Design Implementation<a class="anchor" href="#privacy-by-design-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Privacy-preserving AI suggestions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">PrivacyAwareAI</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">generateSuggestions</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 1. Data minimization - only use necessary data
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userContext</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getMinimalUserContext</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 2. Purpose limitation - only for recipe suggestions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">suggestions</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">generateRecipes</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 3. Storage limitation - TTL for AI suggestions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">saveSuggestionsWithTTL</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">suggestions</span>, <span style="color:#ae81ff">90</span>); <span style="color:#75715e">// 90 days
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// 4. Transparency - log what data was used
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">logAIDataUsage</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">userContext</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">suggestions</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">getMinimalUserContext</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Only get data necessary for AI personalization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">profile</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserProfile</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">preferences</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserPreferences</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">age_range</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getAgeRange</span>(<span style="color:#a6e22e">profile</span>.<span style="color:#a6e22e">date_of_birth</span>), <span style="color:#75715e">// Not exact age
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">profile</span>.<span style="color:#a6e22e">gender</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">profile</span>.<span style="color:#a6e22e">country</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">allergies</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">preferences</span>.<span style="color:#a6e22e">allergies</span>, <span style="color:#75715e">// Critical for safety
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">cooking_methods</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">preferences</span>.<span style="color:#a6e22e">preferred_cooking_methods</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cuisines</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">preferences</span>.<span style="color:#a6e22e">favorite_cuisines</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getAgeRange</span>(<span style="color:#a6e22e">birthDate</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">birthDate</span>) <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">getFullYear</span>() <span style="color:#f92672">-</span> <span style="color:#66d9ef">new</span> Date(<span style="color:#a6e22e">birthDate</span>).<span style="color:#a6e22e">getFullYear</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">9</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="consent-management">Consent Management<a class="anchor" href="#consent-management">#</a></h2>
+<h3 id="consent-categories">Consent Categories<a class="anchor" href="#consent-categories">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Consent Types</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">essential</span>: 
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34;Essential for app functionality&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">required</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">legal_basis</span>: <span style="color:#e6db74">&#34;Contract&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">ai_personalization</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34;AI recipe personalization&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">required</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">legal_basis</span>: <span style="color:#e6db74">&#34;Consent&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">analytics</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34;Usage analytics and improvements&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">required</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">legal_basis</span>: <span style="color:#e6db74">&#34;Legitimate Interest&#34;</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">marketing</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">description</span>: <span style="color:#e6db74">&#34;Marketing communications&#34;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">required</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">legal_basis</span>: <span style="color:#e6db74">&#34;Consent&#34;</span></span></span></code></pre></div><h3 id="consent-management-implementation">Consent Management Implementation<a class="anchor" href="#consent-management-implementation">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Consent management system
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">ConsentManager</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">recordConsent</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">consentData</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">consentRecord</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`CONSENT#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;CONSENT_RECORD&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">consents</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentData</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ip_address</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">hashIP</span>(<span style="color:#a6e22e">consentData</span>.<span style="color:#a6e22e">ip_address</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_agent</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentData</span>.<span style="color:#a6e22e">user_agent</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">version</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;1.0&#39;</span> <span style="color:#75715e">// Consent form version
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentRecord</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Update current consent status
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">updateCurrentConsent</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">consentData</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">updateCurrentConsent</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">consentData</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;CONSENT_CURRENT&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;CURRENT_CONSENT&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">essential</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>, <span style="color:#75715e">// Always true
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">ai_personalization</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentData</span>.<span style="color:#a6e22e">ai_personalization</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">analytics</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentData</span>.<span style="color:#a6e22e">analytics</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">marketing</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">consentData</span>.<span style="color:#a6e22e">marketing</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">withdrawConsent</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">consentType</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Record consent withdrawal
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">recordConsent</span>(<span style="color:#a6e22e">userId</span>, {
+</span></span><span style="display:flex;"><span>      [<span style="color:#a6e22e">consentType</span>]<span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">action</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;withdraw&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Take action based on consent type
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">switch</span> (<span style="color:#a6e22e">consentType</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;ai_personalization&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">disableAIPersonalization</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;marketing&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">unsubscribeMarketing</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">case</span> <span style="color:#e6db74">&#39;analytics&#39;</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">disableAnalytics</span>(<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">hashIP</span>(<span style="color:#a6e22e">ipAddress</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Hash IP for privacy while maintaining audit trail
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">crypto</span>.<span style="color:#a6e22e">createHash</span>(<span style="color:#e6db74">&#39;sha256&#39;</span>).<span style="color:#a6e22e">update</span>(<span style="color:#a6e22e">ipAddress</span>).<span style="color:#a6e22e">digest</span>(<span style="color:#e6db74">&#39;hex&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="-audit--compliance-monitoring">🔍 Audit &amp; Compliance Monitoring<a class="anchor" href="#-audit--compliance-monitoring">#</a></h2>
+<h3 id="audit-logging">Audit Logging<a class="anchor" href="#audit-logging">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Comprehensive audit logging
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AuditLogger</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">logDataAccess</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">dataType</span>, <span style="color:#a6e22e">accessor</span>, <span style="color:#a6e22e">purpose</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">auditLog</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`AUDIT#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>().<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;T&#39;</span>)[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`ACCESS#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AUDIT_LOG&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">event_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;data_access&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dataType</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">accessed_by</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">accessor</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">purpose</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">purpose</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ip_address</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">hashIP</span>(<span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getClientIP</span>()),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_agent</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">getUserAgent</span>()
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">auditLog</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">logDataModification</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">dataType</span>, <span style="color:#a6e22e">changes</span>, <span style="color:#a6e22e">reason</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">auditLog</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`AUDIT#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>().<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;T&#39;</span>)[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`MODIFY#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AUDIT_LOG&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">event_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;data_modification&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dataType</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">changes</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">changes</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">reason</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">reason</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">auditLog</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">logDataDeletion</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">dataType</span>, <span style="color:#a6e22e">reason</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">auditLog</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`AUDIT#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>().<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;T&#39;</span>)[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`DELETE#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">entity_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AUDIT_LOG&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">event_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;data_deletion&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dataType</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">reason</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">reason</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">DYNAMODB_TABLE</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">auditLog</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="compliance-monitoring-dashboard">Compliance Monitoring Dashboard<a class="anchor" href="#compliance-monitoring-dashboard">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Compliance metrics for admin dashboard
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getComplianceMetrics</span>() {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">metrics</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">gdpr_requests</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_exports</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">countGDPRRequests</span>(<span style="color:#e6db74">&#39;data_export&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_deletions</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">countGDPRRequests</span>(<span style="color:#e6db74">&#39;data_deletion&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_rectifications</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">countGDPRRequests</span>(<span style="color:#e6db74">&#39;data_rectification&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">processing_objections</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">countGDPRRequests</span>(<span style="color:#e6db74">&#39;processing_objection&#39;</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">consent_metrics</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ai_personalization_rate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getConsentRate</span>(<span style="color:#e6db74">&#39;ai_personalization&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">marketing_consent_rate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getConsentRate</span>(<span style="color:#e6db74">&#39;marketing&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">analytics_consent_rate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getConsentRate</span>(<span style="color:#e6db74">&#39;analytics&#39;</span>)
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">data_retention</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ai_suggestions_cleanup</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCleanupStats</span>(<span style="color:#e6db74">&#39;ai_suggestions&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">old_logs_cleanup</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getCleanupStats</span>(<span style="color:#e6db74">&#39;audit_logs&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">inactive_users</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getInactiveUserCount</span>()
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">security_incidents</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">failed_logins</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getFailedLoginCount</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suspicious_activities</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getSuspiciousActivityCount</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">data_breaches</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">0</span> <span style="color:#75715e">// Manual tracking
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">metrics</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="data-retention-policies">Data Retention Policies<a class="anchor" href="#data-retention-policies">#</a></h2>
+<h3 id="retention-schedule">Retention Schedule<a class="anchor" href="#retention-schedule">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Data Retention Policies</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">User Profiles</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">Until account deletion</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Contract</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">AI Suggestions</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">90</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Cleanup</span>: <span style="color:#ae81ff">Automatic (DynamoDB TTL)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Legitimate Interest</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Cooking History</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">2</span> <span style="color:#ae81ff">years</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Archive</span>: <span style="color:#ae81ff">S3 after 1 year</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Contract</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Audit Logs</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">years</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Legal Obligation</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Marketing Data</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">Until consent withdrawn</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Consent</span>
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Analytics Data</span>:
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">26</span> <span style="color:#ae81ff">months (anonymized)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Legal Basis</span>: <span style="color:#ae81ff">Legitimate Interest</span></span></span></code></pre></div><h3 id="automated-data-cleanup">Automated Data Cleanup<a class="anchor" href="#automated-data-cleanup">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Scheduled Lambda for data cleanup
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">exports</span>.<span style="color:#a6e22e">dataCleanupHandler</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">event</span>, <span style="color:#a6e22e">context</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">cleanupTasks</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cleanupExpiredAISuggestions</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cleanupOldAuditLogs</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cleanupInactiveUsers</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cleanupExpiredSessions</span>()
+</span></span><span style="display:flex;"><span>  ];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">results</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> Promise.<span style="color:#a6e22e">allSettled</span>(<span style="color:#a6e22e">cleanupTasks</span>);
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">summary</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ai_suggestions_cleaned</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">results</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">value</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">audit_logs_archived</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">results</span>[<span style="color:#ae81ff">1</span>].<span style="color:#a6e22e">value</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">inactive_users_notified</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">results</span>[<span style="color:#ae81ff">2</span>].<span style="color:#a6e22e">value</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">sessions_expired</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">results</span>[<span style="color:#ae81ff">3</span>].<span style="color:#a6e22e">value</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cleanup_date</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Log cleanup summary
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#e6db74">&#39;Data cleanup completed:&#39;</span>, <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>(<span style="color:#a6e22e">summary</span>));
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">summary</span>;
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">cleanupExpiredAISuggestions</span>() {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// DynamoDB TTL handles this automatically
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// This function just reports the count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">expiredCount</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">countExpiredItems</span>(<span style="color:#e6db74">&#39;ai_suggestions&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">expiredCount</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="41-privacy.md">41 - Privacy</a></li>
+<li><a href="40-auth.md">40 - Auth</a></li>
+<li><a href="13-security.md">13 - Security</a></li>
+<li><a href="32-monitoring.md">32 - Monitoring</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/41-privacy/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="41 - Privacy &amp; Data Protection" />
+        <span>41 - Privacy &amp; Data Protection</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/99-glossary/" class="flex align-center">
+        <span>99 - Glossary</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="99 - Glossary" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#compliance-overview">Compliance Overview</a>
+      <ul>
+        <li><a href="#compliance-standards">Compliance Standards</a></li>
+        <li><a href="#governance-framework">Governance Framework</a></li>
+      </ul>
+    </li>
+    <li><a href="#gdpr-compliance-implementation">GDPR Compliance Implementation</a>
+      <ul>
+        <li><a href="#legal-basis-for-processing">Legal Basis for Processing</a></li>
+        <li><a href="#data-subject-rights-implementation">Data Subject Rights Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-protection-impact-assessment-dpia">Data Protection Impact Assessment (DPIA)</a>
+      <ul>
+        <li><a href="#dpia-summary">DPIA Summary</a></li>
+        <li><a href="#privacy-by-design-implementation">Privacy by Design Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#consent-management">Consent Management</a>
+      <ul>
+        <li><a href="#consent-categories">Consent Categories</a></li>
+        <li><a href="#consent-management-implementation">Consent Management Implementation</a></li>
+      </ul>
+    </li>
+    <li><a href="#-audit--compliance-monitoring">🔍 Audit &amp; Compliance Monitoring</a>
+      <ul>
+        <li><a href="#audit-logging">Audit Logging</a></li>
+        <li><a href="#compliance-monitoring-dashboard">Compliance Monitoring Dashboard</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-retention-policies">Data Retention Policies</a>
+      <ul>
+        <li><a href="#retention-schedule">Retention Schedule</a></li>
+        <li><a href="#automated-data-cleanup">Automated Data Cleanup</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

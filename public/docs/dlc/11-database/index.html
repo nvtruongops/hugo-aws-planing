@@ -1,0 +1,1401 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Thiết Kế Database - Smart Cooking App#
+Database Strategy#
+Technology Choice: Amazon DynamoDB#
+Why DynamoDB over RDS/PostgreSQL?
+
+  
+      
+          Criteria
+          DynamoDB
+          RDS PostgreSQL
+      
+  
+  
+      
+          Cost (MVP)
+          $40-55/month
+          $30-50/month (t3.micro)
+      
+      
+          Cost (Scale)
+          Scales with usage
+          Fixed &#43; storage growth
+      
+      
+          Scaling
+          Auto-scaling, zero config
+          Manual scaling, downtime
+      
+      
+          Maintenance
+          Zero maintenance
+          Patching, backups, monitoring
+      
+      
+          Latency
+          Single-digit ms
+          10-50ms
+      
+      
+          Lambda Integration
+          Native, optimized
+          Connection pooling needed
+      
+      
+          Serverless
+          True serverless
+          Always running
+      
+      
+          Learning Curve
+          High (single-table)
+          Low (SQL familiar)
+      
+  
+
+Decision: DynamoDB for MVP">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/11-database/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="11 - Database Design">
+  <meta property="og:description" content="Thiết Kế Database - Smart Cooking App#Database Strategy#Technology Choice: Amazon DynamoDB#Why DynamoDB over RDS/PostgreSQL?
+Criteria DynamoDB RDS PostgreSQL Cost (MVP) $40-55/month $30-50/month (t3.micro) Cost (Scale) Scales with usage Fixed &#43; storage growth Scaling Auto-scaling, zero config Manual scaling, downtime Maintenance Zero maintenance Patching, backups, monitoring Latency Single-digit ms 10-50ms Lambda Integration Native, optimized Connection pooling needed Serverless True serverless Always running Learning Curve High (single-table) Low (SQL familiar) Decision: DynamoDB for MVP">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>11 - Database Design | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/11-database/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="active">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>11 - Database Design</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#database-strategy">Database Strategy</a>
+      <ul>
+        <li><a href="#technology-choice-amazon-dynamodb">Technology Choice: Amazon DynamoDB</a></li>
+      </ul>
+    </li>
+    <li><a href="#single-table-design">Single-Table Design</a>
+      <ul>
+        <li><a href="#table-name-smart-cooking-data">Table Name: <code>smart-cooking-data</code></a></li>
+        <li><a href="#primary-key-structure">Primary Key Structure</a></li>
+      </ul>
+    </li>
+    <li><a href="#entity-designs">Entity Designs</a>
+      <ul>
+        <li><a href="#1-users">1. Users</a></li>
+        <li><a href="#2-user-ingredients">2. User Ingredients</a></li>
+        <li><a href="#3-master-ingredients">3. Master Ingredients</a></li>
+        <li><a href="#4-recipes">4. Recipes</a></li>
+        <li><a href="#5-cooking-history">5. Cooking History</a></li>
+        <li><a href="#6-recipe-ratings">6. Recipe Ratings</a></li>
+        <li><a href="#7-ai-suggestions">7. AI Suggestions</a></li>
+        <li><a href="#8-friendships">8. Friendships</a></li>
+        <li><a href="#9-posts">9. Posts</a></li>
+        <li><a href="#10-comments">10. Comments</a></li>
+        <li><a href="#11-reactions">11. Reactions</a></li>
+        <li><a href="#12-notifications">12. Notifications</a></li>
+        <li><a href="#13-invalid-ingredient-reports-optional">13. Invalid Ingredient Reports (Optional)</a></li>
+      </ul>
+    </li>
+    <li><a href="#global-secondary-indexes-gsi">Global Secondary Indexes (GSI)</a>
+      <ul>
+        <li><a href="#gsi1-user-based-queries">GSI1: User-Based Queries</a></li>
+        <li><a href="#gsi2-search--discovery">GSI2: Search &amp; Discovery</a></li>
+        <li><a href="#gsi3-social-feed">GSI3: Social Feed</a></li>
+      </ul>
+    </li>
+    <li><a href="#capacity-planning">Capacity Planning</a>
+      <ul>
+        <li><a href="#readwrite-patterns-mvp---1000-users">Read/Write Patterns (MVP - 1,000 users)</a></li>
+        <li><a href="#pricing-calculation-on-demand">Pricing Calculation (On-Demand)</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-lifecycle-management">Data Lifecycle Management</a>
+      <ul>
+        <li><a href="#ttl-time-to-live-policies">TTL (Time-To-Live) Policies</a></li>
+        <li><a href="#backup-strategy">Backup Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#query-optimization">Query Optimization</a>
+      <ul>
+        <li><a href="#best-practices">Best Practices</a></li>
+        <li><a href="#anti-patterns-to-avoid">Anti-Patterns to Avoid</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="thiết-kế-database---smart-cooking-app">Thiết Kế Database - Smart Cooking App<a class="anchor" href="#thi%e1%ba%bft-k%e1%ba%bf-database---smart-cooking-app">#</a></h1>
+<h2 id="database-strategy">Database Strategy<a class="anchor" href="#database-strategy">#</a></h2>
+<h3 id="technology-choice-amazon-dynamodb">Technology Choice: Amazon DynamoDB<a class="anchor" href="#technology-choice-amazon-dynamodb">#</a></h3>
+<p><strong>Why DynamoDB over RDS/PostgreSQL?</strong></p>
+<table>
+  <thead>
+      <tr>
+          <th>Criteria</th>
+          <th>DynamoDB</th>
+          <th>RDS PostgreSQL</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>Cost (MVP)</strong></td>
+          <td>$40-55/month</td>
+          <td>$30-50/month (t3.micro)</td>
+      </tr>
+      <tr>
+          <td><strong>Cost (Scale)</strong></td>
+          <td>Scales with usage</td>
+          <td>Fixed + storage growth</td>
+      </tr>
+      <tr>
+          <td><strong>Scaling</strong></td>
+          <td>Auto-scaling, zero config</td>
+          <td>Manual scaling, downtime</td>
+      </tr>
+      <tr>
+          <td><strong>Maintenance</strong></td>
+          <td>Zero maintenance</td>
+          <td>Patching, backups, monitoring</td>
+      </tr>
+      <tr>
+          <td><strong>Latency</strong></td>
+          <td>Single-digit ms</td>
+          <td>10-50ms</td>
+      </tr>
+      <tr>
+          <td><strong>Lambda Integration</strong></td>
+          <td>Native, optimized</td>
+          <td>Connection pooling needed</td>
+      </tr>
+      <tr>
+          <td><strong>Serverless</strong></td>
+          <td>True serverless</td>
+          <td>Always running</td>
+      </tr>
+      <tr>
+          <td><strong>Learning Curve</strong></td>
+          <td>High (single-table)</td>
+          <td>Low (SQL familiar)</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Decision</strong>: DynamoDB for MVP</p>
+<ul>
+<li>Serverless architecture alignment</li>
+<li>Better cost structure for variable load</li>
+<li>Lower operational overhead for solo developer</li>
+</ul>
+<h2 id="single-table-design">Single-Table Design<a class="anchor" href="#single-table-design">#</a></h2>
+<h3 id="table-name-smart-cooking-data">Table Name: <code>smart-cooking-data</code><a class="anchor" href="#table-name-smart-cooking-data">#</a></h3>
+<p><strong>Design Philosophy:</strong></p>
+<ul>
+<li>One table to rule them all (single-table design)</li>
+<li>Composite primary key (PK + SK)</li>
+<li>GSI (Global Secondary Indexes) for alternate access patterns</li>
+<li>Denormalization where needed for performance</li>
+</ul>
+<h3 id="primary-key-structure">Primary Key Structure<a class="anchor" href="#primary-key-structure">#</a></h3>
+<pre tabindex="0"><code>PK (Partition Key): Entity type + ID
+SK (Sort Key): Sub-entity type + timestamp/ID
+
+Example:
+  USER#123      | PROFILE
+  USER#123      | PREFERENCES
+  RECIPE#456    | METADATA
+  RECIPE#456    | INGREDIENT#001</code></pre><h2 id="entity-designs">Entity Designs<a class="anchor" href="#entity-designs">#</a></h2>
+<h3 id="1-users">1. Users<a class="anchor" href="#1-users">#</a></h3>
+<h4 id="user-profile">User Profile<a class="anchor" href="#user-profile">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;PROFILE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;USER_PROFILE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;username&#34;</span>: <span style="color:#e6db74">&#34;cookmaster&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;full_name&#34;</span>: <span style="color:#e6db74">&#34;John Doe&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;date_of_birth&#34;</span>: <span style="color:#e6db74">&#34;1990-01-15&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;gender&#34;</span>: <span style="color:#e6db74">&#34;male&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;country&#34;</span>: <span style="color:#e6db74">&#34;Vietnam&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;avatar_url&#34;</span>: <span style="color:#e6db74">&#34;https://s3.../avatar.jpg&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;role&#34;</span>: <span style="color:#e6db74">&#34;user&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_active&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;last_login&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T15:30:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;ROLE#user&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;USER#2025-01-15T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get user by ID: <code>PK=USER#&lt;id&gt;, SK=PROFILE</code></li>
+<li>List all admins: <code>GSI1PK=ROLE#admin</code></li>
+</ul>
+<h4 id="user-preferences">User Preferences<a class="anchor" href="#user-preferences">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;PREFERENCES&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;USER_PREFERENCES&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;dietary_restrictions&#34;</span>: [<span style="color:#e6db74">&#34;vegetarian&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;allergies&#34;</span>: [<span style="color:#e6db74">&#34;shrimp&#34;</span>, <span style="color:#e6db74">&#34;crab&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;favorite_cuisines&#34;</span>: [<span style="color:#e6db74">&#34;Vietnamese&#34;</span>, <span style="color:#e6db74">&#34;Italian&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;preferred_cooking_methods&#34;</span>: [<span style="color:#e6db74">&#34;stir-fry&#34;</span>, <span style="color:#e6db74">&#34;steam&#34;</span>, <span style="color:#e6db74">&#34;soup&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;preferred_recipe_count&#34;</span>: <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;spice_level&#34;</span>: <span style="color:#e6db74">&#34;medium&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T11:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get preferences: <code>PK=USER#&lt;id&gt;, SK=PREFERENCES</code></li>
+</ul>
+<h4 id="privacy-settings">Privacy Settings<a class="anchor" href="#privacy-settings">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;PRIVACY&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;PRIVACY_SETTINGS&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;profile_visibility&#34;</span>: <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email_visibility&#34;</span>: <span style="color:#e6db74">&#34;private&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;date_of_birth_visibility&#34;</span>: <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;gender_visibility&#34;</span>: <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;country_visibility&#34;</span>: <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipes_visibility&#34;</span>: <span style="color:#e6db74">&#34;public&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredients_visibility&#34;</span>: <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;preferences_visibility&#34;</span>: <span style="color:#e6db74">&#34;friends&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get privacy settings: <code>PK=USER#&lt;id&gt;, SK=PRIVACY</code></li>
+</ul>
+<h3 id="2-user-ingredients">2. User Ingredients<a class="anchor" href="#2-user-ingredients">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#&lt;normalized_name&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;USER_INGREDIENT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_name&#34;</span>: <span style="color:#e6db74">&#34;Thịt gà&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;normalized_name&#34;</span>: <span style="color:#e6db74">&#34;thit ga&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;added_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T09:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List user ingredients: <code>PK=USER#&lt;id&gt;, SK begins_with INGREDIENT#</code></li>
+<li>Check specific ingredient: <code>PK=USER#&lt;id&gt;, SK=INGREDIENT#&lt;name&gt;</code></li>
+</ul>
+<h3 id="3-master-ingredients">3. Master Ingredients<a class="anchor" href="#3-master-ingredients">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#&lt;ingredient_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;MASTER_INGREDIENT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-789&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Thịt gà&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;normalized_name&#34;</span>: <span style="color:#e6db74">&#34;thit ga&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;category&#34;</span>: <span style="color:#e6db74">&#34;meat&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;aliases&#34;</span>: [<span style="color:#e6db74">&#34;gà&#34;</span>, <span style="color:#e6db74">&#34;chicken&#34;</span>, <span style="color:#e6db74">&#34;thịt gà ta&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_active&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-01T00:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-01T00:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;CATEGORY#meat&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#thit ga&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2PK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#SEARCH&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2SK&#34;</span>: <span style="color:#e6db74">&#34;NAME#thit ga&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get ingredient by ID: <code>PK=INGREDIENT#&lt;id&gt;, SK=METADATA</code></li>
+<li>Search by normalized name: <code>GSI2PK=INGREDIENT#SEARCH, GSI2SK begins_with NAME#&lt;term&gt;</code></li>
+<li>List by category: <code>GSI1PK=CATEGORY#&lt;category&gt;</code></li>
+</ul>
+<h3 id="4-recipes">4. Recipes<a class="anchor" href="#4-recipes">#</a></h3>
+<h4 id="recipe-metadata">Recipe Metadata<a class="anchor" href="#recipe-metadata">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#&lt;recipe_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;RECIPE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;Gà xào sả ớt&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;normalized_title&#34;</span>: <span style="color:#e6db74">&#34;ga xao sa ot&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;Món gà xào thơm ngon...&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cuisine_type&#34;</span>: <span style="color:#e6db74">&#34;Vietnamese&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cooking_method&#34;</span>: <span style="color:#e6db74">&#34;stir-fry&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;meal_type&#34;</span>: <span style="color:#e6db74">&#34;main&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;prep_time_minutes&#34;</span>: <span style="color:#ae81ff">15</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cook_time_minutes&#34;</span>: <span style="color:#ae81ff">20</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;servings&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;calories_per_serving&#34;</span>: <span style="color:#ae81ff">350</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;instructions&#34;</span>: [
+</span></span><span style="display:flex;"><span>    {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;step_number&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;Ướp gà với sả ớt&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;duration&#34;</span>: <span style="color:#e6db74">&#34;10 phút&#34;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  ],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_public&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_ai_generated&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_approved&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;approval_type&#34;</span>: <span style="color:#e6db74">&#34;auto_rating&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;average_rating&#34;</span>: <span style="color:#ae81ff">4.5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;rating_count&#34;</span>: <span style="color:#ae81ff">12</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ai_cache_hit_count&#34;</span>: <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-22T14:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;approved_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-22T14:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2PK&#34;</span>: <span style="color:#e6db74">&#34;METHOD#stir-fry&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2SK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#4.5#2025-01-20T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get recipe: <code>PK=RECIPE#&lt;id&gt;, SK=METADATA</code></li>
+<li>List user&rsquo;s recipes: <code>GSI1PK=USER#&lt;user_id&gt;, GSI1SK begins_with RECIPE#</code></li>
+<li>Search by cooking method: <code>GSI2PK=METHOD#&lt;method&gt;, Sort by rating DESC</code></li>
+<li>Browse approved recipes: <code>GSI2PK=APPROVED, GSI2SK begins_with RECIPE#</code></li>
+</ul>
+<h4 id="recipe-ingredients">Recipe Ingredients<a class="anchor" href="#recipe-ingredients">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#&lt;recipe_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#001&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;RECIPE_INGREDIENT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_name&#34;</span>: <span style="color:#e6db74">&#34;Thịt gà&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;quantity&#34;</span>: <span style="color:#e6db74">&#34;300g&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;unit&#34;</span>: <span style="color:#e6db74">&#34;gram&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_optional&#34;</span>: <span style="color:#66d9ef">false</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List recipe ingredients: <code>PK=RECIPE#&lt;id&gt;, SK begins_with INGREDIENT#</code></li>
+</ul>
+<h3 id="5-cooking-history">5. Cooking History<a class="anchor" href="#5-cooking-history">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;COOKING#2025-01-20T15:30:00Z#&lt;history_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;COOKING_HISTORY&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;history_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-202&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;suggestion_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-303&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;completed&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;personal_rating&#34;</span>: <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;personal_notes&#34;</span>: <span style="color:#e6db74">&#34;Rất ngon, sẽ nấu lại!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_favorite&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cook_date&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T18:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T15:30:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T18:05:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123#FAVORITE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;COOKING#2025-01-20T18:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List cooking history: <code>PK=USER#&lt;id&gt;, SK begins_with COOKING#, Sort DESC</code></li>
+<li>List favorites only: <code>GSI1PK=USER#&lt;id&gt;#FAVORITE, Sort by cook_date DESC</code></li>
+</ul>
+<h3 id="6-recipe-ratings">6. Recipe Ratings<a class="anchor" href="#6-recipe-ratings">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#&lt;recipe_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;RATING#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;RECIPE_RATING&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;rating_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-404&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;history_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-202&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;rating&#34;</span>: <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;comment&#34;</span>: <span style="color:#e6db74">&#34;Món này rất ngon!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_verified_cook&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T18:05:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T18:05:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;RATING#2025-01-20T18:05:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get all ratings for recipe: <code>PK=RECIPE#&lt;id&gt;, SK begins_with RATING#</code></li>
+<li>Get user&rsquo;s ratings: <code>GSI1PK=USER#&lt;id&gt;, SK begins_with RATING#</code></li>
+<li>Check if user rated: <code>PK=RECIPE#&lt;id&gt;, SK=RATING#&lt;user_id&gt;</code></li>
+</ul>
+<h3 id="7-ai-suggestions">7. AI Suggestions<a class="anchor" href="#7-ai-suggestions">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;SUGGESTION#2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;AI_SUGGESTION&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;suggestion_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-303&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_ids&#34;</span>: [<span style="color:#e6db74">&#34;uuid-101&#34;</span>, <span style="color:#e6db74">&#34;uuid-102&#34;</span>, <span style="color:#e6db74">&#34;uuid-103&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cache_ids&#34;</span>: [],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;prompt_text&#34;</span>: <span style="color:#e6db74">&#34;Gợi ý món với gà, cà chua, hành&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredients_used&#34;</span>: [<span style="color:#e6db74">&#34;thịt gà&#34;</span>, <span style="color:#e6db74">&#34;cà chua&#34;</span>, <span style="color:#e6db74">&#34;hành tây&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;requested_recipe_count&#34;</span>: <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipes_from_db&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipes_from_ai&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;invalid_ingredients&#34;</span>: [],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ai_response&#34;</span>: {<span style="color:#960050;background-color:#1e0010">...</span>},
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;was_from_cache&#34;</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;was_accepted&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;feedback_rating&#34;</span>: <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;feedback_comment&#34;</span>: <span style="color:#e6db74">&#34;Gợi ý rất hay!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List user&rsquo;s suggestions: <code>PK=USER#&lt;id&gt;, SK begins_with SUGGESTION#, Sort DESC</code></li>
+<li>Get specific suggestion: <code>PK=USER#&lt;id&gt;, SK=SUGGESTION#&lt;timestamp&gt;</code></li>
+</ul>
+<h3 id="8-friendships">8. Friendships<a class="anchor" href="#8-friendships">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;FRIEND#&lt;friend_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;FRIENDSHIP&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;friendship_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-505&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;friend_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;accepted&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;requested_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-18T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;responded_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-18T14:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;FRIEND#uuid-123&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List user&rsquo;s friends: <code>PK=USER#&lt;id&gt;, SK begins_with FRIEND#, Filter status=accepted</code></li>
+<li>Reverse lookup (who friended me): <code>GSI1PK=USER#&lt;id&gt;, SK begins_with FRIEND#</code></li>
+<li>Check friendship status: <code>PK=USER#&lt;id&gt;, SK=FRIEND#&lt;friend_id&gt;</code></li>
+</ul>
+<h3 id="9-posts">9. Posts<a class="anchor" href="#9-posts">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;POST#&lt;post_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;POST&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;post_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-606&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;Vừa nấu món này, rất ngon!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;images&#34;</span>: [<span style="color:#e6db74">&#34;https://s3.../post1.jpg&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_public&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;likes_count&#34;</span>: <span style="color:#ae81ff">15</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;comments_count&#34;</span>: <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T20:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T20:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;POST#2025-01-20T20:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI3PK&#34;</span>: <span style="color:#e6db74">&#34;FEED#PUBLIC&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI3SK&#34;</span>: <span style="color:#e6db74">&#34;POST#2025-01-20T20:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Get post: <code>PK=POST#&lt;id&gt;, SK=METADATA</code></li>
+<li>List user&rsquo;s posts: <code>GSI1PK=USER#&lt;id&gt;, SK begins_with POST#</code></li>
+<li>Public feed: <code>GSI3PK=FEED#PUBLIC, Sort DESC</code></li>
+</ul>
+<h3 id="10-comments">10. Comments<a class="anchor" href="#10-comments">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;POST#&lt;post_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;COMMENT#2025-01-20T21:00:00Z#&lt;comment_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;COMMENT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;comment_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-707&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;post_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-606&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;parent_comment_id&#34;</span>: <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;Trông rất ngon!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T21:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T21:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;COMMENT#2025-01-20T21:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List post comments: <code>PK=POST#&lt;id&gt;, SK begins_with COMMENT#, Sort ASC</code></li>
+<li>List user&rsquo;s comments: <code>GSI1PK=USER#&lt;id&gt;, SK begins_with COMMENT#</code></li>
+</ul>
+<h3 id="11-reactions">11. Reactions<a class="anchor" href="#11-reactions">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;POST#&lt;post_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;REACTION#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;REACTION&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;reaction_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-808&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;target_type&#34;</span>: <span style="color:#e6db74">&#34;post&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;target_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-606&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;reaction_type&#34;</span>: <span style="color:#e6db74">&#34;like&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T21:30:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;REACTION#2025-01-20T21:30:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List post reactions: <code>PK=POST#&lt;id&gt;, SK begins_with REACTION#</code></li>
+<li>Check user&rsquo;s reaction: <code>PK=POST#&lt;id&gt;, SK=REACTION#&lt;user_id&gt;</code></li>
+<li>List user&rsquo;s reactions: <code>GSI1PK=USER#&lt;id&gt;, SK begins_with REACTION#</code></li>
+</ul>
+<h3 id="12-notifications">12. Notifications<a class="anchor" href="#12-notifications">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;NOTIFICATION#2025-01-20T21:00:00Z#&lt;notification_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;NOTIFICATION&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;notification_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-909&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;actor_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;comment&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;target_type&#34;</span>: <span style="color:#e6db74">&#34;post&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;target_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-606&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;content&#34;</span>: <span style="color:#e6db74">&#34;John commented on your post&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_read&#34;</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T21:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123#UNREAD&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;NOTIFICATION#2025-01-20T21:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>List notifications: <code>PK=USER#&lt;id&gt;, SK begins_with NOTIFICATION#, Sort DESC</code></li>
+<li>List unread only: <code>GSI1PK=USER#&lt;id&gt;#UNREAD, Sort DESC</code></li>
+</ul>
+<h3 id="13-invalid-ingredient-reports-optional">13. Invalid Ingredient Reports (Optional)<a class="anchor" href="#13-invalid-ingredient-reports-optional">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;INVALID_INGREDIENT#&lt;normalized_name&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;INVALID_INGREDIENT_REPORT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;report_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-1010&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_name&#34;</span>: <span style="color:#e6db74">&#34;abc xyz&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;normalized_name&#34;</span>: <span style="color:#e6db74">&#34;abc xyz&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_report_count&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;total_reports&#34;</span>: <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;pending&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;admin_notes&#34;</span>: <span style="color:#e6db74">&#34;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;REPORTS#PENDING&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1SK&#34;</span>: <span style="color:#e6db74">&#34;TOTAL#5#2025-01-20T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Access Patterns:</strong></p>
+<ul>
+<li>Check if ingredient reported: <code>PK=INVALID_INGREDIENT#&lt;name&gt;, SK=USER#&lt;user_id&gt;</code></li>
+<li>List pending reports (admin): <code>GSI1PK=REPORTS#PENDING, Sort by total DESC</code></li>
+</ul>
+<h2 id="global-secondary-indexes-gsi">Global Secondary Indexes (GSI)<a class="anchor" href="#global-secondary-indexes-gsi">#</a></h2>
+<h3 id="gsi1-user-based-queries">GSI1: User-Based Queries<a class="anchor" href="#gsi1-user-based-queries">#</a></h3>
+<pre tabindex="0"><code>GSI1PK: Entity owner or type
+GSI1SK: Timestamp or secondary sort key
+
+Use Cases:
+  - ROLE#admin → List all admins
+  - USER#&lt;id&gt; → User&#39;s recipes, ratings, comments
+  - USER#&lt;id&gt;#FAVORITE → User&#39;s favorite recipes
+  - USER#&lt;id&gt;#UNREAD → Unread notifications
+  - CATEGORY#&lt;category&gt; → Ingredients by category</code></pre><p><strong>Projection</strong>: ALL (include all attributes)</p>
+<h3 id="gsi2-search--discovery">GSI2: Search &amp; Discovery<a class="anchor" href="#gsi2-search--discovery">#</a></h3>
+<pre tabindex="0"><code>GSI2PK: Category or filter type
+GSI2SK: Composite sort key (rating + timestamp)
+
+Use Cases:
+  - METHOD#stir-fry → Recipes by cooking method
+  - CUISINE#Vietnamese → Recipes by cuisine
+  - MEALTYPE#main → Recipes by meal type
+  - INGREDIENT#SEARCH → Ingredient fuzzy search
+  - APPROVED → Browse approved recipes</code></pre><p><strong>Projection</strong>: ALL</p>
+<h3 id="gsi3-social-feed">GSI3: Social Feed<a class="anchor" href="#gsi3-social-feed">#</a></h3>
+<pre tabindex="0"><code>GSI3PK: Feed type
+GSI3SK: Timestamp
+
+Use Cases:
+  - FEED#PUBLIC → Public posts (explore feed)
+  - FEED#&lt;user_id&gt; → User&#39;s personalized feed</code></pre><p><strong>Projection</strong>: ALL</p>
+<h2 id="capacity-planning">Capacity Planning<a class="anchor" href="#capacity-planning">#</a></h2>
+<h3 id="readwrite-patterns-mvp---1000-users">Read/Write Patterns (MVP - 1,000 users)<a class="anchor" href="#readwrite-patterns-mvp---1000-users">#</a></h3>
+<pre tabindex="0"><code>Daily Operations (estimate):
+  Users:
+    - Login: 500 reads/day
+    - Profile updates: 100 writes/day
+
+  Ingredients:
+    - List ingredients: 1,000 reads/day
+    - Add/remove: 200 writes/day
+
+  AI Suggestions:
+    - Requests: 1,000/day (peak feature)
+    - DB queries: 4,000 reads/day
+    - Save suggestions: 1,000 writes/day
+
+  Recipes:
+    - View details: 3,000 reads/day
+    - Create (AI): 200 writes/day
+
+  Cooking History:
+    - Start/complete: 300 writes/day
+    - View history: 500 reads/day
+
+  Ratings:
+    - Submit rating: 150 writes/day
+    - Query ratings: 300 reads/day
+
+  Social (Phase 2):
+    - Posts: 200 writes/day
+    - Comments: 500 writes/day
+    - Reactions: 1,000 writes/day
+    - Feed reads: 2,000 reads/day
+
+Total Daily:
+  Reads: ~12,000/day = ~139/hour = ~0.04/second
+  Writes: ~3,250/day = ~38/hour = ~0.01/second</code></pre><h3 id="pricing-calculation-on-demand">Pricing Calculation (On-Demand)<a class="anchor" href="#pricing-calculation-on-demand">#</a></h3>
+<pre tabindex="0"><code>DynamoDB On-Demand Pricing:
+  Writes: $1.25 per million write request units
+  Reads: $0.25 per million read request units
+
+Monthly (30 days):
+  Reads: 12,000 × 30 = 360,000/month
+    Cost: 360,000 / 1,000,000 × $0.25 = $0.09
+
+  Writes: 3,250 × 30 = 97,500/month
+    Cost: 97,500 / 1,000,000 × $1.25 = $0.12
+
+  Storage: ~200MB = ~$0.05
+
+  GSI (3 indexes): ~$0.20
+
+  Backups (PITR): ~$20
+
+Total: ~$20-25/month (MVP)
+
+As scale grows (10,000 users):
+  Reads: 3.6M/month = $0.90
+  Writes: 975K/month = $1.22
+  Storage: 2GB = $0.50
+  GSI: $2.00
+  Backups: $40
+
+Total: ~$45-50/month</code></pre><h2 id="data-lifecycle-management">Data Lifecycle Management<a class="anchor" href="#data-lifecycle-management">#</a></h2>
+<h3 id="ttl-time-to-live-policies">TTL (Time-To-Live) Policies<a class="anchor" href="#ttl-time-to-live-policies">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// AI Suggestions - Keep 90 days
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;PK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;SK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;SUGGESTION#&lt;timestamp&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;ttl&#34;</span><span style="color:#f92672">:</span> Math.<span style="color:#a6e22e">floor</span>(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>) <span style="color:#f92672">+</span> (<span style="color:#ae81ff">90</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Notifications - Keep 30 days
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;PK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;SK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;NOTIFICATION#&lt;timestamp&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;ttl&#34;</span><span style="color:#f92672">:</span> Math.<span style="color:#a6e22e">floor</span>(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>) <span style="color:#f92672">+</span> (<span style="color:#ae81ff">30</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span>)
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Old cooking history - Archive after 1 year (optional)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;PK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;SK&#34;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#34;COOKING#&lt;timestamp&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#e6db74">&#34;ttl&#34;</span><span style="color:#f92672">:</span> Math.<span style="color:#a6e22e">floor</span>(Date.<span style="color:#a6e22e">now</span>() <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>) <span style="color:#f92672">+</span> (<span style="color:#ae81ff">365</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span>)
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="backup-strategy">Backup Strategy<a class="anchor" href="#backup-strategy">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">DynamoDB Backup</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Method</span>: <span style="color:#ae81ff">Point-in-Time Recovery (PITR)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">35</span> <span style="color:#ae81ff">days</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Recovery</span>: <span style="color:#ae81ff">Any point in last 35 days</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Cost</span>: <span style="color:#ae81ff">~$20-40/month</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Manual Backups</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Frequency</span>: <span style="color:#ae81ff">Weekly (before major updates)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">3</span> <span style="color:#ae81ff">months</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Tool</span>: <span style="color:#ae81ff">AWS Backup service</span></span></span></code></pre></div><h2 id="query-optimization">Query Optimization<a class="anchor" href="#query-optimization">#</a></h2>
+<h3 id="best-practices">Best Practices<a class="anchor" href="#best-practices">#</a></h3>
+<ol>
+<li>
+<p><strong>Use Composite Sort Keys</strong></p>
+<pre tabindex="0"><code>Bad:  SK = &#34;RECIPE&#34;
+Good: SK = &#34;RECIPE#2025-01-20T10:00:00Z&#34;
+
+Why: Enables range queries and sorting</code></pre></li>
+<li>
+<p><strong>Denormalize for Read Performance</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// Store user name in post (avoid extra query)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;POST#606&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_name&#34;</span>: <span style="color:#e6db74">&#34;John Doe&#34;</span>,  <span style="color:#75715e">// Denormalized
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#f92672">&#34;user_avatar&#34;</span>: <span style="color:#e6db74">&#34;https://...&#34;</span> <span style="color:#75715e">// Denormalized
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}</span></span></code></pre></div></li>
+<li>
+<p><strong>Use GSI Sparse Indexes</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span><span style="color:#75715e">// Only index favorites (save cost)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;COOKING#...&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_favorite&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#123#FAVORITE&#34;</span>  <span style="color:#75715e">// Only if favorite
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}</span></span></code></pre></div></li>
+<li>
+<p><strong>Batch Operations</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Get multiple recipes at once
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">params</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">RequestItems</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Keys</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RECIPE#101&#39;</span>, <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span> },
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RECIPE#102&#39;</span>, <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span> },
+</span></span><span style="display:flex;"><span>        { <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RECIPE#103&#39;</span>, <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span> }
+</span></span><span style="display:flex;"><span>      ]
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">docClient</span>.<span style="color:#a6e22e">batchGet</span>(<span style="color:#a6e22e">params</span>);</span></span></code></pre></div></li>
+</ol>
+<h3 id="anti-patterns-to-avoid">Anti-Patterns to Avoid<a class="anchor" href="#anti-patterns-to-avoid">#</a></h3>
+<p><strong>Scan Operations</strong>: Never use Scan in production
+<strong>Hot Partitions</strong>: Avoid using user_id as PK for high-traffic items
+<strong>Large Items</strong>: Keep items &lt; 100KB (max 400KB)
+<strong>Unbounded Queries</strong>: Always use pagination</p>
+<h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="12-api-spec.md">12 - API Spec</a></li>
+<li><a href="20-backend.md">20 - Backend</a></li>
+<li><a href="31-scaling.md">31 - Scaling</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/10-architecture/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="10 - Architecture" />
+        <span>10 - Architecture</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/12-api-spec/" class="flex align-center">
+        <span>12 - API Specification</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="12 - API Specification" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#database-strategy">Database Strategy</a>
+      <ul>
+        <li><a href="#technology-choice-amazon-dynamodb">Technology Choice: Amazon DynamoDB</a></li>
+      </ul>
+    </li>
+    <li><a href="#single-table-design">Single-Table Design</a>
+      <ul>
+        <li><a href="#table-name-smart-cooking-data">Table Name: <code>smart-cooking-data</code></a></li>
+        <li><a href="#primary-key-structure">Primary Key Structure</a></li>
+      </ul>
+    </li>
+    <li><a href="#entity-designs">Entity Designs</a>
+      <ul>
+        <li><a href="#1-users">1. Users</a></li>
+        <li><a href="#2-user-ingredients">2. User Ingredients</a></li>
+        <li><a href="#3-master-ingredients">3. Master Ingredients</a></li>
+        <li><a href="#4-recipes">4. Recipes</a></li>
+        <li><a href="#5-cooking-history">5. Cooking History</a></li>
+        <li><a href="#6-recipe-ratings">6. Recipe Ratings</a></li>
+        <li><a href="#7-ai-suggestions">7. AI Suggestions</a></li>
+        <li><a href="#8-friendships">8. Friendships</a></li>
+        <li><a href="#9-posts">9. Posts</a></li>
+        <li><a href="#10-comments">10. Comments</a></li>
+        <li><a href="#11-reactions">11. Reactions</a></li>
+        <li><a href="#12-notifications">12. Notifications</a></li>
+        <li><a href="#13-invalid-ingredient-reports-optional">13. Invalid Ingredient Reports (Optional)</a></li>
+      </ul>
+    </li>
+    <li><a href="#global-secondary-indexes-gsi">Global Secondary Indexes (GSI)</a>
+      <ul>
+        <li><a href="#gsi1-user-based-queries">GSI1: User-Based Queries</a></li>
+        <li><a href="#gsi2-search--discovery">GSI2: Search &amp; Discovery</a></li>
+        <li><a href="#gsi3-social-feed">GSI3: Social Feed</a></li>
+      </ul>
+    </li>
+    <li><a href="#capacity-planning">Capacity Planning</a>
+      <ul>
+        <li><a href="#readwrite-patterns-mvp---1000-users">Read/Write Patterns (MVP - 1,000 users)</a></li>
+        <li><a href="#pricing-calculation-on-demand">Pricing Calculation (On-Demand)</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-lifecycle-management">Data Lifecycle Management</a>
+      <ul>
+        <li><a href="#ttl-time-to-live-policies">TTL (Time-To-Live) Policies</a></li>
+        <li><a href="#backup-strategy">Backup Strategy</a></li>
+      </ul>
+    </li>
+    <li><a href="#query-optimization">Query Optimization</a>
+      <ul>
+        <li><a href="#best-practices">Best Practices</a></li>
+        <li><a href="#anti-patterns-to-avoid">Anti-Patterns to Avoid</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

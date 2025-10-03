@@ -1,0 +1,1398 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="AI Agent Design - Smart Cooking App#
+AI Agent Overview#
+Vision#
+Tạo AI agent thông minh có khả năng:
+
+Hiểu ngữ cảnh: Personalize dựa trên user profile
+Linh hoạt: Mix DB và AI recipes để tối ưu cost
+Đa dạng: Gợi ý các phương pháp nấu khác nhau
+An toàn: Tuyệt đối tránh allergies
+Học hỏi: Tự động cải thiện qua community ratings
+
+Core Technologies#
+AI Provider: Amazon Bedrock
+Model: Claude 3 Haiku (cost-effective) or Sonnet (quality)
+Input Limit: 200K tokens
+Output Limit: 8K tokens recommended
+Timeout: 60 seconds
+Fallback: DB recipes only if AI failsAI Agent Features#
+1. Flexible DB/AI Mix Strategy ⭐#
+Concept#
+User Request: &#34;Gợi ý 3 món với gà, cà chua, hành&#34;
+
+System Process:
+  Step 1: Validate ingredients với master_ingredients
+  Step 2: Query DB cho approved recipes (match &#43; diverse categories)
+  Step 3: Calculate gap = requested_count - db_count
+  Step 4: Generate gap recipes bằng AI
+  Step 5: Return combined results
+
+Example Output:
+  - 2 món từ DB (xào, canh) ← Tiết kiệm cost
+  - 1 món từ AI (hấp) ← Đa dạng phương phápFlow Diagram#
+sequenceDiagram
+    participant User
+    participant Lambda
+    participant DynamoDB
+    participant Bedrock
+
+    User-&gt;&gt;Lambda: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}
+
+    Note over Lambda: STEP 1: Validate
+    Lambda-&gt;&gt;DynamoDB: Check master_ingredients
+    DynamoDB--&gt;&gt;Lambda: All valid ✅
+
+    Note over Lambda: STEP 2: Query DB
+    Lambda-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;WHERE match ingredients&lt;br/&gt;AND diverse categories
+    DynamoDB--&gt;&gt;Lambda: Found 2 recipes:&lt;br/&gt;- Gà xào cà chua (stir-fry)&lt;br/&gt;- Canh cà chua (soup)
+
+    Note over Lambda: STEP 3: Calculate Gap&lt;br/&gt;Requested: 3&lt;br/&gt;DB: 2&lt;br/&gt;Gap: 1
+
+    Note over Lambda: STEP 4: Generate AI
+    Lambda-&gt;&gt;Bedrock: Generate 1 recipe&lt;br/&gt;(diverse: steam/bake/grill)
+    Bedrock--&gt;&gt;Lambda: AI Recipe:&lt;br/&gt;- Gà hấp cà chua (steam)
+
+    Note over Lambda: STEP 5: Combine
+    Lambda-&gt;&gt;DynamoDB: Save suggestion history
+    Lambda--&gt;&gt;User: Return 3 recipes:&lt;br/&gt;2 DB &#43; 1 AICost Optimization#
+Scenarios:
+
+  Case 1: DB Coverage High (80%)
+    Request: 5 recipes
+    DB Found: 4 recipes
+    AI Generate: 1 recipe
+    Cost: 1 AI call (~$0.002)
+    Savings: 80% vs pure AI
+
+  Case 2: DB Coverage Medium (60%)
+    Request: 5 recipes
+    DB Found: 3 recipes
+    AI Generate: 2 recipes
+    Cost: 2 AI calls (~$0.004)
+    Savings: 60% vs pure AI
+
+  Case 3: DB Coverage Low (20%)
+    Request: 5 recipes
+    DB Found: 1 recipe
+    AI Generate: 4 recipes
+    Cost: 4 AI calls (~$0.008)
+    Savings: 20% vs pure AI
+
+  Case 4: Cold Start (0%)
+    Request: 5 recipes
+    DB Found: 0 recipes
+    AI Generate: 5 recipes
+    Cost: 5 AI calls (~$0.010)
+    Savings: 0% (but builds DB!)
+
+Strategy:
+  - Start: 0% DB, 100% AI
+  - Month 3: 30% DB, 70% AI
+  - Month 6: 60% DB, 40% AI
+  - Month 12: 80% DB, 20% AI
+
+  Total Cost Reduction: 0% → 80% over 1 year2. Category-Based Diversity ⭐#
+Problem#
+User nhận 5 món giống nhau (tất cả xào) → Không diverse">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/dlc/14-ai-agent/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="14 - AI Agent Design">
+  <meta property="og:description" content="AI Agent Design - Smart Cooking App#AI Agent Overview#Vision#Tạo AI agent thông minh có khả năng:
+Hiểu ngữ cảnh: Personalize dựa trên user profile Linh hoạt: Mix DB và AI recipes để tối ưu cost Đa dạng: Gợi ý các phương pháp nấu khác nhau An toàn: Tuyệt đối tránh allergies Học hỏi: Tự động cải thiện qua community ratings Core Technologies#AI Provider: Amazon Bedrock Model: Claude 3 Haiku (cost-effective) or Sonnet (quality) Input Limit: 200K tokens Output Limit: 8K tokens recommended Timeout: 60 seconds Fallback: DB recipes only if AI failsAI Agent Features#1. Flexible DB/AI Mix Strategy ⭐#Concept#User Request: &#34;Gợi ý 3 món với gà, cà chua, hành&#34;System Process:Step 1: Validate ingredients với master_ingredientsStep 2: Query DB cho approved recipes (match &#43; diverse categories)Step 3: Calculate gap = requested_count - db_countStep 4: Generate gap recipes bằng AIStep 5: Return combined resultsExample Output:- 2 món từ DB (xào, canh) ← Tiết kiệm cost- 1 món từ AI (hấp) ← Đa dạng phương phápFlow Diagram#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBparticipant BedrockUser-&gt;&gt;Lambda: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}Note over Lambda: STEP 1: ValidateLambda-&gt;&gt;DynamoDB: Check master_ingredientsDynamoDB--&gt;&gt;Lambda: All valid ✅Note over Lambda: STEP 2: Query DBLambda-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;WHERE match ingredients&lt;br/&gt;AND diverse categoriesDynamoDB--&gt;&gt;Lambda: Found 2 recipes:&lt;br/&gt;- Gà xào cà chua (stir-fry)&lt;br/&gt;- Canh cà chua (soup)Note over Lambda: STEP 3: Calculate Gap&lt;br/&gt;Requested: 3&lt;br/&gt;DB: 2&lt;br/&gt;Gap: 1Note over Lambda: STEP 4: Generate AILambda-&gt;&gt;Bedrock: Generate 1 recipe&lt;br/&gt;(diverse: steam/bake/grill)Bedrock--&gt;&gt;Lambda: AI Recipe:&lt;br/&gt;- Gà hấp cà chua (steam)Note over Lambda: STEP 5: CombineLambda-&gt;&gt;DynamoDB: Save suggestion historyLambda--&gt;&gt;User: Return 3 recipes:&lt;br/&gt;2 DB &#43; 1 AICost Optimization#Scenarios: Case 1: DB Coverage High (80%) Request: 5 recipes DB Found: 4 recipes AI Generate: 1 recipe Cost: 1 AI call (~$0.002) Savings: 80% vs pure AI Case 2: DB Coverage Medium (60%) Request: 5 recipes DB Found: 3 recipes AI Generate: 2 recipes Cost: 2 AI calls (~$0.004) Savings: 60% vs pure AI Case 3: DB Coverage Low (20%) Request: 5 recipes DB Found: 1 recipe AI Generate: 4 recipes Cost: 4 AI calls (~$0.008) Savings: 20% vs pure AI Case 4: Cold Start (0%) Request: 5 recipes DB Found: 0 recipes AI Generate: 5 recipes Cost: 5 AI calls (~$0.010) Savings: 0% (but builds DB!) Strategy: - Start: 0% DB, 100% AI - Month 3: 30% DB, 70% AI - Month 6: 60% DB, 40% AI - Month 12: 80% DB, 20% AI Total Cost Reduction: 0% → 80% over 1 year2. Category-Based Diversity ⭐#Problem#User nhận 5 món giống nhau (tất cả xào) → Không diverse">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>14 - AI Agent Design | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/dlc/14-ai-agent/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/aws-services-diagram/" class="">
+      AWS Services Architecture Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/ai-agent-implementation/" class="">
+      Kế Hoạch Triển Khai AI Agent</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/database-diagram/" class="">
+      Database Schema Diagram</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/cost-analysis/" class="">
+      Phân Tích Chi Phí</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/" class="">
+      AI DLC</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/14-ai-agent/" class="active">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/dlc/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>14 - AI Agent Design</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#ai-agent-overview">AI Agent Overview</a>
+      <ul>
+        <li><a href="#vision">Vision</a></li>
+        <li><a href="#core-technologies">Core Technologies</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-agent-features">AI Agent Features</a>
+      <ul>
+        <li><a href="#1-flexible-dbai-mix-strategy-">1. Flexible DB/AI Mix Strategy ⭐</a></li>
+        <li><a href="#2-category-based-diversity-">2. Category-Based Diversity ⭐</a></li>
+        <li><a href="#3-invalid-ingredient-handling-">3. Invalid Ingredient Handling ⭐</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-prompt-engineering">AI Prompt Engineering</a>
+      <ul>
+        <li><a href="#base-prompt-template">Base Prompt Template</a></li>
+        <li><a href="#privacy-aware-prompt">Privacy-Aware Prompt</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-response-processing">AI Response Processing</a>
+      <ul>
+        <li><a href="#parse--validate">Parse &amp; Validate</a></li>
+        <li><a href="#error-handling--fallback">Error Handling &amp; Fallback</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-performance-metrics">AI Performance Metrics</a>
+      <ul>
+        <li><a href="#tracking">Tracking</a></li>
+        <li><a href="#analytics-dashboard-admin">Analytics Dashboard (Admin)</a></li>
+      </ul>
+    </li>
+    <li><a href="#-ai-learning--improvement">🎓 AI Learning &amp; Improvement</a>
+      <ul>
+        <li><a href="#auto-approval-feedback-loop">Auto-Approval Feedback Loop</a></li>
+        <li><a href="#continuous-improvement">Continuous Improvement</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="ai-agent-design---smart-cooking-app">AI Agent Design - Smart Cooking App<a class="anchor" href="#ai-agent-design---smart-cooking-app">#</a></h1>
+<h2 id="ai-agent-overview">AI Agent Overview<a class="anchor" href="#ai-agent-overview">#</a></h2>
+<h3 id="vision">Vision<a class="anchor" href="#vision">#</a></h3>
+<p>Tạo AI agent thông minh có khả năng:</p>
+<ul>
+<li><strong>Hiểu ngữ cảnh</strong>: Personalize dựa trên user profile</li>
+<li><strong>Linh hoạt</strong>: Mix DB và AI recipes để tối ưu cost</li>
+<li><strong>Đa dạng</strong>: Gợi ý các phương pháp nấu khác nhau</li>
+<li><strong>An toàn</strong>: Tuyệt đối tránh allergies</li>
+<li><strong>Học hỏi</strong>: Tự động cải thiện qua community ratings</li>
+</ul>
+<h3 id="core-technologies">Core Technologies<a class="anchor" href="#core-technologies">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">AI Provider</span>: <span style="color:#ae81ff">Amazon Bedrock</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Model</span>: <span style="color:#ae81ff">Claude 3 Haiku (cost-effective) or Sonnet (quality)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Input Limit</span>: <span style="color:#ae81ff">200K tokens</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Output Limit</span>: <span style="color:#ae81ff">8K tokens recommended</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Timeout</span>: <span style="color:#ae81ff">60</span> <span style="color:#ae81ff">seconds</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Fallback</span>: <span style="color:#ae81ff">DB recipes only if AI fails</span></span></span></code></pre></div><h2 id="ai-agent-features">AI Agent Features<a class="anchor" href="#ai-agent-features">#</a></h2>
+<h3 id="1-flexible-dbai-mix-strategy-">1. Flexible DB/AI Mix Strategy ⭐<a class="anchor" href="#1-flexible-dbai-mix-strategy-">#</a></h3>
+<h4 id="concept">Concept<a class="anchor" href="#concept">#</a></h4>
+<pre tabindex="0"><code>User Request: &#34;Gợi ý 3 món với gà, cà chua, hành&#34;
+
+System Process:
+  Step 1: Validate ingredients với master_ingredients
+  Step 2: Query DB cho approved recipes (match + diverse categories)
+  Step 3: Calculate gap = requested_count - db_count
+  Step 4: Generate gap recipes bằng AI
+  Step 5: Return combined results
+
+Example Output:
+  - 2 món từ DB (xào, canh) ← Tiết kiệm cost
+  - 1 món từ AI (hấp) ← Đa dạng phương pháp</code></pre><h4 id="flow-diagram">Flow Diagram<a class="anchor" href="#flow-diagram">#</a></h4>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant Lambda
+    participant DynamoDB
+    participant Bedrock
+
+    User-&gt;&gt;Lambda: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}
+
+    Note over Lambda: STEP 1: Validate
+    Lambda-&gt;&gt;DynamoDB: Check master_ingredients
+    DynamoDB--&gt;&gt;Lambda: All valid ✅
+
+    Note over Lambda: STEP 2: Query DB
+    Lambda-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;WHERE match ingredients&lt;br/&gt;AND diverse categories
+    DynamoDB--&gt;&gt;Lambda: Found 2 recipes:&lt;br/&gt;- Gà xào cà chua (stir-fry)&lt;br/&gt;- Canh cà chua (soup)
+
+    Note over Lambda: STEP 3: Calculate Gap&lt;br/&gt;Requested: 3&lt;br/&gt;DB: 2&lt;br/&gt;Gap: 1
+
+    Note over Lambda: STEP 4: Generate AI
+    Lambda-&gt;&gt;Bedrock: Generate 1 recipe&lt;br/&gt;(diverse: steam/bake/grill)
+    Bedrock--&gt;&gt;Lambda: AI Recipe:&lt;br/&gt;- Gà hấp cà chua (steam)
+
+    Note over Lambda: STEP 5: Combine
+    Lambda-&gt;&gt;DynamoDB: Save suggestion history
+    Lambda--&gt;&gt;User: Return 3 recipes:&lt;br/&gt;2 DB + 1 AI</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h4 id="cost-optimization">Cost Optimization<a class="anchor" href="#cost-optimization">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Scenarios</span>:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Case 1</span>: <span style="color:#ae81ff">DB Coverage High (80%)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Request</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DB Found</span>: <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AI Generate</span>: <span style="color:#ae81ff">1</span> <span style="color:#ae81ff">recipe</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Cost</span>: <span style="color:#ae81ff">1</span> <span style="color:#ae81ff">AI call (~$0.002)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Savings</span>: <span style="color:#ae81ff">80</span><span style="color:#ae81ff">% vs pure AI</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Case 2</span>: <span style="color:#ae81ff">DB Coverage Medium (60%)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Request</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DB Found</span>: <span style="color:#ae81ff">3</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AI Generate</span>: <span style="color:#ae81ff">2</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Cost</span>: <span style="color:#ae81ff">2</span> <span style="color:#ae81ff">AI calls (~$0.004)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Savings</span>: <span style="color:#ae81ff">60</span><span style="color:#ae81ff">% vs pure AI</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Case 3</span>: <span style="color:#ae81ff">DB Coverage Low (20%)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Request</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DB Found</span>: <span style="color:#ae81ff">1</span> <span style="color:#ae81ff">recipe</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AI Generate</span>: <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Cost</span>: <span style="color:#ae81ff">4</span> <span style="color:#ae81ff">AI calls (~$0.008)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Savings</span>: <span style="color:#ae81ff">20</span><span style="color:#ae81ff">% vs pure AI</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Case 4</span>: <span style="color:#ae81ff">Cold Start (0%)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Request</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">DB Found</span>: <span style="color:#ae81ff">0</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">AI Generate</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">recipes</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Cost</span>: <span style="color:#ae81ff">5</span> <span style="color:#ae81ff">AI calls (~$0.010)</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Savings</span>: <span style="color:#ae81ff">0</span><span style="color:#ae81ff">% (but builds DB!)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Strategy</span>:
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Start</span>: <span style="color:#ae81ff">0</span><span style="color:#ae81ff">% DB, 100% AI</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Month 3</span>: <span style="color:#ae81ff">30</span><span style="color:#ae81ff">% DB, 70% AI</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Month 6</span>: <span style="color:#ae81ff">60</span><span style="color:#ae81ff">% DB, 40% AI</span>
+</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Month 12</span>: <span style="color:#ae81ff">80</span><span style="color:#ae81ff">% DB, 20% AI</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Total Cost Reduction</span>: <span style="color:#ae81ff">0</span><span style="color:#ae81ff">% → 80% over 1 year</span></span></span></code></pre></div><h3 id="2-category-based-diversity-">2. Category-Based Diversity ⭐<a class="anchor" href="#2-category-based-diversity-">#</a></h3>
+<h4 id="problem">Problem<a class="anchor" href="#problem">#</a></h4>
+<p>User nhận 5 món giống nhau (tất cả xào) → Không diverse</p>
+<h4 id="solution">Solution<a class="anchor" href="#solution">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Query DB với category diversity
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">queryDiverseRecipes</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">count</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">categories</span> <span style="color:#f92672">=</span> [<span style="color:#e6db74">&#39;stir-fry&#39;</span>, <span style="color:#e6db74">&#39;soup&#39;</span>, <span style="color:#e6db74">&#39;steam&#39;</span>, <span style="color:#e6db74">&#39;grill&#39;</span>, <span style="color:#e6db74">&#39;bake&#39;</span>];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">results</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Try to get 1 recipe per category
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">method</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">categories</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;=</span> <span style="color:#a6e22e">count</span>) <span style="color:#66d9ef">break</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">FilterExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;contains(ingredients_list, :ing)&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`METHOD#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:ing&#39;</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredients</span>[<span style="color:#ae81ff">0</span>] <span style="color:#75715e">// Main ingredient
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Limit</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">results</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>]);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">results</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="ai-prompt-for-diversity">AI Prompt for Diversity<a class="anchor" href="#ai-prompt-for-diversity">#</a></h4>
+<pre tabindex="0"><code>Generate a recipe with these requirements:
+- Cooking method: {method} (must be different from DB recipes)
+- Ensure diversity in meal preparation</code></pre><h3 id="3-invalid-ingredient-handling-">3. Invalid Ingredient Handling ⭐<a class="anchor" href="#3-invalid-ingredient-handling-">#</a></h3>
+<h4 id="flow">Flow<a class="anchor" href="#flow">#</a></h4>
+<pre class="mermaid">graph TD
+    A[User Input: &#39;abc xyz&#39;] --&gt; B{Check master_ingredients}
+    B --&gt;|Not Found| C[Fuzzy Search]
+    C --&gt; D{Found Similar?}
+    D --&gt;|Yes| E[Auto-correct: &#39;gà&#39;]
+    D --&gt;|No| F[Log to CloudWatch]
+    F --&gt; G{Report Count &gt;= 5?}
+    G --&gt;|Yes| H[Notify Admin]
+    G --&gt;|No| I[Increment Counter]
+    E --&gt; J[Continue with corrected]
+    H --&gt; K[Admin Reviews]
+    I --&gt; L[Return suggestions]</pre><h4 id="implementation">Implementation<a class="anchor" href="#implementation">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">validateIngredientsWithReporting</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validated</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">invalid</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">warnings</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ing</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">normalized</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">ing</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Check exact match
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">exactMatch</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk AND GSI2SK = :sk&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;INGREDIENT#SEARCH&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`NAME#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">validated</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">continue</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Fuzzy search
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">similar</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fuzzySearchIngredients</span>(<span style="color:#a6e22e">normalized</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">confidence</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">0.8</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Auto-correct
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">validated</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">warnings</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">original</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ing</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">corrected</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">confidence</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">confidence</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Invalid - log and report
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">invalid</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">ing</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Log to CloudWatch
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">level</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;WARN&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">event</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;invalid_ingredient&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredient</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ing</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">normalized</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">normalized</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">5</span>)
+</span></span><span style="display:flex;"><span>      }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Increment report count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">incrementInvalidReport</span>(<span style="color:#a6e22e">normalized</span>, <span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">warnings</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredient</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ing</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Nguyên liệu không hợp lệ&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">5</span>).<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">s</span> =&gt; <span style="color:#a6e22e">s</span>.<span style="color:#a6e22e">name</span>),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">reported</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> { <span style="color:#a6e22e">validated</span>, <span style="color:#a6e22e">invalid</span>, <span style="color:#a6e22e">warnings</span> };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">incrementInvalidReport</span>(<span style="color:#a6e22e">normalized</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Check if already reported by this user
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">existing</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">get</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INVALID_INGREDIENT#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">existing</span>.<span style="color:#a6e22e">Item</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Increment user report count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">update</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Key</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INVALID_INGREDIENT#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">UpdateExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ADD user_report_count :inc&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> { <span style="color:#e6db74">&#39;:inc&#39;</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span> }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Create new report
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INVALID_INGREDIENT#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredient_name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">normalized</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">user_report_count</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">total_reports</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;pending&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">GSI1PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;REPORTS#PENDING&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">GSI1SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`TOTAL#1#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Check if should notify admin (&gt;= 5 reports)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">totalReports</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getTotalReports</span>(<span style="color:#a6e22e">normalized</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">totalReports</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">5</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">notifyAdmin</span>(<span style="color:#e6db74">&#39;invalid_ingredient_threshold&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredient</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">normalized</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">total_reports</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">totalReports</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="ai-prompt-engineering">AI Prompt Engineering<a class="anchor" href="#ai-prompt-engineering">#</a></h2>
+<h3 id="base-prompt-template">Base Prompt Template<a class="anchor" href="#base-prompt-template">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">buildAIPrompt</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">diverseCategory</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">?</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">getFullYear</span>() <span style="color:#f92672">-</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#e6db74">`You are a professional chef. Create a creative recipe based on:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Available Ingredients:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">ing</span> =&gt; <span style="color:#e6db74">`- </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ing</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;\n&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**User Context (for personalization):**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Age: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> years (adjust nutrition)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Gender: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> (adjust portion size)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Country: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> (prefer local cuisine)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Cooking Preferences:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Preferred methods: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- No specific preference&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Favorite Cuisines:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Preferred cuisines: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- No preference&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Allergies (ABSOLUTELY AVOID):**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">a</span> =&gt; <span style="color:#e6db74">`- ❌ </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">a</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> (NEVER USE)`</span>).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;\n&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- No allergies&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Requirements:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">1. Use MOST or ALL of the provided ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">2. Cooking method: **</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">diverseCategory</span><span style="color:#e6db74">}</span><span style="color:#e6db74">** (IMPORTANT: Must use this method)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">3. If country is </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span><span style="color:#e6db74">}</span><span style="color:#e6db74">, prefer local cuisine style
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">4. If favorite cuisine is </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;/&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">, use that style
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">5. **ABSOLUTELY NEVER** use allergy ingredients: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>) <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;None&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">6. Suitable for </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> years old`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;adults&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">7. Creative and unique recipe (not in database)
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">8. Nutritionally balanced
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Return JSON format:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;name&#34;: &#34;Recipe name in </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;local&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> language&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cuisine_type&#34;: &#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Vietnamese&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cooking_method&#34;: &#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">diverseCategory</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;meal_type&#34;: &#34;main/side/soup/dessert&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;difficulty&#34;: &#34;easy/medium/hard&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cooking_time&#34;: &#34;30 minutes&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;servings&#34;: 2,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;ingredients&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;ingredient_name&#34;: &#34;Ingredient name&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;quantity&#34;: &#34;100g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;preparation&#34;: &#34;Chop into pieces&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  ],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;instructions&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;step_number&#34;: 1,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;description&#34;: &#34;Step description&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;duration&#34;: &#34;5 minutes&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  ],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;nutritional_info&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;calories&#34;: 300,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;protein&#34;: &#34;20g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;carbs&#34;: &#34;30g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;fat&#34;: &#34;10g&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  },
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;tags&#34;: [&#34;healthy&#34;, &#34;quick&#34;, &#34;family-friendly&#34;],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;notes&#34;: &#34;Suitable for </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> years old`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;adults&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">. </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;Allergy-safe.&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}`</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="privacy-aware-prompt">Privacy-Aware Prompt<a class="anchor" href="#privacy-aware-prompt">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Privacy metadata (logged but NOT sent to AI)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">privacyMetadata</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">age_range</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">9</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">allergies_avoided</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// NOT included:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">undefined</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">full_name</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">undefined</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">exact_birthdate</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">undefined</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">address</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">undefined</span>
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Saved to DynamoDB for audit
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`AI_SUGGESTION#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">timestamp</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">personalization_used</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">privacyMetadata</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">prompt_hash</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">hashPrompt</span>(<span style="color:#a6e22e">prompt</span>), <span style="color:#75715e">// For debugging
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});</span></span></code></pre></div><h2 id="ai-response-processing">AI Response Processing<a class="anchor" href="#ai-response-processing">#</a></h2>
+<h3 id="parse--validate">Parse &amp; Validate<a class="anchor" href="#parse--validate">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">processAIResponse</span>(<span style="color:#a6e22e">aiResponse</span>, <span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">recipe</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Parse JSON from AI
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">responseBody</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">aiResponse</span>.<span style="color:#a6e22e">body</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipeText</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">responseBody</span>.<span style="color:#a6e22e">content</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">text</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipe</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">recipeText</span>);
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;AI response parsing error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Failed to parse AI recipe&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate required fields
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">requiredFields</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;name&#39;</span>, <span style="color:#e6db74">&#39;cuisine_type&#39;</span>, <span style="color:#e6db74">&#39;cooking_method&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;ingredients&#39;</span>, <span style="color:#e6db74">&#39;instructions&#39;</span>
+</span></span><span style="display:flex;"><span>  ];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">field</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">requiredFields</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">recipe</span>[<span style="color:#a6e22e">field</span>]) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">`Missing required field: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">field</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate NO allergies
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipeIngredients</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">map</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ing</span> =&gt; <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">ing</span>.<span style="color:#a6e22e">ingredient_name</span>)
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">allergyFound</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>.<span style="color:#a6e22e">some</span>(<span style="color:#a6e22e">allergy</span> =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">normalized</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">allergy</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipeIngredients</span>.<span style="color:#a6e22e">some</span>(<span style="color:#a6e22e">ing</span> =&gt; <span style="color:#a6e22e">ing</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">normalized</span>));
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">allergyFound</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;AI generated recipe with allergy ingredient!&#39;</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Recipe contains allergy ingredients&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Add metadata
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">recipe_id</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`ai-gen-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">source</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;ai&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">is_new</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">is_approved</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">false</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">is_ai_generated</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">created_by</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">&#39;bedrock-ai&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">created_at</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>();
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">personalization_used</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">age_range</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">age_range</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">allergies_avoided</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipe</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="error-handling--fallback">Error Handling &amp; Fallback<a class="anchor" href="#error-handling--fallback">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">generateAIRecipesWithFallback</span>(
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">userContext</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">count</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">usedMethods</span>
+</span></span><span style="display:flex;"><span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">availableMethods</span> <span style="color:#f92672">=</span> [
+</span></span><span style="display:flex;"><span>    <span style="color:#e6db74">&#39;stir-fry&#39;</span>, <span style="color:#e6db74">&#39;soup&#39;</span>, <span style="color:#e6db74">&#39;steam&#39;</span>, <span style="color:#e6db74">&#39;grill&#39;</span>, <span style="color:#e6db74">&#39;bake&#39;</span>, <span style="color:#e6db74">&#39;fry&#39;</span>, <span style="color:#e6db74">&#39;boil&#39;</span>
+</span></span><span style="display:flex;"><span>  ].<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">m</span> =&gt; <span style="color:#f92672">!</span><span style="color:#a6e22e">usedMethods</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">m</span>));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">let</span> <span style="color:#a6e22e">i</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>; <span style="color:#a6e22e">i</span> <span style="color:#f92672">&lt;</span> <span style="color:#a6e22e">count</span>; <span style="color:#a6e22e">i</span><span style="color:#f92672">++</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">method</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">availableMethods</span>[<span style="color:#a6e22e">i</span> <span style="color:#f92672">%</span> <span style="color:#a6e22e">availableMethods</span>.<span style="color:#a6e22e">length</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">callBedrockAI</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">method</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">recipe</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">`AI generation failed for </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74">:`</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Fallback: Try DB again
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">fallbackRecipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">queryRecipeByMethod</span>(<span style="color:#a6e22e">method</span>, <span style="color:#a6e22e">ingredients</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">fallbackRecipe</span>) {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">fallbackRecipe</span>);
+</span></span><span style="display:flex;"><span>      } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Ultimate fallback: Return generic recipe template
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">createGenericRecipe</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">method</span>));
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipes</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">createGenericRecipe</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">method</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`generic-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ingredients</span>[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74"> </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">source</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;fallback&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cooking_method</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">method</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">ing</span> =&gt; ({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ingredient_name</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ing</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">quantity</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;To taste&#39;</span>
+</span></span><span style="display:flex;"><span>    })),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">instructions</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>      {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">step_number</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">description</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`Prepare </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74"> using </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">method</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> method`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">duration</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;30 minutes&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    ],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">note</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Generic recipe - AI unavailable. Please customize.&#39;</span>
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="ai-performance-metrics">AI Performance Metrics<a class="anchor" href="#ai-performance-metrics">#</a></h2>
+<h3 id="tracking">Tracking<a class="anchor" href="#tracking">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Save AI suggestion with metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`SUGGESTION#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">suggestion_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">generateUUID</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients_used</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">requested_recipe_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">count</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipes_from_db</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipes_from_ai</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">invalid_ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">invalidIngredients</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Performance metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">db_query_time_ms</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbQueryTime</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ai_generation_time_ms</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiGenerationTime</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">total_time_ms</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">totalTime</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cost tracking
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">ai_input_tokens</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">inputTokens</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ai_output_tokens</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">outputTokens</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">estimated_cost_usd</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">inputTokens</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.00025</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">outputTokens</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">0.00125</span>) <span style="color:#f92672">/</span> <span style="color:#ae81ff">1000</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// For analytics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">GSI1PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ANALYTICS#AI_USAGE&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">GSI1SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`DATE#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>().<span style="color:#a6e22e">split</span>(<span style="color:#e6db74">&#39;T&#39;</span>)[<span style="color:#ae81ff">0</span>]<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});</span></span></code></pre></div><h3 id="analytics-dashboard-admin">Analytics Dashboard (Admin)<a class="anchor" href="#analytics-dashboard-admin">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getAIAnalytics</span>(<span style="color:#a6e22e">startDate</span>, <span style="color:#a6e22e">endDate</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">suggestions</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">query</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK = :pk AND GSI1SK BETWEEN :start AND :end&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ANALYTICS#AI_USAGE&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:start&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`DATE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">startDate</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:end&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`DATE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">endDate</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">stats</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">total_suggestions</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">total_recipes_generated</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>(
+</span></span><span style="display:flex;"><span>      (<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">recipes_from_ai</span>, <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    ),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">total_recipes_from_db</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>(
+</span></span><span style="display:flex;"><span>      (<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">recipes_from_db</span>, <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    ),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">db_coverage_ratio</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">avg_generation_time_ms</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">total_cost_usd</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>(
+</span></span><span style="display:flex;"><span>      (<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> (<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">estimated_cost_usd</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>), <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    ),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">invalid_ingredients_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>(
+</span></span><span style="display:flex;"><span>      (<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> (<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">invalid_ingredients</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>), <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    )
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">totalRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">total_recipes_generated</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">total_recipes_from_db</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">db_coverage_ratio</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">totalRecipes</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">?</span> (<span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">total_recipes_from_db</span> <span style="color:#f92672">/</span> <span style="color:#a6e22e">totalRecipes</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">100</span>).<span style="color:#a6e22e">toFixed</span>(<span style="color:#ae81ff">1</span>) <span style="color:#f92672">+</span> <span style="color:#e6db74">&#39;%&#39;</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;0%&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">avg_generation_time_ms</span> <span style="color:#f92672">=</span> Math.<span style="color:#a6e22e">round</span>(
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>(
+</span></span><span style="display:flex;"><span>      (<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> (<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">ai_generation_time_ms</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>), <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>    ) <span style="color:#f92672">/</span> <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span>
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">stats</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="-ai-learning--improvement">🎓 AI Learning &amp; Improvement<a class="anchor" href="#-ai-learning--improvement">#</a></h2>
+<h3 id="auto-approval-feedback-loop">Auto-Approval Feedback Loop<a class="anchor" href="#auto-approval-feedback-loop">#</a></h3>
+<pre class="mermaid">graph TD
+    A[AI Generate Recipe] --&gt; B[User Cooks]
+    B --&gt; C[User Rates &gt;= 4 stars]
+    C --&gt; D[Auto-Approve Recipe]
+    D --&gt; E[Add to Public DB]
+    E --&gt; F[Available for Future Queries]
+    F --&gt; G[Reduces AI Cost]
+    G --&gt; H[More Users Cook]
+    H --&gt; I[More Ratings]
+    I --&gt; J{Still &gt;= 4 stars?}
+    J --&gt;|Yes| K[Keep Approved]
+    J --&gt;|No| L[Demote from Featured]</pre><h3 id="continuous-improvement">Continuous Improvement<a class="anchor" href="#continuous-improvement">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// After recipe approval, analyze for quality
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">analyzeApprovedRecipe</span>(<span style="color:#a6e22e">recipeId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getRecipe</span>(<span style="color:#a6e22e">recipeId</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ratings</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getRecipeRatings</span>(<span style="color:#a6e22e">recipeId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">analysis</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipeId</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">average_rating</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">rating_count</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">was_ai_generated</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">is_ai_generated</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cooking_method</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cooking_method</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">cuisine_type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cuisine_type</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// User feedback analysis
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">positive_keywords</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">extractKeywords</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ratings</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">r</span> =&gt; <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">rating</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">4</span>).<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">r</span> =&gt; <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">comment</span>)
+</span></span><span style="display:flex;"><span>    ),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">negative_keywords</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">extractKeywords</span>(
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ratings</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">r</span> =&gt; <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">rating</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">4</span>).<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">r</span> =&gt; <span style="color:#a6e22e">r</span>.<span style="color:#a6e22e">comment</span>)
+</span></span><span style="display:flex;"><span>    ),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Success factors
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">success_factors</span><span style="color:#f92672">:</span> []
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Identify what worked
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">average_rating</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">4.5</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">analysis</span>.<span style="color:#a6e22e">success_factors</span>.<span style="color:#a6e22e">push</span>(<span style="color:#e6db74">&#39;high_quality&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cooking_time_minutes</span> <span style="color:#f92672">&lt;=</span> <span style="color:#ae81ff">30</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">analysis</span>.<span style="color:#a6e22e">success_factors</span>.<span style="color:#a6e22e">push</span>(<span style="color:#e6db74">&#39;quick_recipe&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">difficulty</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;easy&#39;</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">analysis</span>.<span style="color:#a6e22e">success_factors</span>.<span style="color:#a6e22e">push</span>(<span style="color:#e6db74">&#39;easy_to_make&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Save for future prompt optimization
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">put</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ANALYTICS#RECIPE_SUCCESS&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RATING#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">average_rating</span><span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">analysis</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">analysis</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="11-database.md">11 - Database</a></li>
+<li><a href="12-api-spec.md">12 - API Spec</a></li>
+<li><a href="20-backend.md">20 - Backend</a></li>
+<li><a href="30-cost-analysis.md">30 - Cost Analysis</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/dlc/13-security/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="13 - Security" />
+        <span>13 - Security</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/dlc/20-backend/" class="flex align-center">
+        <span>20 - Backend Implementation</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="20 - Backend Implementation" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#ai-agent-overview">AI Agent Overview</a>
+      <ul>
+        <li><a href="#vision">Vision</a></li>
+        <li><a href="#core-technologies">Core Technologies</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-agent-features">AI Agent Features</a>
+      <ul>
+        <li><a href="#1-flexible-dbai-mix-strategy-">1. Flexible DB/AI Mix Strategy ⭐</a></li>
+        <li><a href="#2-category-based-diversity-">2. Category-Based Diversity ⭐</a></li>
+        <li><a href="#3-invalid-ingredient-handling-">3. Invalid Ingredient Handling ⭐</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-prompt-engineering">AI Prompt Engineering</a>
+      <ul>
+        <li><a href="#base-prompt-template">Base Prompt Template</a></li>
+        <li><a href="#privacy-aware-prompt">Privacy-Aware Prompt</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-response-processing">AI Response Processing</a>
+      <ul>
+        <li><a href="#parse--validate">Parse &amp; Validate</a></li>
+        <li><a href="#error-handling--fallback">Error Handling &amp; Fallback</a></li>
+      </ul>
+    </li>
+    <li><a href="#ai-performance-metrics">AI Performance Metrics</a>
+      <ul>
+        <li><a href="#tracking">Tracking</a></li>
+        <li><a href="#analytics-dashboard-admin">Analytics Dashboard (Admin)</a></li>
+      </ul>
+    </li>
+    <li><a href="#-ai-learning--improvement">🎓 AI Learning &amp; Improvement</a>
+      <ul>
+        <li><a href="#auto-approval-feedback-loop">Auto-Approval Feedback Loop</a></li>
+        <li><a href="#continuous-improvement">Continuous Improvement</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
