@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <!--
 Made with Book Theme
 https://github.com/alex-shpak/hugo-book
@@ -19,31 +19,34 @@ Nguyên liệu nhập đơn giản (chỉ tên, không quản lý số lượng/
 
 Phạm vi:
 
-✅ User chỉ nhập danh sách nguyên liệu có sẵn
-✅ AI tạo công thức phù hợp với user profile
+✅ User nhập danh sách nguyên liệu
+✅ System check nguyên liệu hợp lệ
+✅ Gợi ý 4 món từ database &#43; 1 món AI tạo mới
+✅ Auto-approval công thức dựa trên rating (&gt;= 4 sao)
+✅ Error handling cho nguyên liệu không hợp lệ
 
 Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/ai-agent-implementation/">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/docs/summary/ai-agent-implementation/">
   <meta property="og:site_name" content="Together">
   <meta property="og:title" content="Kế Hoạch Triển Khai AI Agent">
   <meta property="og:description" content="KẾ HOẠCH TRIỂN KHAI AI AGENT#Hệ Thống Gợi Ý Công Thức Thông Minh
 📋 TỔNG QUAN#Tính năng: AI Agent gợi ý món ăn thông minh dựa trên:
 Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực (món canh, món chiên, món hấp…) Nguyên liệu nhập đơn giản (chỉ tên, không quản lý số lượng/hạn dùng) Phạm vi:
-✅ User chỉ nhập danh sách nguyên liệu có sẵn ✅ AI tạo công thức phù hợp với user profile Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
+✅ User nhập danh sách nguyên liệu ✅ System check nguyên liệu hợp lệ ✅ Gợi ý 4 món từ database &#43; 1 món AI tạo mới ✅ Auto-approval công thức dựa trên rating (&gt;= 4 sao) ✅ Error handling cho nguyên liệu không hợp lệ Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="docs">
 <title>Kế Hoạch Triển Khai AI Agent | Together</title>
 <link rel="icon" href="/favicon.png" >
 <link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="https://example.org/docs/summary/ai-agent-implementation/">
+<link rel="canonical" href="http://localhost:1313/docs/summary/ai-agent-implementation/">
 <link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
 
 
   <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.aaea68bdd9a9b12aedcf86c752b21fa6a3095dc2401d7024a6670dccab3e29fb.js" integrity="sha256-qupovdmpsSrtz4bHUrIfpqMJXcJAHXAkpmcNzKs&#43;Kfs=" crossorigin="anonymous"></script>
+  <script defer src="/en.search.min.376a404bc31930eb14d43e5d85755241913f934623356d5b6b3a1175ca8a9489.js" integrity="sha256-N2pAS8MZMOsU1D5dhXVSQZE/k0YjNW1bazoRdcqKlIk=" crossorigin="anonymous"></script>
 
   
 </head>
@@ -212,7 +215,13 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 <nav id="TableOfContents">
   <ul>
     <li><a href="#-tổng-quan">📋 TỔNG QUAN</a></li>
-    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a></li>
+    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a>
+      <ul>
+        <li><a href="#flow-1-gợi-ý-món-ăn-thông-minh-smart-suggestion">Flow 1: Gợi Ý Món Ăn Thông Minh (Smart Suggestion)</a></li>
+        <li><a href="#flow-2-auto-approval-công-thức-rating-based">Flow 2: Auto-Approval Công Thức (Rating-based)</a></li>
+        <li><a href="#flow-3-error-handling---nguyên-liệu-không-hợp-lệ">Flow 3: Error Handling - Nguyên Liệu Không Hợp Lệ</a></li>
+      </ul>
+    </li>
     <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
       <ul>
         <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>
@@ -251,58 +260,474 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </ul>
 <p><strong>Phạm vi:</strong></p>
 <ul>
-<li>✅ User chỉ nhập danh sách nguyên liệu có sẵn</li>
-<li>✅ AI tạo công thức phù hợp với user profile</li>
+<li>✅ User nhập danh sách nguyên liệu</li>
+<li>✅ System check nguyên liệu hợp lệ</li>
+<li>✅ Gợi ý 4 món từ database + 1 món AI tạo mới</li>
+<li>✅ Auto-approval công thức dựa trên rating (&gt;= 4 sao)</li>
+<li>✅ Error handling cho nguyên liệu không hợp lệ</li>
 </ul>
 <p><strong>Thời gian</strong>: 2 tuần (Tuần 3-4 trong deployment plan)</p>
 <h2 id="-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG<a class="anchor" href="#-lu%e1%bb%93ng-ng%c6%b0%e1%bb%9di-d%c3%b9ng">#</a></h2>
+<h3 id="flow-1-gợi-ý-món-ăn-thông-minh-smart-suggestion">Flow 1: Gợi Ý Món Ăn Thông Minh (Smart Suggestion)<a class="anchor" href="#flow-1-g%e1%bb%a3i-%c3%bd-m%c3%b3n-%c4%83n-th%c3%b4ng-minh-smart-suggestion">#</a></h3>
 <pre tabindex="0"><code>┌─────────────────────────────────────────────────────────┐
 │                    ĐẦU VÀO NGƯỜI DÙNG                   │
 ├─────────────────────────────────────────────────────────┤
 │  Người dùng A:                                          │
 │  • Nam, 1990 (34 tuổi), Vietnam                        │
 │  • Thích ăn: canh, món hấp                             │
-│  • Nguyên liệu: Cá rô, bông súng, gừng, hành           │
+│  • Nguyên liệu nhập: Cá rô, bông súng, gừng, hành     │
 └────────────────────┬────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────┐
-│              XỬ LÝ AI AGENT                             │
+│              VALIDATE &amp; PROCESS                         │
 ├─────────────────────────────────────────────────────────┤
-│  1. Lấy thông tin từ user_preferences                  │
-│  2. Lấy nguyên liệu từ user_ingredients                │
-│  3. Xây dựng prompt tùy chỉnh:                         │
-│     &#34;Tạo món ăn với:                                   │
-│      - Nguyên liệu: Cá rô, bông súng                  │
-│      - Cho: nam, trung niên                            │
-│      - Món: Việt Nam                                   │
-│      - Loại: có thể có canh hoặc món hấp&#34;             │
-│  4. Gọi Bedrock Claude API                             │
-└────────────────────┬────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────┐
-│              PHẢN HỒI AI &amp; KẾT QUẢ CUỐI CÙNG           │
-├─────────────────────────────────────────────────────────┤
-│  Gợi ý: &#34;Canh cá rô nấu bông súng&#34;                    │
-│  • Phù hợp: nam trung niên, món Việt, có canh         │
-│  • Nguyên liệu match: 4/4                              │
-│  • Độ khó: Dễ                                          │
-│  • Thời gian: 30 phút                                  │
+│  1. Check nguyên liệu hợp lệ:                          │
+│     ✅ &#34;Cá rô&#34; → Có trong database                      │
+│     ✅ &#34;Bông súng&#34; → Có trong database                  │
+│     ✅ &#34;Gừng&#34; → Có trong database                       │
+│     ✅ &#34;Hành&#34; → Có trong database                       │
 │                                                         │
-│  📝 Công thức chi tiết (từ AI)                          │
-│  🥘 Thông tin dinh dưỡng                               │
-│  ⭐ Lưu vào favorites                                   │
+│  2. Tìm công thức:                                     │
+│     - Query DynamoDB: 4 món match nguyên liệu          │
+│     - Gọi AI Bedrock: 1 món mới sáng tạo               │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              KẾT QUẢ GỢI Ý (5 MÓN)                     │
+├─────────────────────────────────────────────────────────┤
+│  📦 Từ Database (4 món):                               │
+│  1. Canh cá rô nấu bông súng                           │
+│  2. Cá rô kho gừng                                      │
+│  3. Canh bông súng                                      │
+│  4. Cá rô chiên                                         │
+│                                                         │
+│  🤖 AI Generated (1 món mới):                          │
+│  5. Cá rô hấp bông súng gừng hành                      │
+│     (Món độc đáo từ AI)                                │
+└─────────────────────────────────────────────────────────┘</code></pre><h3 id="flow-2-auto-approval-công-thức-rating-based">Flow 2: Auto-Approval Công Thức (Rating-based)<a class="anchor" href="#flow-2-auto-approval-c%c3%b4ng-th%e1%bb%a9c-rating-based">#</a></h3>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────┐
+│              USER NẤU MÓN AI TẠO                        │
+├─────────────────────────────────────────────────────────┤
+│  1. User chọn món: &#34;Cá rô hấp bông súng gừng hành&#34;    │
+│  2. Làm theo hướng dẫn                                 │
+│  3. Click &#34;Hoàn thành&#34;                                 │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              ĐÁNH GIÁ CÔNG THỨC                         │
+├─────────────────────────────────────────────────────────┤
+│  Popup hiển thị:                                        │
+│  • Rating: ⭐⭐⭐⭐⭐ (1-5 sao)                           │
+│  • Comment: &#34;Món này rất ngon!&#34;                        │
+│  • Submit                                               │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              XỬ LÝ RATING                               │
+├─────────────────────────────────────────────────────────┤
+│  IF rating &gt;= 4 sao:                                   │
+│    ✅ Set recipe.is_approved = true                     │
+│    ✅ Add to public recipes database                    │
+│    ✅ Notify: &#34;Công thức đã được thêm vào database!&#34;   │
+│                                                         │
+│  ELSE (rating &lt; 4 sao):                                │
+│    ℹ️ Notify: &#34;Cảm ơn đánh giá của bạn!&#34;              │
+│    ❌ Không thêm vào database                           │
+└─────────────────────────────────────────────────────────┘</code></pre><h3 id="flow-3-error-handling---nguyên-liệu-không-hợp-lệ">Flow 3: Error Handling - Nguyên Liệu Không Hợp Lệ<a class="anchor" href="#flow-3-error-handling---nguy%c3%aan-li%e1%bb%87u-kh%c3%b4ng-h%e1%bb%a3p-l%e1%bb%87">#</a></h3>
+<pre tabindex="0"><code>┌─────────────────────────────────────────────────────────┐
+│              USER NHẬP NGUYÊN LIỆU SAI                  │
+├─────────────────────────────────────────────────────────┤
+│  Input: &#34;abc xyz&#34;, &#34;123&#34;, &#34;thit ga&#34;                    │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              VALIDATE TỪNG NGUYÊN LIỆU                  │
+├─────────────────────────────────────────────────────────┤
+│  1. &#34;abc xyz&#34; → ❌ Không tồn tại                        │
+│     → Fuzzy search: Tìm nguyên liệu gần đúng           │
+│     → Gợi ý: &#34;Bạn có muốn: [gà, cá, bò]?&#34;             │
+│                                                         │
+│  2. &#34;123&#34; → ❌ Format không hợp lệ                      │
+│     → Error: &#34;Tên nguyên liệu không hợp lệ&#34;            │
+│                                                         │
+│  3. &#34;thit ga&#34; → ✅ Fuzzy match: &#34;thịt gà&#34;              │
+│     → Auto-correct: &#34;Bạn muốn dùng &#39;thịt gà&#39;?&#34;         │
+└────────────────────┬────────────────────────────────────┘
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────┐
+│              ERROR RESPONSES                            │
+├─────────────────────────────────────────────────────────┤
+│  Case 1: Nguyên liệu không tồn tại                     │
+│  → HTTP 400: {                                          │
+│      &#34;error&#34;: &#34;ingredient_not_found&#34;,                   │
+│      &#34;message&#34;: &#34;Không tìm thấy nguyên liệu: abc xyz&#34;, │
+│      &#34;suggestions&#34;: [&#34;gà&#34;, &#34;cá&#34;, &#34;bò&#34;]                 │
+│    }                                                    │
+│                                                         │
+│  Case 2: Format không hợp lệ                           │
+│  → HTTP 400: {                                          │
+│      &#34;error&#34;: &#34;invalid_format&#34;,                         │
+│      &#34;message&#34;: &#34;Tên nguyên liệu không hợp lệ: 123&#34;   │
+│    }                                                    │
+│                                                         │
+│  Case 3: Quá ít nguyên liệu                            │
+│  → HTTP 400: {                                          │
+│      &#34;error&#34;: &#34;insufficient_ingredients&#34;,               │
+│      &#34;message&#34;: &#34;Cần ít nhất 2 nguyên liệu&#34;           │
+│    }                                                    │
+│                                                         │
+│  Case 4: Fuzzy match thành công                        │
+│  → HTTP 200: {                                          │
+│      &#34;corrected&#34;: true,                                 │
+│      &#34;original&#34;: &#34;thit ga&#34;,                             │
+│      &#34;matched&#34;: &#34;thịt gà&#34;,                              │
+│      &#34;confidence&#34;: 0.85                                 │
+│    }                                                    │
 └─────────────────────────────────────────────────────────┘</code></pre><h2 id="-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT<a class="anchor" href="#-tri%e1%bb%83n-khai-k%e1%bb%b9-thu%e1%ba%adt">#</a></h2>
 <h3 id="backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions<a class="anchor" href="#backend-nodejs-20-lambda-functions">#</a></h3>
-<p><strong>Lambda Gợi Ý AI:</strong></p>
+<p><strong>Lambda AI Suggestion Engine:</strong></p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Sử dụng AWS SDK v3 cho Bedrock
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">BedrockRuntimeClient</span>, <span style="color:#a6e22e">InvokeModelCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-bedrock-runtime&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDBClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-dynamodb&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDBDocumentClient</span>, <span style="color:#a6e22e">QueryCommand</span>, <span style="color:#a6e22e">PutCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/lib-dynamodb&#39;</span>);
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Model: Claude 3 Haiku (tiết kiệm chi phí)
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Đầu vào: Sở thích người dùng + nguyên liệu
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Đầu ra: JSON gợi ý công thức
-</span></span></span></code></pre></div><p><strong>Dịch Vụ Chính:</strong></p>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ddb</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">DynamoDBDocumentClient</span>.<span style="color:#a6e22e">from</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DynamoDBClient</span>({}));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Flow mới:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 1. Validate ingredients với master_ingredients table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 2. Query 4 recipes từ DynamoDB (is_approved=true)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 3. Generate 1 recipe mới bằng Bedrock AI
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 4. Return 5 suggestions (4 DB + 1 AI)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">suggestRecipes</span>(<span style="color:#a6e22e">userIngredients</span>, <span style="color:#a6e22e">userPreferences</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 1: Validate ingredients với master_ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validatedIngredients</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">validateIngredientsWithMaster</span>(<span style="color:#a6e22e">userIngredients</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">isValid</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">400</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ingredient_not_found&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Một số nguyên liệu không hợp lệ&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">invalid_ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">invalidItems</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">suggestions</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 2: Query 4 approved recipes từ DynamoDB
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dbRecipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredients</span>(
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">4</span>
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 3: Generate 1 AI recipe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">generateAIRecipe</span>(
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userPreferences</span>
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 4: Save AI suggestion to history
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">saveAISuggestion</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userPreferences</span>.<span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">aiRecipe</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dbRecipes</span>
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 5: Return combined results
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipes</span><span style="color:#f92672">:</span> [...<span style="color:#a6e22e">dbRecipes</span>, <span style="color:#a6e22e">aiRecipe</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">stats</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">database_recipes</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ai_recipes</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Validate ingredients với master_ingredients table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">validateIngredientsWithMaster</span>(<span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">validated</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">invalid</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">suggestions</span> <span style="color:#f92672">=</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ing</span> <span style="color:#66d9ef">of</span> <span style="color:#a6e22e">ingredients</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Normalize input
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">normalized</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">ing</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Check exact match trong master_ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">exactMatch</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK = :pk AND begins_with(GSI1SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INGREDIENT#SEARCH`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`NAME#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">normalized</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">validated</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">exactMatch</span>.<span style="color:#a6e22e">Items</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">else</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Fuzzy search for similar ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">similar</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">fuzzySearchIngredients</span>(<span style="color:#a6e22e">normalized</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">invalid</span>.<span style="color:#a6e22e">push</span>(<span style="color:#a6e22e">ing</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suggestions</span>.<span style="color:#a6e22e">push</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">original</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ing</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">similar</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">5</span>) <span style="color:#75715e">// Top 5 suggestions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      });
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">isValid</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">invalid</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">===</span> <span style="color:#ae81ff">0</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validated</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">invalidItems</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">invalid</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">suggestions</span>
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Fuzzy search cho nguyên liệu tương tự
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">fuzzySearchIngredients</span>(<span style="color:#a6e22e">searchTerm</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Scan master_ingredients với filter
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI1PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">FilterExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;contains(normalized_name, :term) OR contains(aliases, :term)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`INGREDIENT#ACTIVE`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:term&#39;</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">searchTerm</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">item</span> =&gt; <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">name</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Query approved recipes matching ingredients
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredients</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">limit</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">FilterExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;is_approved = :approved&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPES#APPROVED`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:approved&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Limit</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">limit</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ScanIndexForward</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> <span style="color:#75715e">// Sắp xếp theo rating cao nhất
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Normalize text (bỏ dấu, lowercase)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">normalizeText</span>(<span style="color:#a6e22e">text</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">text</span>
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">toLowerCase</span>()
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">normalize</span>(<span style="color:#e6db74">&#39;NFD&#39;</span>)
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">/[\u0300-\u036f]/g</span>, <span style="color:#e6db74">&#39;&#39;</span>)
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">trim</span>();
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Lambda Recipe Rating Handler:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Auto-approval dựa trên rating (&gt;= 4 sao)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">handleRecipeRating</span>(<span style="color:#a6e22e">recipeId</span>, <span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>, <span style="color:#a6e22e">historyId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Validate rating (1-5)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">rating</span> <span style="color:#f92672">&lt;</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">rating</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">5</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">400</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Invalid rating. Must be 1-5.&#39;</span> }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 1: Save rating to recipe_ratings table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RATING#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">generateUUID</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipeId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">comment</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">is_verified_cook</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span> <span style="color:#f92672">?</span> <span style="color:#66d9ef">true</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 2: Update user_cooking_history với personal_rating
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">historyId</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`COOKING#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">personal_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">rating</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 3: Calculate average rating cho recipe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">avgRating</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">calculateAverageRating</span>(<span style="color:#a6e22e">recipeId</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">ratingCount</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getRatingCount</span>(<span style="color:#a6e22e">recipeId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 4: Auto-approve if &gt;= 4.0 stars
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">avgRating</span> <span style="color:#f92672">&gt;=</span> <span style="color:#ae81ff">4.0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">is_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">is_public</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">approval_type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;auto_rating&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">approved_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rating_saved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">auto_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Công thức đã được thêm vào database tổng!&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 5: Rating &lt; 4.0 - chỉ cảm ơn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">success</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating_saved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">average_rating</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">avgRating</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating_count</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">ratingCount</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">auto_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Cảm ơn đánh giá của bạn!&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Calculate average rating
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">calculateAverageRating</span>(<span style="color:#a6e22e">recipeId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND begins_with(SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RATING#&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">===</span> <span style="color:#ae81ff">0</span>) <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">total</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">reduce</span>((<span style="color:#a6e22e">sum</span>, <span style="color:#a6e22e">item</span>) =&gt; <span style="color:#a6e22e">sum</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">rating</span>, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> (<span style="color:#a6e22e">total</span> <span style="color:#f92672">/</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">length</span>).<span style="color:#a6e22e">toFixed</span>(<span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Get rating count
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getRatingCount</span>(<span style="color:#a6e22e">recipeId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND begins_with(SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPE#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RATING#&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Select</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;COUNT&#39;</span>
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Count</span> <span style="color:#f92672">||</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Lambda Cooking History Handler:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Quản lý lịch sử nấu ăn cá nhân
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">startCooking</span>(<span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">recipeId</span>, <span style="color:#a6e22e">suggestionId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">historyId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">generateUUID</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`COOKING#</span><span style="color:#e6db74">${</span><span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">user_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">recipeId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suggestion_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">suggestionId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;cooking&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history_id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">historyId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Bắt đầu nấu ăn!&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Hoàn thành nấu ăn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">completeCooking</span>(<span style="color:#a6e22e">historyId</span>, <span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Item</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">PK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">SK</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`COOKING#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;completed&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">cook_date</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">updated_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>()
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Hoàn thành! Vui lòng đánh giá món ăn.&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">show_rating_form</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Lấy lịch sử nấu ăn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getCookingHistory</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND begins_with(SK, :sk)&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;COOKING#&#39;</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ScanIndexForward</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> <span style="color:#75715e">// Newest first
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> []
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Dịch Vụ Chính:</strong></p>
 <ul>
 <li><strong>Amazon Bedrock</strong>: Claude 3 Haiku model</li>
 <li><strong>DynamoDB</strong>: Lưu trữ dữ liệu người dùng &amp; gợi ý AI</li>
@@ -314,6 +739,10 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 <ul>
 <li><code>Users</code> (PK: user_id) - Hồ sơ &amp; vai trò</li>
 <li><code>UserData</code> (PK: user_id, SK: PREFERENCES | INGREDIENTS) - Cài đặt người dùng</li>
+<li><code>Recipes</code> (PK: recipe_id) - Công thức (có thêm field is_approved, approval_type, average_rating)</li>
+<li><code>RecipeRatings</code> (PK: recipe_id, SK: user_id) - Đánh giá công thức cho auto-approval</li>
+<li><code>UserCookingHistory</code> (PK: user_id, SK: timestamp) - Lịch sử nấu ăn cá nhân (thay thế favorites)</li>
+<li><code>MasterIngredients</code> (PK: ingredient_id) - Master list nguyên liệu để validate</li>
 <li><code>PrivacySettings</code> (PK: user_id) - Cấu hình quyền riêng tư</li>
 <li><code>Friendships</code> (PK: user_id, SK: friend_id) - Kết nối xã hội</li>
 <li><code>AISuggestions</code> (PK: user_id, SK: timestamp) - Lịch sử AI</li>
@@ -323,23 +752,180 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">privacy</span>.<span style="color:#a6e22e">ingredients_visibility</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;friends&#39;</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span><span style="color:#a6e22e">isFriend</span>) {
 </span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">delete</span> <span style="color:#a6e22e">userProfile</span>.<span style="color:#a6e22e">ingredients</span>;
 </span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="api-endpoints">API Endpoints<a class="anchor" href="#api-endpoints">#</a></h3>
-<p><strong>Luồng Gợi Ý AI:</strong></p>
+<p><strong>Luồng Gợi Ý AI (Enhanced - Flexible Mix):</strong></p>
 <pre tabindex="0"><code>POST /ai/suggest
 Authorization: Bearer &lt;JWT&gt;
 Body: {
-  &#34;request&#34;: &#34;Something light for dinner&#34;,
-  &#34;dietary_preferences&#34;: [&#34;no pork&#34;]
+  &#34;ingredients&#34;: [&#34;thịt gà&#34;, &#34;cà chua&#34;, &#34;hành&#34;],
+  &#34;recipe_count&#34;: 3  // NEW: 1-5 món (default: 1)
+}
+
+Response (Success - Flexible mix):
+{
+  &#34;suggestions&#34;: [
+    {
+      &#34;id&#34;: &#34;recipe-001&#34;,
+      &#34;name&#34;: &#34;Gà xào cà chua&#34;,
+      &#34;source&#34;: &#34;database&#34;,
+      &#34;cooking_method&#34;: &#34;xào&#34;,  // NEW
+      &#34;meal_type&#34;: &#34;món chính&#34;,  // NEW
+      &#34;match_score&#34;: 0.95,
+      &#34;is_approved&#34;: true,
+      &#34;average_rating&#34;: 4.5
+    },
+    {
+      &#34;id&#34;: &#34;recipe-002&#34;,
+      &#34;name&#34;: &#34;Canh cà chua&#34;,
+      &#34;source&#34;: &#34;database&#34;,
+      &#34;cooking_method&#34;: &#34;canh&#34;,  // NEW - Diverse!
+      &#34;meal_type&#34;: &#34;canh&#34;,
+      &#34;match_score&#34;: 0.80,
+      &#34;is_approved&#34;: true,
+      &#34;average_rating&#34;: 4.2
+    },
+    {
+      &#34;id&#34;: &#34;ai-gen-001&#34;,
+      &#34;name&#34;: &#34;Gà hấp cà chua hành&#34;,
+      &#34;source&#34;: &#34;ai&#34;,
+      &#34;cooking_method&#34;: &#34;hấp&#34;,  // NEW - Diverse!
+      &#34;meal_type&#34;: &#34;món chính&#34;,
+      &#34;is_new&#34;: true,
+      &#34;is_approved&#34;: false,
+      &#34;ingredients&#34;: [...],
+      &#34;instructions&#34;: [...]
+    }
+  ],
+  &#34;stats&#34;: {
+    &#34;requested&#34;: 3,  // NEW
+    &#34;from_database&#34;: 2,  // NEW - Flexible!
+    &#34;from_ai&#34;: 1  // NEW - Only 1 AI call needed!
+  },
+  &#34;warnings&#34;: []  // NEW - Empty if all ingredients valid
+}
+
+Response (Warning - Invalid ingredient but still work):
+{
+  &#34;suggestions&#34;: [...],  // Still return results
+  &#34;stats&#34;: {
+    &#34;requested&#34;: 3,
+    &#34;from_database&#34;: 0,  // Not enough valid ingredients for DB
+    &#34;from_ai&#34;: 3  // AI handles it
+  },
+  &#34;warnings&#34;: [  // NEW
+    {
+      &#34;ingredient&#34;: &#34;abc xyz&#34;,
+      &#34;message&#34;: &#34;Nguyên liệu không hợp lệ, AI sẽ cố gắng xử lý&#34;,
+      &#34;suggestions&#34;: [&#34;gà&#34;, &#34;cá&#34;, &#34;bò&#34;],
+      &#34;reported&#34;: true  // Đã log để admin review
+    }
+  ]
+}
+
+Response (Error - All invalid):
+{
+  &#34;error&#34;: &#34;all_ingredients_invalid&#34;,
+  &#34;message&#34;: &#34;Tất cả nguyên liệu không hợp lệ. Vui lòng nhập lại.&#34;,
+  &#34;invalid_ingredients&#34;: [&#34;abc&#34;, &#34;xyz&#34;, &#34;123&#34;],
+  &#34;suggestions&#34;: [
+    { &#34;original&#34;: &#34;abc&#34;, &#34;similar&#34;: [&#34;cá&#34;, &#34;gà&#34;] },
+    { &#34;original&#34;: &#34;xyz&#34;, &#34;similar&#34;: [&#34;rau&#34;, &#34;củ&#34;] }
+  ]
+}</code></pre><p><strong>Luồng Cooking History:</strong></p>
+<pre tabindex="0"><code>POST /cooking/start
+Authorization: Bearer &lt;JWT&gt;
+Body: {
+  &#34;recipe_id&#34;: &#34;ai-gen-001&#34;,
+  &#34;suggestion_id&#34;: &#34;suggestion-123&#34;
 }
 
 Response:
 {
-  &#34;suggestion_id&#34;: &#34;uuid&#34;,
+  &#34;history_id&#34;: &#34;history-001&#34;,
+  &#34;message&#34;: &#34;Bắt đầu nấu ăn!&#34;
+}
+
+PUT /cooking/{history_id}/complete
+Authorization: Bearer &lt;JWT&gt;
+
+Response:
+{
+  &#34;message&#34;: &#34;Hoàn thành! Vui lòng đánh giá món ăn.&#34;,
+  &#34;show_rating_form&#34;: true
+}
+
+GET /user/cooking-history
+Authorization: Bearer &lt;JWT&gt;
+
+Response:
+{
+  &#34;history&#34;: [
+    {
+      &#34;history_id&#34;: &#34;history-001&#34;,
+      &#34;recipe_id&#34;: &#34;ai-gen-001&#34;,
+      &#34;status&#34;: &#34;completed&#34;,
+      &#34;personal_rating&#34;: 5,
+      &#34;is_favorite&#34;: true,
+      &#34;cook_date&#34;: &#34;2025-10-03T10:30:00Z&#34;
+    },
+    ...
+  ]
+}</code></pre><p><strong>Luồng Rating &amp; Auto-Approval:</strong></p>
+<pre tabindex="0"><code>POST /recipes/{id}/rate
+Authorization: Bearer &lt;JWT&gt;
+Body: {
+  &#34;rating&#34;: 5,
+  &#34;comment&#34;: &#34;Món này rất ngon!&#34;,
+  &#34;history_id&#34;: &#34;history-001&#34;
+}
+
+Response (Auto-approved):
+{
+  &#34;success&#34;: true,
+  &#34;rating_saved&#34;: true,
+  &#34;average_rating&#34;: 4.2,
+  &#34;rating_count&#34;: 15,
+  &#34;auto_approved&#34;: true,
+  &#34;message&#34;: &#34;Công thức đã được thêm vào database!&#34;,
   &#34;recipe&#34;: {
-    &#34;name&#34;: &#34;Canh cá rô nấu bông súng&#34;,
-    &#34;ingredients&#34;: [...],
-    &#34;instructions&#34;: [...],
-    &#34;nutrition&#34;: {...}
+    &#34;id&#34;: &#34;ai-gen-001&#34;,
+    &#34;is_approved&#34;: true,
+    &#34;is_public&#34;: true,
+    &#34;approval_type&#34;: &#34;auto_rating&#34;
   }
+}
+
+Response (Not approved):
+{
+  &#34;success&#34;: true,
+  &#34;rating_saved&#34;: true,
+  &#34;average_rating&#34;: 3.5,
+  &#34;rating_count&#34;: 8,
+  &#34;auto_approved&#34;: false,
+  &#34;message&#34;: &#34;Cảm ơn đánh giá của bạn!&#34;
+}</code></pre><p><strong>Luồng Validate Ingredients:</strong></p>
+<pre tabindex="0"><code>POST /ingredients/validate
+Authorization: Bearer &lt;JWT&gt;
+Body: {
+  &#34;ingredients&#34;: [&#34;cá rô&#34;, &#34;abc xyz&#34;, &#34;thit ga&#34;]
+}
+
+Response:
+{
+  &#34;valid&#34;: [&#34;cá rô&#34;],
+  &#34;invalid&#34;: [&#34;abc xyz&#34;],
+  &#34;corrected&#34;: [
+    {
+      &#34;original&#34;: &#34;thit ga&#34;,
+      &#34;matched&#34;: &#34;thịt gà&#34;,
+      &#34;confidence&#34;: 0.85
+    }
+  ],
+  &#34;suggestions&#34;: [
+    {
+      &#34;original&#34;: &#34;abc xyz&#34;,
+      &#34;similar&#34;: [&#34;gà&#34;, &#34;cá&#34;, &#34;bò&#34;, &#34;tôm&#34;, &#34;mực&#34;]
+    }
+  ]
 }</code></pre><p><strong>Endpoints Quyền Riêng Tư &amp; Xã Hội:</strong></p>
 <pre tabindex="0"><code>PUT /user/privacy - Cập nhật cài đặt quyền riêng tư
 GET /user/profile/{userId} - Lấy hồ sơ (đã lọc quyền riêng tư)
@@ -347,7 +933,13 @@ POST /friends/request - Gửi yêu cầu kết bạn
 GET /friends - Danh sách bạn bè</code></pre><p><strong>Endpoints Quản Trị:</strong></p>
 <pre tabindex="0"><code>GET /admin/users - Danh sách tất cả người dùng (chỉ admin)
 PUT /admin/users/{id}/ban - Cấm người dùng (chỉ admin)
-GET /admin/statistics - Thống kê hệ thống (chỉ admin)</code></pre><h2 id="-quyền-riêng-tư--bảo-mật">🔒 QUYỀN RIÊNG TƯ &amp; BẢO MẬT<a class="anchor" href="#-quy%e1%bb%81n-ri%c3%aang-t%c6%b0--b%e1%ba%a3o-m%e1%ba%adt">#</a></h2>
+GET /admin/statistics - Thống kê hệ thống (chỉ admin)
+GET /admin/recipes/pending - Công thức chờ approval (ít sử dụng do auto-approval)</code></pre><p><strong>Endpoints Mới - Social Features:</strong></p>
+<pre tabindex="0"><code>POST /posts - Tạo bài đăng
+GET /posts/feed - Lấy newsfeed
+POST /posts/{id}/comments - Bình luận
+POST /reactions - Thêm reaction
+GET /notifications - Lấy thông báo</code></pre><h2 id="-quyền-riêng-tư--bảo-mật">🔒 QUYỀN RIÊNG TƯ &amp; BẢO MẬT<a class="anchor" href="#-quy%e1%bb%81n-ri%c3%aang-t%c6%b0--b%e1%ba%a3o-m%e1%ba%adt">#</a></h2>
 <h3 id="các-mức-quyền-riêng-tư">Các Mức Quyền Riêng Tư<a class="anchor" href="#c%c3%a1c-m%e1%bb%a9c-quy%e1%bb%81n-ri%c3%aang-t%c6%b0">#</a></h3>
 <ul>
 <li><strong>Public</strong>: Mọi người có thể xem</li>
@@ -448,7 +1040,13 @@ GET /admin/statistics - Thống kê hệ thống (chỉ admin)</code></pre><h2 i
 <nav id="TableOfContents">
   <ul>
     <li><a href="#-tổng-quan">📋 TỔNG QUAN</a></li>
-    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a></li>
+    <li><a href="#-luồng-người-dùng">🎯 LUỒNG NGƯỜI DÙNG</a>
+      <ul>
+        <li><a href="#flow-1-gợi-ý-món-ăn-thông-minh-smart-suggestion">Flow 1: Gợi Ý Món Ăn Thông Minh (Smart Suggestion)</a></li>
+        <li><a href="#flow-2-auto-approval-công-thức-rating-based">Flow 2: Auto-Approval Công Thức (Rating-based)</a></li>
+        <li><a href="#flow-3-error-handling---nguyên-liệu-không-hợp-lệ">Flow 3: Error Handling - Nguyên Liệu Không Hợp Lệ</a></li>
+      </ul>
+    </li>
     <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
       <ul>
         <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>

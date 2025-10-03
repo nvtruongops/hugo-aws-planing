@@ -35,7 +35,12 @@ graph TB
         LambdaAI[Lambda: AI Suggestion<br/>Node.js 20]
         LambdaProfile[Lambda: User Profile<br/>Node.js 20]
         LambdaSocial[Lambda: Social/Friends<br/>Node.js 20]
+        LambdaPost[Lambda: Posts & Comments<br/>Node.js 20]
+        LambdaNotification[Lambda: Notifications<br/>Node.js 20]
         LambdaAdmin[Lambda: Admin Operations<br/>Node.js 20]
+        LambdaCooking[Lambda: Cooking History<br/>Node.js 20]
+        LambdaRating[Lambda: Rating & Approval<br/>Node.js 20]
+        LambdaIngredient[Lambda: Ingredient Validation<br/>Node.js 20]
     end
 
     subgraph "Dịch Vụ AI"
@@ -43,7 +48,7 @@ graph TB
     end
 
     subgraph "Tầng Database"
-        DynamoDB[Amazon DynamoDB<br/><br/>Bảng: Users<br/>Bảng: UserData<br/>Bảng: Recipes<br/>Bảng: AI_Suggestions<br/>Bảng: Privacy<br/>Bảng: Friendships]
+        DynamoDB[Amazon DynamoDB<br/><br/>Bảng: Users<br/>Bảng: UserData<br/>Bảng: Recipes<br/>Bảng: RecipeRatings<br/>Bảng: UserCookingHistory<br/>Bảng: MasterIngredients<br/>Bảng: AI_Suggestions<br/>Bảng: Privacy<br/>Bảng: Friendships<br/>Bảng: Posts<br/>Bảng: Comments<br/>Bảng: Reactions<br/>Bảng: Notifications]
     end
 
     subgraph "Lưu Trữ"
@@ -71,7 +76,12 @@ graph TB
     APIGateway --> LambdaAI
     APIGateway --> LambdaProfile
     APIGateway --> LambdaSocial
+    APIGateway --> LambdaPost
+    APIGateway --> LambdaNotification
     APIGateway --> LambdaAdmin
+    APIGateway --> LambdaCooking
+    APIGateway --> LambdaRating
+    APIGateway --> LambdaIngredient
 
     LambdaAI --> Bedrock
 
@@ -79,13 +89,20 @@ graph TB
     LambdaAI --> DynamoDB
     LambdaProfile --> DynamoDB
     LambdaSocial --> DynamoDB
+    LambdaPost --> DynamoDB
+    LambdaNotification --> DynamoDB
     LambdaAdmin --> DynamoDB
+    LambdaCooking --> DynamoDB
+    LambdaRating --> DynamoDB
+    LambdaIngredient --> DynamoDB
 
     LambdaRecipe --> S3
 
     LambdaAuth --> CloudWatch
     LambdaRecipe --> CloudWatch
     LambdaAI --> CloudWatch
+    LambdaCooking --> CloudWatch
+    LambdaRating --> CloudWatch
 
     APIGateway --> WAF
 ```
@@ -95,7 +112,7 @@ graph TB
 ### 1. Frontend & CDN
 
 **AWS Amplify:**
-- Host ứng dụng Next.js
+- Host ứng dụng Node.js
 - Pipeline CI/CD (tự động deploy từ GitHub)
 - Custom domain & SSL certificates
 - Chi phí: ~$15/tháng
@@ -152,10 +169,40 @@ GET    /recipes/{id}
 PUT    /recipes/{id}
 DELETE /recipes/{id}
 GET    /recipes/search
+POST   /recipes/{id}/rate
 
 POST   /ai/suggest
 GET    /ai/suggestions
 POST   /ai/feedback
+
+POST   /cooking/start
+PUT    /cooking/{id}/complete
+GET    /user/cooking-history
+DELETE /cooking/{id}
+PUT    /cooking/{id}/favorite
+
+POST   /ingredients/validate
+GET    /ingredients/search
+
+POST   /posts
+GET    /posts/{id}
+PUT    /posts/{id}
+DELETE /posts/{id}
+GET    /posts/feed
+GET    /posts/user/{userId}
+
+POST   /posts/{id}/comments
+GET    /posts/{id}/comments
+PUT    /comments/{id}
+DELETE /comments/{id}
+
+POST   /reactions
+DELETE /reactions/{id}
+GET    /reactions/{targetType}/{targetId}
+
+GET    /notifications
+PUT    /notifications/{id}/read
+PUT    /notifications/read-all
 ```
 
 ### 4. Lambda Functions
@@ -183,7 +230,9 @@ POST   /ai/feedback
 - Timeout: 60s
 - Triggers: API Gateway
 - Mục đích:
-  - Gọi Amazon Bedrock (Claude 3.5)
+  - Validate nguyên liệu với master_ingredients table
+  - Query 4 approved recipes từ DynamoDB
+  - Gọi Amazon Bedrock (Claude 3.5) cho 1 recipe mới
   - Tạo gợi ý công thức
   - Phân tích nguyên liệu người dùng
   - Lưu gợi ý vào DynamoDB
@@ -211,16 +260,74 @@ POST   /ai/feedback
   - Liệt kê danh sách bạn bè
   - Lọc dữ liệu theo privacy settings
 
-#### Lambda 6: Admin Operations
+#### Lambda 6: Posts & Comments Handler
+- Runtime: Node.js 20
+- Memory: 512MB
+- Timeout: 30s
+- Triggers: API Gateway
+- Mục đích:
+  - Tạo, đọc, cập nhật, xóa bài đăng
+  - Quản lý bình luận (nested replies)
+  - Upload ảnh posts lên S3
+  - Cập nhật counters (likes_count, comments_count)
+  - Lọc theo privacy settings
+
+#### Lambda 7: Notifications Handler
+- Runtime: Node.js 20
+- Memory: 256MB
+- Timeout: 10s
+- Triggers: API Gateway, DynamoDB Streams
+- Mục đích:
+  - Tạo thông báo khi có hoạt động (comment, like, friend request)
+  - Đánh dấu đã đọc/chưa đọc
+  - Lấy danh sách thông báo
+  - Push notifications (tương lai)
+
+#### Lambda 8: Admin Operations
 - Runtime: Node.js 20
 - Memory: 512MB
 - Timeout: 30s
 - Triggers: API Gateway (Chỉ Admin)
 - Mục đích:
   - Quản lý người dùng (ban/unban)
-  - Kiểm duyệt nội dung
+  - Kiểm duyệt nội dung (posts, comments)
   - Thống kê hệ thống
-  - Phê duyệt/từ chối recipes
+  - Không cần phê duyệt recipes - Tự động approval dựa trên rating
+
+#### Lambda 9: Cooking History Handler ⭐ NEW
+- Runtime: Node.js 20
+- Memory: 256MB
+- Timeout: 10s
+- Triggers: API Gateway
+- Mục đích:
+  - Quản lý lịch sử nấu ăn cá nhân
+  - Start/complete cooking sessions
+  - Lấy lịch sử nấu ăn của user
+  - Đánh dấu món yêu thích
+  - Ghi chú cá nhân cho từng lần nấu
+
+#### Lambda 10: Rating & Approval Handler ⭐ NEW
+- Runtime: Node.js 20
+- Memory: 256MB
+- Timeout: 10s
+- Triggers: API Gateway
+- Mục đích:
+  - Lưu rating của user cho recipes
+  - Tính toán average rating
+  - Auto-approve recipes khi rating >= 4.0 sao
+  - Update recipe_ratings table
+  - Link rating với cooking history
+
+#### Lambda 11: Ingredient Validation Handler ⭐ NEW
+- Runtime: Node.js 20
+- Memory: 256MB
+- Timeout: 10s
+- Triggers: API Gateway
+- Mục đích:
+  - Validate nguyên liệu với master_ingredients table
+  - Fuzzy search cho nguyên liệu tương tự
+  - Auto-correct tên nguyên liệu (bỏ dấu)
+  - Gợi ý nguyên liệu thay thế
 
 ### 5. Dịch Vụ AI/ML
 
@@ -244,15 +351,22 @@ Các bảng:
 - **PrivacySettings** (PK: user_id) - Cấu hình riêng tư
 - **Friendships** (PK: user_id, SK: friend_id) - Kết nối mạng xã hội
 - **Recipes** (PK: recipe_id, GSI: user_id) - Dữ liệu công thức
+- **RecipeRatings** (PK: recipe_id, SK: user_id) - Đánh giá công thức cho auto-approval ⭐
+- **UserCookingHistory** (PK: user_id, SK: timestamp) - Lịch sử nấu ăn cá nhân ⭐
+- **MasterIngredients** (PK: ingredient_id) - Master list nguyên liệu để validate ⭐
 - **AISuggestions** (PK: user_id, SK: timestamp) - Lịch sử AI
+- **Posts** (PK: post_id, GSI: user_id) - Bài đăng xã hội
+- **Comments** (PK: post_id, SK: timestamp) - Bình luận
+- **Reactions** (PK: target_id, SK: user_id) - Lượt thích
+- **Notifications** (PK: user_id, SK: timestamp) - Thông báo
 
 Tính năng:
 - Auto-scaling (on-demand mode)
 - Point-in-time recovery (PITR)
-- DynamoDB Streams (cho cập nhật real-time)
+- DynamoDB Streams (cho cập nhật real-time & notifications)
 - Global Secondary Indexes (GSI) cho truy vấn
 - Mã hóa at rest
-- Chi phí: $15-25/tháng (on-demand pricing)
+- Chi phí: $35-45/tháng (on-demand pricing với cooking history & ratings)
 
 **Tại sao chọn DynamoDB thay vì RDS?**
 - ✅ Serverless (không cần quản lý server)
@@ -267,13 +381,14 @@ Tính năng:
 Buckets:
 - `recipe-images-prod`: Ảnh công thức
 - `user-avatars-prod`: Ảnh đại diện
+- `post-images-prod`: Ảnh bài đăng
 - `static-assets-prod`: Assets ứng dụng
 
 Tính năng:
 - Versioning enabled
 - Lifecycle policies (xóa sau 90 ngày cho temp files)
 - S3 Transfer Acceleration
-- Chi phí: ~$5/tháng (50GB storage)
+- Chi phí: ~$10/tháng (100GB storage với social media images)
 
 ### 8. Bảo Mật
 
@@ -309,34 +424,123 @@ Secrets:
 
 ## Sơ Đồ Luồng Dữ Liệu
 
+### Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)
+
 ```mermaid
 sequenceDiagram
     participant User
-    participant CloudFront
-    participant Next.js
     participant APIGateway
-    participant Cognito
-    participant Lambda
+    participant LambdaAI
+    participant DynamoDB
     participant Bedrock
+    participant CloudWatch
+
+    User->>APIGateway: POST /ai/suggest<br/>{ingredients, recipe_count: 3}
+    APIGateway->>LambdaAI: Xử lý request
+
+    Note over LambdaAI: STEP 1: Validate Ingredients
+    LambdaAI->>DynamoDB: Check master_ingredients
+    DynamoDB-->>LambdaAI: Validation results
+
+    alt Có nguyên liệu không hợp lệ
+        LambdaAI->>CloudWatch: Log invalid ingredients
+        LambdaAI->>DynamoDB: Increment report count
+        alt Report count >= 5
+            LambdaAI->>DynamoDB: Notify admin
+        end
+    end
+
+    Note over LambdaAI: STEP 2: Query DB với categories
+    LambdaAI->>DynamoDB: Query approved recipes<br/>(match ingredients + categories)
+    DynamoDB-->>LambdaAI: Found: 2 món
+
+    Note over LambdaAI: STEP 3: Calculate AI Gap<br/>Requested: 3, DB: 2, Gap: 1
+
+    Note over LambdaAI: STEP 4: Generate AI (nếu cần)
+    loop For each AI recipe (1 món)
+        LambdaAI->>Bedrock: Generate recipe<br/>(ingredients + diverse category)
+        Bedrock-->>LambdaAI: AI Recipe
+    end
+
+    Note over LambdaAI: STEP 5: Combine & Return
+    LambdaAI->>DynamoDB: Save suggestion history
+    LambdaAI-->>User: 2 DB + 1 AI = 3 món ✅<br/>+ Warnings (if any)
+```
+
+**Key Improvements**:
+- ✅ Flexible recipe count (1-5 món)
+- ✅ Dynamic DB/AI mix (tiết kiệm cost)
+- ✅ Invalid ingredient reporting system
+- ✅ Category diversity (xào, canh, hấp...)
+
+### Flow 2: Recipe Auto-Approval (Rating-based)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaRecipe
     participant DynamoDB
 
-    User->>CloudFront: Truy cập website
-    CloudFront->>Next.js: Phục vụ nội dung tĩnh
-    Next.js->>User: Hiển thị UI
+    User->>APIGateway: Nấu món (AI generated)
+    User->>APIGateway: Click "Hoàn thành"
+    APIGateway->>User: Hiển thị form đánh giá
+    User->>APIGateway: POST /recipes/{id}/rate (rating + comment)
+    APIGateway->>LambdaRecipe: Lưu rating
+    LambdaRecipe->>DynamoDB: Save rating
+    LambdaRecipe->>DynamoDB: Calculate average rating
 
-    User->>APIGateway: Yêu cầu đăng nhập
-    APIGateway->>Cognito: Xác thực
-    Cognito->>APIGateway: JWT Token
-    APIGateway->>User: Trả về token
+    alt Rating >= 4 sao
+        LambdaRecipe->>DynamoDB: Set recipe.is_approved = true
+        LambdaRecipe->>DynamoDB: Add to public recipes
+        LambdaRecipe->>User: "Công thức đã được thêm vào database!"
+    else Rating < 4 sao
+        LambdaRecipe->>User: "Cảm ơn đánh giá của bạn!"
+    end
+```
 
-    User->>APIGateway: Yêu cầu gợi ý AI
-    APIGateway->>Cognito: Xác minh token
-    APIGateway->>Lambda: Gọi AI Lambda
-    Lambda->>DynamoDB: Lấy profile người dùng
-    Lambda->>DynamoDB: Lấy nguyên liệu người dùng
-    Lambda->>Bedrock: Gọi Claude 3.5
-    Bedrock->>Lambda: Gợi ý công thức
-    Lambda->>DynamoDB: Lưu gợi ý
-    Lambda->>APIGateway: Trả về kết quả
-    APIGateway->>User: Hiển thị gợi ý
+### Flow 3: Social Interaction
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaPost
+    participant LambdaNotification
+    participant DynamoDB
+
+    User->>APIGateway: POST /posts (chia sẻ công thức)
+    APIGateway->>LambdaPost: Tạo post
+    LambdaPost->>DynamoDB: Save post
+    LambdaPost->>User: Post created
+
+    User->>APIGateway: POST /posts/{id}/comments
+    APIGateway->>LambdaPost: Tạo comment
+    LambdaPost->>DynamoDB: Save comment
+    LambdaPost->>DynamoDB: Update comments_count
+    LambdaPost->>LambdaNotification: Trigger notification
+    LambdaNotification->>DynamoDB: Create notification for post owner
+    LambdaNotification->>User: Push notification
+```
+
+### Flow 4: Error Handling - Invalid Ingredients
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaAI
+    participant DynamoDB
+
+    User->>APIGateway: POST /ai/suggest {"ingredients": ["abc xyz", "123"]}
+    APIGateway->>LambdaAI: Validate ingredients
+
+    alt Nguyên liệu không tồn tại
+        LambdaAI->>DynamoDB: Fuzzy search similar ingredients
+        LambdaAI->>User: Error 400: "Không tìm thấy nguyên liệu. Bạn có muốn: [gà, cá, tôm]?"
+    else Nguyên liệu sai format
+        LambdaAI->>User: Error 400: "Tên nguyên liệu không hợp lệ. Vui lòng nhập lại."
+    else Nguyên liệu quá ít (< 2)
+        LambdaAI->>User: Error 400: "Cần ít nhất 2 nguyên liệu để tạo món ăn."
+    end
 ```

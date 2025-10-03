@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <!--
 Made with Book Theme
 https://github.com/alex-shpak/hugo-book
@@ -37,7 +37,12 @@ graph TB
         LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
         LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
         LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaPost[Lambda: Posts &amp; Comments&lt;br/&gt;Node.js 20]
+        LambdaNotification[Lambda: Notifications&lt;br/&gt;Node.js 20]
         LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+        LambdaCooking[Lambda: Cooking History&lt;br/&gt;Node.js 20]
+        LambdaRating[Lambda: Rating &amp; Approval&lt;br/&gt;Node.js 20]
+        LambdaIngredient[Lambda: Ingredient Validation&lt;br/&gt;Node.js 20]
     end
 
     subgraph &#34;Dịch Vụ AI&#34;
@@ -45,7 +50,7 @@ graph TB
     end
 
     subgraph &#34;Tầng Database&#34;
-        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: RecipeRatings&lt;br/&gt;Bảng: UserCookingHistory&lt;br/&gt;Bảng: MasterIngredients&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships&lt;br/&gt;Bảng: Posts&lt;br/&gt;Bảng: Comments&lt;br/&gt;Bảng: Reactions&lt;br/&gt;Bảng: Notifications]
     end
 
     subgraph &#34;Lưu Trữ&#34;
@@ -73,7 +78,12 @@ graph TB
     APIGateway --&gt; LambdaAI
     APIGateway --&gt; LambdaProfile
     APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaPost
+    APIGateway --&gt; LambdaNotification
     APIGateway --&gt; LambdaAdmin
+    APIGateway --&gt; LambdaCooking
+    APIGateway --&gt; LambdaRating
+    APIGateway --&gt; LambdaIngredient
 
     LambdaAI --&gt; Bedrock
 
@@ -81,35 +91,42 @@ graph TB
     LambdaAI --&gt; DynamoDB
     LambdaProfile --&gt; DynamoDB
     LambdaSocial --&gt; DynamoDB
+    LambdaPost --&gt; DynamoDB
+    LambdaNotification --&gt; DynamoDB
     LambdaAdmin --&gt; DynamoDB
+    LambdaCooking --&gt; DynamoDB
+    LambdaRating --&gt; DynamoDB
+    LambdaIngredient --&gt; DynamoDB
 
     LambdaRecipe --&gt; S3
 
     LambdaAuth --&gt; CloudWatch
     LambdaRecipe --&gt; CloudWatch
     LambdaAI --&gt; CloudWatch
+    LambdaCooking --&gt; CloudWatch
+    LambdaRating --&gt; CloudWatch
 
     APIGateway --&gt; WAFPhân Tích Chi Tiết Các Dịch Vụ#
 1. Frontend &amp; CDN#
 AWS Amplify:">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/aws-services-diagram/">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/docs/summary/aws-services-diagram/">
   <meta property="og:site_name" content="Together">
   <meta property="og:title" content="AWS Services Architecture Diagram">
-  <meta property="og:description" content="Sơ Đồ Kiến Trúc Dịch Vụ AWS#Kiến Trúc Hệ Thống#graph TBsubgraph &#34;Tầng Client&#34;WebApp[Web App&lt;br/&gt;Next.js]MobileApp[Mobile App&lt;br/&gt;React Native - Tương lai]endsubgraph &#34;CDN &amp; Hosting&#34;CloudFront[Amazon CloudFront&lt;br/&gt;CDN]Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]endsubgraph &#34;Tầng API Gateway&#34;APIGateway[Amazon API Gateway&lt;br/&gt;REST API]WSGateway[API Gateway&lt;br/&gt;WebSocket - Tương lai]endsubgraph &#34;Xác Thực&#34;CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]CognitoIdentity[Cognito Identity Pool]endsubgraph &#34;Tầng Compute&#34;LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]endsubgraph &#34;Dịch Vụ AI&#34;Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]endsubgraph &#34;Tầng Database&#34;DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]endsubgraph &#34;Lưu Trữ&#34;S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]endsubgraph &#34;Giám Sát &amp; Logging&#34;CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]XRay[AWS X-Ray&lt;br/&gt;Tracing]endsubgraph &#34;Bảo Mật&#34;WAF[AWS WAF&lt;br/&gt;Web Application Firewall]Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]endWebApp --&gt; CloudFrontCloudFront --&gt; AmplifyWebApp --&gt; APIGatewayAPIGateway --&gt; CognitoUserCognitoUser --&gt; LambdaAuthCognitoIdentity --&gt; S3APIGateway --&gt; LambdaRecipeAPIGateway --&gt; LambdaAIAPIGateway --&gt; LambdaProfileAPIGateway --&gt; LambdaSocialAPIGateway --&gt; LambdaAdminLambdaAI --&gt; BedrockLambdaRecipe --&gt; DynamoDBLambdaAI --&gt; DynamoDBLambdaProfile --&gt; DynamoDBLambdaSocial --&gt; DynamoDBLambdaAdmin --&gt; DynamoDBLambdaRecipe --&gt; S3LambdaAuth --&gt; CloudWatchLambdaRecipe --&gt; CloudWatchLambdaAI --&gt; CloudWatchAPIGateway --&gt; WAFPhân Tích Chi Tiết Các Dịch Vụ#1. Frontend &amp; CDN#AWS Amplify:">
+  <meta property="og:description" content="Sơ Đồ Kiến Trúc Dịch Vụ AWS#Kiến Trúc Hệ Thống#graph TBsubgraph &#34;Tầng Client&#34;WebApp[Web App&lt;br/&gt;Next.js]MobileApp[Mobile App&lt;br/&gt;React Native - Tương lai]endsubgraph &#34;CDN &amp; Hosting&#34;CloudFront[Amazon CloudFront&lt;br/&gt;CDN]Amplify[AWS Amplify&lt;br/&gt;Hosting &amp; CI/CD]endsubgraph &#34;Tầng API Gateway&#34;APIGateway[Amazon API Gateway&lt;br/&gt;REST API]WSGateway[API Gateway&lt;br/&gt;WebSocket - Tương lai]endsubgraph &#34;Xác Thực&#34;CognitoUser[Amazon Cognito&lt;br/&gt;User Pool]CognitoIdentity[Cognito Identity Pool]endsubgraph &#34;Tầng Compute&#34;LambdaAuth[Lambda: Auth Handler&lt;br/&gt;Node.js 20]LambdaRecipe[Lambda: Recipe CRUD&lt;br/&gt;Node.js 20]LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]LambdaPost[Lambda: Posts &amp; Comments&lt;br/&gt;Node.js 20]LambdaNotification[Lambda: Notifications&lt;br/&gt;Node.js 20]LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]LambdaCooking[Lambda: Cooking History&lt;br/&gt;Node.js 20]LambdaRating[Lambda: Rating &amp; Approval&lt;br/&gt;Node.js 20]LambdaIngredient[Lambda: Ingredient Validation&lt;br/&gt;Node.js 20]endsubgraph &#34;Dịch Vụ AI&#34;Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3.5 Sonnet/Haiku]endsubgraph &#34;Tầng Database&#34;DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: RecipeRatings&lt;br/&gt;Bảng: UserCookingHistory&lt;br/&gt;Bảng: MasterIngredients&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships&lt;br/&gt;Bảng: Posts&lt;br/&gt;Bảng: Comments&lt;br/&gt;Bảng: Reactions&lt;br/&gt;Bảng: Notifications]endsubgraph &#34;Lưu Trữ&#34;S3[Amazon S3&lt;br/&gt;User Uploads &amp; Assets]endsubgraph &#34;Giám Sát &amp; Logging&#34;CloudWatch[Amazon CloudWatch&lt;br/&gt;Logs &amp; Metrics]XRay[AWS X-Ray&lt;br/&gt;Tracing]endsubgraph &#34;Bảo Mật&#34;WAF[AWS WAF&lt;br/&gt;Web Application Firewall]Secrets[AWS Secrets Manager&lt;br/&gt;API Keys]endWebApp --&gt; CloudFrontCloudFront --&gt; AmplifyWebApp --&gt; APIGatewayAPIGateway --&gt; CognitoUserCognitoUser --&gt; LambdaAuthCognitoIdentity --&gt; S3APIGateway --&gt; LambdaRecipeAPIGateway --&gt; LambdaAIAPIGateway --&gt; LambdaProfileAPIGateway --&gt; LambdaSocialAPIGateway --&gt; LambdaPostAPIGateway --&gt; LambdaNotificationAPIGateway --&gt; LambdaAdminAPIGateway --&gt; LambdaCookingAPIGateway --&gt; LambdaRatingAPIGateway --&gt; LambdaIngredientLambdaAI --&gt; BedrockLambdaRecipe --&gt; DynamoDBLambdaAI --&gt; DynamoDBLambdaProfile --&gt; DynamoDBLambdaSocial --&gt; DynamoDBLambdaPost --&gt; DynamoDBLambdaNotification --&gt; DynamoDBLambdaAdmin --&gt; DynamoDBLambdaCooking --&gt; DynamoDBLambdaRating --&gt; DynamoDBLambdaIngredient --&gt; DynamoDBLambdaRecipe --&gt; S3LambdaAuth --&gt; CloudWatchLambdaRecipe --&gt; CloudWatchLambdaAI --&gt; CloudWatchLambdaCooking --&gt; CloudWatchLambdaRating --&gt; CloudWatchAPIGateway --&gt; WAFPhân Tích Chi Tiết Các Dịch Vụ#1. Frontend &amp; CDN#AWS Amplify:">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="docs">
 <title>AWS Services Architecture Diagram | Together</title>
 <link rel="icon" href="/favicon.png" >
 <link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="https://example.org/docs/summary/aws-services-diagram/">
+<link rel="canonical" href="http://localhost:1313/docs/summary/aws-services-diagram/">
 <link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
 
 
   <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.aaea68bdd9a9b12aedcf86c752b21fa6a3095dc2401d7024a6670dccab3e29fb.js" integrity="sha256-qupovdmpsSrtz4bHUrIfpqMJXcJAHXAkpmcNzKs&#43;Kfs=" crossorigin="anonymous"></script>
+  <script defer src="/en.search.min.376a404bc31930eb14d43e5d85755241913f934623356d5b6b3a1175ca8a9489.js" integrity="sha256-N2pAS8MZMOsU1D5dhXVSQZE/k0YjNW1bazoRdcqKlIk=" crossorigin="anonymous"></script>
 
   
 </head>
@@ -291,7 +308,14 @@ AWS Amplify:">
         <li><a href="#9-giám-sát--logging">9. Giám Sát &amp; Logging</a></li>
       </ul>
     </li>
-    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a></li>
+    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a>
+      <ul>
+        <li><a href="#flow-1-ai-recipe-suggestion-enhanced---flexible-mix">Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)</a></li>
+        <li><a href="#flow-2-recipe-auto-approval-rating-based">Flow 2: Recipe Auto-Approval (Rating-based)</a></li>
+        <li><a href="#flow-3-social-interaction">Flow 3: Social Interaction</a></li>
+        <li><a href="#flow-4-error-handling---invalid-ingredients">Flow 4: Error Handling - Invalid Ingredients</a></li>
+      </ul>
+    </li>
   </ul>
 </nav>
 
@@ -333,7 +357,12 @@ AWS Amplify:">
         LambdaAI[Lambda: AI Suggestion&lt;br/&gt;Node.js 20]
         LambdaProfile[Lambda: User Profile&lt;br/&gt;Node.js 20]
         LambdaSocial[Lambda: Social/Friends&lt;br/&gt;Node.js 20]
+        LambdaPost[Lambda: Posts &amp; Comments&lt;br/&gt;Node.js 20]
+        LambdaNotification[Lambda: Notifications&lt;br/&gt;Node.js 20]
         LambdaAdmin[Lambda: Admin Operations&lt;br/&gt;Node.js 20]
+        LambdaCooking[Lambda: Cooking History&lt;br/&gt;Node.js 20]
+        LambdaRating[Lambda: Rating &amp; Approval&lt;br/&gt;Node.js 20]
+        LambdaIngredient[Lambda: Ingredient Validation&lt;br/&gt;Node.js 20]
     end
 
     subgraph &#34;Dịch Vụ AI&#34;
@@ -341,7 +370,7 @@ AWS Amplify:">
     end
 
     subgraph &#34;Tầng Database&#34;
-        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships]
+        DynamoDB[Amazon DynamoDB&lt;br/&gt;&lt;br/&gt;Bảng: Users&lt;br/&gt;Bảng: UserData&lt;br/&gt;Bảng: Recipes&lt;br/&gt;Bảng: RecipeRatings&lt;br/&gt;Bảng: UserCookingHistory&lt;br/&gt;Bảng: MasterIngredients&lt;br/&gt;Bảng: AI_Suggestions&lt;br/&gt;Bảng: Privacy&lt;br/&gt;Bảng: Friendships&lt;br/&gt;Bảng: Posts&lt;br/&gt;Bảng: Comments&lt;br/&gt;Bảng: Reactions&lt;br/&gt;Bảng: Notifications]
     end
 
     subgraph &#34;Lưu Trữ&#34;
@@ -369,7 +398,12 @@ AWS Amplify:">
     APIGateway --&gt; LambdaAI
     APIGateway --&gt; LambdaProfile
     APIGateway --&gt; LambdaSocial
+    APIGateway --&gt; LambdaPost
+    APIGateway --&gt; LambdaNotification
     APIGateway --&gt; LambdaAdmin
+    APIGateway --&gt; LambdaCooking
+    APIGateway --&gt; LambdaRating
+    APIGateway --&gt; LambdaIngredient
 
     LambdaAI --&gt; Bedrock
 
@@ -377,19 +411,26 @@ AWS Amplify:">
     LambdaAI --&gt; DynamoDB
     LambdaProfile --&gt; DynamoDB
     LambdaSocial --&gt; DynamoDB
+    LambdaPost --&gt; DynamoDB
+    LambdaNotification --&gt; DynamoDB
     LambdaAdmin --&gt; DynamoDB
+    LambdaCooking --&gt; DynamoDB
+    LambdaRating --&gt; DynamoDB
+    LambdaIngredient --&gt; DynamoDB
 
     LambdaRecipe --&gt; S3
 
     LambdaAuth --&gt; CloudWatch
     LambdaRecipe --&gt; CloudWatch
     LambdaAI --&gt; CloudWatch
+    LambdaCooking --&gt; CloudWatch
+    LambdaRating --&gt; CloudWatch
 
     APIGateway --&gt; WAF</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h2 id="phân-tích-chi-tiết-các-dịch-vụ">Phân Tích Chi Tiết Các Dịch Vụ<a class="anchor" href="#ph%c3%a2n-t%c3%adch-chi-ti%e1%ba%bft-c%c3%a1c-d%e1%bb%8bch-v%e1%bb%a5">#</a></h2>
 <h3 id="1-frontend--cdn">1. Frontend &amp; CDN<a class="anchor" href="#1-frontend--cdn">#</a></h3>
 <p><strong>AWS Amplify:</strong></p>
 <ul>
-<li>Host ứng dụng Next.js</li>
+<li>Host ứng dụng Node.js</li>
 <li>Pipeline CI/CD (tự động deploy từ GitHub)</li>
 <li>Custom domain &amp; SSL certificates</li>
 <li>Chi phí: ~$15/tháng</li>
@@ -446,10 +487,40 @@ GET    /recipes/{id}
 PUT    /recipes/{id}
 DELETE /recipes/{id}
 GET    /recipes/search
+POST   /recipes/{id}/rate
 
 POST   /ai/suggest
 GET    /ai/suggestions
-POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<a class="anchor" href="#4-lambda-functions">#</a></h3>
+POST   /ai/feedback
+
+POST   /cooking/start
+PUT    /cooking/{id}/complete
+GET    /user/cooking-history
+DELETE /cooking/{id}
+PUT    /cooking/{id}/favorite
+
+POST   /ingredients/validate
+GET    /ingredients/search
+
+POST   /posts
+GET    /posts/{id}
+PUT    /posts/{id}
+DELETE /posts/{id}
+GET    /posts/feed
+GET    /posts/user/{userId}
+
+POST   /posts/{id}/comments
+GET    /posts/{id}/comments
+PUT    /comments/{id}
+DELETE /comments/{id}
+
+POST   /reactions
+DELETE /reactions/{id}
+GET    /reactions/{targetType}/{targetId}
+
+GET    /notifications
+PUT    /notifications/{id}/read
+PUT    /notifications/read-all</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<a class="anchor" href="#4-lambda-functions">#</a></h3>
 <h4 id="lambda-1-auth-handler">Lambda 1: Auth Handler<a class="anchor" href="#lambda-1-auth-handler">#</a></h4>
 <ul>
 <li>Runtime: Node.js 20</li>
@@ -480,7 +551,9 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <li>Triggers: API Gateway</li>
 <li>Mục đích:
 <ul>
-<li>Gọi Amazon Bedrock (Claude 3.5)</li>
+<li>Validate nguyên liệu với master_ingredients table</li>
+<li>Query 4 approved recipes từ DynamoDB</li>
+<li>Gọi Amazon Bedrock (Claude 3.5) cho 1 recipe mới</li>
 <li>Tạo gợi ý công thức</li>
 <li>Phân tích nguyên liệu người dùng</li>
 <li>Lưu gợi ý vào DynamoDB</li>
@@ -518,7 +591,38 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 </ul>
 </li>
 </ul>
-<h4 id="lambda-6-admin-operations">Lambda 6: Admin Operations<a class="anchor" href="#lambda-6-admin-operations">#</a></h4>
+<h4 id="lambda-6-posts--comments-handler">Lambda 6: Posts &amp; Comments Handler<a class="anchor" href="#lambda-6-posts--comments-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 512MB</li>
+<li>Timeout: 30s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Tạo, đọc, cập nhật, xóa bài đăng</li>
+<li>Quản lý bình luận (nested replies)</li>
+<li>Upload ảnh posts lên S3</li>
+<li>Cập nhật counters (likes_count, comments_count)</li>
+<li>Lọc theo privacy settings</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-7-notifications-handler">Lambda 7: Notifications Handler<a class="anchor" href="#lambda-7-notifications-handler">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway, DynamoDB Streams</li>
+<li>Mục đích:
+<ul>
+<li>Tạo thông báo khi có hoạt động (comment, like, friend request)</li>
+<li>Đánh dấu đã đọc/chưa đọc</li>
+<li>Lấy danh sách thông báo</li>
+<li>Push notifications (tương lai)</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-8-admin-operations">Lambda 8: Admin Operations<a class="anchor" href="#lambda-8-admin-operations">#</a></h4>
 <ul>
 <li>Runtime: Node.js 20</li>
 <li>Memory: 512MB</li>
@@ -527,9 +631,56 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <li>Mục đích:
 <ul>
 <li>Quản lý người dùng (ban/unban)</li>
-<li>Kiểm duyệt nội dung</li>
+<li>Kiểm duyệt nội dung (posts, comments)</li>
 <li>Thống kê hệ thống</li>
-<li>Phê duyệt/từ chối recipes</li>
+<li>Không cần phê duyệt recipes - Tự động approval dựa trên rating</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-9-cooking-history-handler--new">Lambda 9: Cooking History Handler ⭐ NEW<a class="anchor" href="#lambda-9-cooking-history-handler--new">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Quản lý lịch sử nấu ăn cá nhân</li>
+<li>Start/complete cooking sessions</li>
+<li>Lấy lịch sử nấu ăn của user</li>
+<li>Đánh dấu món yêu thích</li>
+<li>Ghi chú cá nhân cho từng lần nấu</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-10-rating--approval-handler--new">Lambda 10: Rating &amp; Approval Handler ⭐ NEW<a class="anchor" href="#lambda-10-rating--approval-handler--new">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Lưu rating của user cho recipes</li>
+<li>Tính toán average rating</li>
+<li>Auto-approve recipes khi rating &gt;= 4.0 sao</li>
+<li>Update recipe_ratings table</li>
+<li>Link rating với cooking history</li>
+</ul>
+</li>
+</ul>
+<h4 id="lambda-11-ingredient-validation-handler--new">Lambda 11: Ingredient Validation Handler ⭐ NEW<a class="anchor" href="#lambda-11-ingredient-validation-handler--new">#</a></h4>
+<ul>
+<li>Runtime: Node.js 20</li>
+<li>Memory: 256MB</li>
+<li>Timeout: 10s</li>
+<li>Triggers: API Gateway</li>
+<li>Mục đích:
+<ul>
+<li>Validate nguyên liệu với master_ingredients table</li>
+<li>Fuzzy search cho nguyên liệu tương tự</li>
+<li>Auto-correct tên nguyên liệu (bỏ dấu)</li>
+<li>Gợi ý nguyên liệu thay thế</li>
 </ul>
 </li>
 </ul>
@@ -558,16 +709,23 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <li><strong>PrivacySettings</strong> (PK: user_id) - Cấu hình riêng tư</li>
 <li><strong>Friendships</strong> (PK: user_id, SK: friend_id) - Kết nối mạng xã hội</li>
 <li><strong>Recipes</strong> (PK: recipe_id, GSI: user_id) - Dữ liệu công thức</li>
+<li><strong>RecipeRatings</strong> (PK: recipe_id, SK: user_id) - Đánh giá công thức cho auto-approval ⭐</li>
+<li><strong>UserCookingHistory</strong> (PK: user_id, SK: timestamp) - Lịch sử nấu ăn cá nhân ⭐</li>
+<li><strong>MasterIngredients</strong> (PK: ingredient_id) - Master list nguyên liệu để validate ⭐</li>
 <li><strong>AISuggestions</strong> (PK: user_id, SK: timestamp) - Lịch sử AI</li>
+<li><strong>Posts</strong> (PK: post_id, GSI: user_id) - Bài đăng xã hội</li>
+<li><strong>Comments</strong> (PK: post_id, SK: timestamp) - Bình luận</li>
+<li><strong>Reactions</strong> (PK: target_id, SK: user_id) - Lượt thích</li>
+<li><strong>Notifications</strong> (PK: user_id, SK: timestamp) - Thông báo</li>
 </ul>
 <p>Tính năng:</p>
 <ul>
 <li>Auto-scaling (on-demand mode)</li>
 <li>Point-in-time recovery (PITR)</li>
-<li>DynamoDB Streams (cho cập nhật real-time)</li>
+<li>DynamoDB Streams (cho cập nhật real-time &amp; notifications)</li>
 <li>Global Secondary Indexes (GSI) cho truy vấn</li>
 <li>Mã hóa at rest</li>
-<li>Chi phí: $15-25/tháng (on-demand pricing)</li>
+<li>Chi phí: $35-45/tháng (on-demand pricing với cooking history &amp; ratings)</li>
 </ul>
 <p><strong>Tại sao chọn DynamoDB thay vì RDS?</strong></p>
 <ul>
@@ -583,6 +741,7 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <ul>
 <li><code>recipe-images-prod</code>: Ảnh công thức</li>
 <li><code>user-avatars-prod</code>: Ảnh đại diện</li>
+<li><code>post-images-prod</code>: Ảnh bài đăng</li>
 <li><code>static-assets-prod</code>: Assets ứng dụng</li>
 </ul>
 <p>Tính năng:</p>
@@ -590,7 +749,7 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <li>Versioning enabled</li>
 <li>Lifecycle policies (xóa sau 90 ngày cho temp files)</li>
 <li>S3 Transfer Acceleration</li>
-<li>Chi phí: ~$5/tháng (50GB storage)</li>
+<li>Chi phí: ~$10/tháng (100GB storage với social media images)</li>
 </ul>
 <h3 id="8-bảo-mật">8. Bảo Mật<a class="anchor" href="#8-b%e1%ba%a3o-m%e1%ba%adt">#</a></h3>
 <h4 id="aws-waf">AWS WAF<a class="anchor" href="#aws-waf">#</a></h4>
@@ -630,35 +789,109 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
 <li>Chi phí: $5 trên triệu traces (100k đầu miễn phí)</li>
 </ul>
 <h2 id="sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu<a class="anchor" href="#s%c6%a1-%c4%91%e1%bb%93-lu%e1%bb%93ng-d%e1%bb%af-li%e1%bb%87u">#</a></h2>
+<h3 id="flow-1-ai-recipe-suggestion-enhanced---flexible-mix">Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)<a class="anchor" href="#flow-1-ai-recipe-suggestion-enhanced---flexible-mix">#</a></h3>
 <pre class="mermaid">sequenceDiagram
     participant User
-    participant CloudFront
-    participant Next.js
     participant APIGateway
-    participant Cognito
-    participant Lambda
+    participant LambdaAI
+    participant DynamoDB
     participant Bedrock
+    participant CloudWatch
+
+    User-&gt;&gt;APIGateway: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}
+    APIGateway-&gt;&gt;LambdaAI: Xử lý request
+
+    Note over LambdaAI: STEP 1: Validate Ingredients
+    LambdaAI-&gt;&gt;DynamoDB: Check master_ingredients
+    DynamoDB--&gt;&gt;LambdaAI: Validation results
+
+    alt Có nguyên liệu không hợp lệ
+        LambdaAI-&gt;&gt;CloudWatch: Log invalid ingredients
+        LambdaAI-&gt;&gt;DynamoDB: Increment report count
+        alt Report count &gt;= 5
+            LambdaAI-&gt;&gt;DynamoDB: Notify admin
+        end
+    end
+
+    Note over LambdaAI: STEP 2: Query DB với categories
+    LambdaAI-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;(match ingredients + categories)
+    DynamoDB--&gt;&gt;LambdaAI: Found: 2 món
+
+    Note over LambdaAI: STEP 3: Calculate AI Gap&lt;br/&gt;Requested: 3, DB: 2, Gap: 1
+
+    Note over LambdaAI: STEP 4: Generate AI (nếu cần)
+    loop For each AI recipe (1 món)
+        LambdaAI-&gt;&gt;Bedrock: Generate recipe&lt;br/&gt;(ingredients + diverse category)
+        Bedrock--&gt;&gt;LambdaAI: AI Recipe
+    end
+
+    Note over LambdaAI: STEP 5: Combine &amp; Return
+    LambdaAI-&gt;&gt;DynamoDB: Save suggestion history
+    LambdaAI--&gt;&gt;User: 2 DB + 1 AI = 3 món ✅&lt;br/&gt;+ Warnings (if any)</pre><p><strong>Key Improvements</strong>:</p>
+<ul>
+<li>✅ Flexible recipe count (1-5 món)</li>
+<li>✅ Dynamic DB/AI mix (tiết kiệm cost)</li>
+<li>✅ Invalid ingredient reporting system</li>
+<li>✅ Category diversity (xào, canh, hấp&hellip;)</li>
+</ul>
+<h3 id="flow-2-recipe-auto-approval-rating-based">Flow 2: Recipe Auto-Approval (Rating-based)<a class="anchor" href="#flow-2-recipe-auto-approval-rating-based">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaRecipe
     participant DynamoDB
 
-    User-&gt;&gt;CloudFront: Truy cập website
-    CloudFront-&gt;&gt;Next.js: Phục vụ nội dung tĩnh
-    Next.js-&gt;&gt;User: Hiển thị UI
+    User-&gt;&gt;APIGateway: Nấu món (AI generated)
+    User-&gt;&gt;APIGateway: Click &#34;Hoàn thành&#34;
+    APIGateway-&gt;&gt;User: Hiển thị form đánh giá
+    User-&gt;&gt;APIGateway: POST /recipes/{id}/rate (rating + comment)
+    APIGateway-&gt;&gt;LambdaRecipe: Lưu rating
+    LambdaRecipe-&gt;&gt;DynamoDB: Save rating
+    LambdaRecipe-&gt;&gt;DynamoDB: Calculate average rating
 
-    User-&gt;&gt;APIGateway: Yêu cầu đăng nhập
-    APIGateway-&gt;&gt;Cognito: Xác thực
-    Cognito-&gt;&gt;APIGateway: JWT Token
-    APIGateway-&gt;&gt;User: Trả về token
+    alt Rating &gt;= 4 sao
+        LambdaRecipe-&gt;&gt;DynamoDB: Set recipe.is_approved = true
+        LambdaRecipe-&gt;&gt;DynamoDB: Add to public recipes
+        LambdaRecipe-&gt;&gt;User: &#34;Công thức đã được thêm vào database!&#34;
+    else Rating &lt; 4 sao
+        LambdaRecipe-&gt;&gt;User: &#34;Cảm ơn đánh giá của bạn!&#34;
+    end</pre><h3 id="flow-3-social-interaction">Flow 3: Social Interaction<a class="anchor" href="#flow-3-social-interaction">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaPost
+    participant LambdaNotification
+    participant DynamoDB
 
-    User-&gt;&gt;APIGateway: Yêu cầu gợi ý AI
-    APIGateway-&gt;&gt;Cognito: Xác minh token
-    APIGateway-&gt;&gt;Lambda: Gọi AI Lambda
-    Lambda-&gt;&gt;DynamoDB: Lấy profile người dùng
-    Lambda-&gt;&gt;DynamoDB: Lấy nguyên liệu người dùng
-    Lambda-&gt;&gt;Bedrock: Gọi Claude 3.5
-    Bedrock-&gt;&gt;Lambda: Gợi ý công thức
-    Lambda-&gt;&gt;DynamoDB: Lưu gợi ý
-    Lambda-&gt;&gt;APIGateway: Trả về kết quả
-    APIGateway-&gt;&gt;User: Hiển thị gợi ý</pre></article>
+    User-&gt;&gt;APIGateway: POST /posts (chia sẻ công thức)
+    APIGateway-&gt;&gt;LambdaPost: Tạo post
+    LambdaPost-&gt;&gt;DynamoDB: Save post
+    LambdaPost-&gt;&gt;User: Post created
+
+    User-&gt;&gt;APIGateway: POST /posts/{id}/comments
+    APIGateway-&gt;&gt;LambdaPost: Tạo comment
+    LambdaPost-&gt;&gt;DynamoDB: Save comment
+    LambdaPost-&gt;&gt;DynamoDB: Update comments_count
+    LambdaPost-&gt;&gt;LambdaNotification: Trigger notification
+    LambdaNotification-&gt;&gt;DynamoDB: Create notification for post owner
+    LambdaNotification-&gt;&gt;User: Push notification</pre><h3 id="flow-4-error-handling---invalid-ingredients">Flow 4: Error Handling - Invalid Ingredients<a class="anchor" href="#flow-4-error-handling---invalid-ingredients">#</a></h3>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant APIGateway
+    participant LambdaAI
+    participant DynamoDB
+
+    User-&gt;&gt;APIGateway: POST /ai/suggest {&#34;ingredients&#34;: [&#34;abc xyz&#34;, &#34;123&#34;]}
+    APIGateway-&gt;&gt;LambdaAI: Validate ingredients
+
+    alt Nguyên liệu không tồn tại
+        LambdaAI-&gt;&gt;DynamoDB: Fuzzy search similar ingredients
+        LambdaAI-&gt;&gt;User: Error 400: &#34;Không tìm thấy nguyên liệu. Bạn có muốn: [gà, cá, tôm]?&#34;
+    else Nguyên liệu sai format
+        LambdaAI-&gt;&gt;User: Error 400: &#34;Tên nguyên liệu không hợp lệ. Vui lòng nhập lại.&#34;
+    else Nguyên liệu quá ít (&lt; 2)
+        LambdaAI-&gt;&gt;User: Error 400: &#34;Cần ít nhất 2 nguyên liệu để tạo món ăn.&#34;
+    end</pre></article>
  
       
 
@@ -748,7 +981,14 @@ POST   /ai/feedback</code></pre><h3 id="4-lambda-functions">4. Lambda Functions<
         <li><a href="#9-giám-sát--logging">9. Giám Sát &amp; Logging</a></li>
       </ul>
     </li>
-    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a></li>
+    <li><a href="#sơ-đồ-luồng-dữ-liệu">Sơ Đồ Luồng Dữ Liệu</a>
+      <ul>
+        <li><a href="#flow-1-ai-recipe-suggestion-enhanced---flexible-mix">Flow 1: AI Recipe Suggestion (Enhanced - Flexible Mix)</a></li>
+        <li><a href="#flow-2-recipe-auto-approval-rating-based">Flow 2: Recipe Auto-Approval (Rating-based)</a></li>
+        <li><a href="#flow-3-social-interaction">Flow 3: Social Interaction</a></li>
+        <li><a href="#flow-4-error-handling---invalid-ingredients">Flow 4: Error Handling - Invalid Ingredients</a></li>
+      </ul>
+    </li>
   </ul>
 </nav>
 

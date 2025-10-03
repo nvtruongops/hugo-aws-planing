@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
-<head>
+<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
   <!--
 Made with Book Theme
 https://github.com/alex-shpak/hugo-book
@@ -40,7 +40,8 @@ Table user_preferences {
   dietary_restrictions json [note: &#39;chay, thuần chay, halal, kosher, v.v.&#39;]
   allergies json [note: &#39;Danh sách dị ứng&#39;]
   favorite_cuisines json [note: &#39;Ý, Việt Nam, Nhật Bản, v.v.&#39;]
-  cooking_methods json [note: &#39;hấp, chiên, nướng, súp, v.v.&#39;]
+  preferred_cooking_methods json [note: &#39;xào, hấp, canh, kho, chiên - ưu tiên khi AI suggest&#39;]
+  preferred_recipe_count int [default: 1, note: &#39;1-5 món muốn nấu mỗi lần, FREE: 1, PREMIUM: 5&#39;]
   spice_level enum(&#39;none&#39;, &#39;mild&#39;, &#39;medium&#39;, &#39;hot&#39;, &#39;very_hot&#39;)
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
@@ -87,8 +88,7 @@ Table friendships {
 Table user_ingredients {
   ingredient_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
-  ingredient_name varchar(100) [not null]
-  category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]
+  ingredient_name varchar(256) [not null]
   added_at timestamp [default: `now()`]
 
   indexes {
@@ -104,25 +104,32 @@ Table recipes {
   normalized_title varchar(200) [note: &#39;Chữ thường, không dấu để tìm kiếm&#39;]
   description text
   cuisine_type varchar(50)
-  cooking_method varchar(50)
-  difficulty enum(&#39;easy&#39;, &#39;medium&#39;, &#39;hard&#39;)
+  cooking_method varchar(50) [note: &#39;xào, hấp, luộc, chiên, nướng, kho, rim, trộn, canh, lẩu&#39;]
+  meal_type varchar(50) [note: &#39;món chính, món phụ, canh, khai vị, tráng miệng&#39;]
   prep_time_minutes int
   cook_time_minutes int
   servings int
   calories_per_serving int
   instructions json [note: &#39;Mảng các đối tượng bước&#39;]
-  nutrition json [note: &#39;Protein, carbs, chất béo, v.v.&#39;]
   is_public boolean [default: false]
   is_ai_generated boolean [default: false]
+  is_approved boolean [default: false, note: &#39;Auto-approved nếu rating &gt;= 4 sao&#39;]
+  approval_type enum(&#39;manual&#39;, &#39;auto_rating&#39;, &#39;auto_popular&#39;, &#39;system&#39;) [note: &#39;Cách thức approval&#39;]
+  average_rating decimal(2,1) [default: 0.0, note: &#39;Rating trung bình&#39;]
+  rating_count int [default: 0, note: &#39;Số lượng đánh giá&#39;]
   ai_cache_hit_count int [default: 0, note: &#39;Số lần tái sử dụng từ cache&#39;]
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
+  approved_at timestamp [note: &#39;Thời điểm được approve&#39;]
 
   indexes {
     user_id
     normalized_title
     cuisine_type
     cooking_method
+    meal_type
+    is_approved
+    average_rating
   }
 }
 
@@ -159,7 +166,7 @@ Table recipe_ingredients {
   }
 }
 
-// Lịch Sử Gợi Ý AI
+// Lịch Sử Gợi Ý AI (Enhanced)
 Table ai_suggestions {
   suggestion_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
@@ -167,6 +174,10 @@ Table ai_suggestions {
   cache_id varchar(36) [ref: &gt; recipe_cache.cache_id, note: &#39;Nếu từ cache&#39;]
   prompt_text text [note: &#39;Đầu vào của người dùng cho AI&#39;]
   ingredients_used json [note: &#39;Danh sách nguyên liệu từ user_ingredients&#39;]
+  requested_recipe_count int [default: 1, note: &#39;1-5 món user yêu cầu&#39;]
+  recipes_from_db int [default: 0, note: &#39;Số món từ database&#39;]
+  recipes_from_ai int [default: 0, note: &#39;Số món AI tạo mới&#39;]
+  invalid_ingredients json [note: &#39;Nguyên liệu không hợp lệ - logged&#39;]
   ai_response json [note: &#39;Phản hồi AI đầy đủ&#39;]
   was_from_cache boolean [default: false, note: &#39;True nếu tái sử dụng từ cache&#39;]
   was_accepted boolean [default: false]
@@ -181,16 +192,47 @@ Table ai_suggestions {
   }
 }
 
-// Yêu Thích
-Table favorites {
-  favorite_id varchar(36) [pk]
+// Lịch Sử Nấu Ăn Cá Nhân (Thay thế favorites - mở rộng hơn)
+Table user_cooking_history {
+  history_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
   recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]
+  suggestion_id varchar(36) [ref: &gt; ai_suggestions.suggestion_id, note: &#39;Nếu từ AI suggestion&#39;]
+  status enum(&#39;planned&#39;, &#39;cooking&#39;, &#39;completed&#39;, &#39;failed&#39;) [default: &#39;planned&#39;]
+  personal_rating int [note: &#39;1-5 sao - đánh giá cá nhân&#39;]
+  personal_notes text [note: &#39;Ghi chú cá nhân&#39;]
+  is_favorite boolean [default: false, note: &#39;Đánh dấu yêu thích&#39;]
+  cook_date timestamp [note: &#39;Ngày nấu thực tế&#39;]
   created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
 
   indexes {
-    (user_id, recipe_id) [unique]
     user_id
+    recipe_id
+    status
+    is_favorite
+    cook_date
+    (user_id, recipe_id) [note: &#39;Cho phép multiple entries - lịch sử nấu nhiều lần&#39;]
+  }
+}
+
+// Đánh Giá Công Thức (Cho auto-approval system)
+Table recipe_ratings {
+  rating_id varchar(36) [pk]
+  recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  history_id varchar(36) [ref: &gt; user_cooking_history.history_id, note: &#39;Link đến lịch sử nấu&#39;]
+  rating int [not null, note: &#39;1-5 sao&#39;]
+  comment text
+  is_verified_cook boolean [default: false, note: &#39;User đã thực sự nấu món này&#39;]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    recipe_id
+    user_id
+    rating
+    (recipe_id, user_id) [unique, note: &#39;Mỗi user chỉ rate 1 lần mỗi recipe&#39;]
   }
 }
 
@@ -225,11 +267,29 @@ Table meal_plan_items {
   }
 }
 
-// Nhật Ký Hoạt Động Người Dùng
+// Master Ingredients (Danh sách nguyên liệu hợp lệ cho validation)
+Table master_ingredients {
+  ingredient_id varchar(36) [pk]
+  name varchar(256) [unique, not null]
+  normalized_name varchar(256) [unique, not null, note: &#39;Không dấu, chữ thường&#39;]
+  category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]
+  aliases json [note: &#39;Các tên gọi khác: [&#34;thịt bò&#34;, &#34;bò&#34;, &#34;beef&#34;]&#39;]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    normalized_name
+    category
+    is_active
+  }
+}
+
+// Nhật Ký Hoạt Động Người Dùng (Enhanced với invalid ingredient tracking)
 Table activity_logs {
   log_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
-  activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;)
+  activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;, &#39;recipe_cook&#39;, &#39;recipe_rate&#39;, &#39;invalid_ingredient&#39;)
   activity_data json
   ip_address varchar(45)
   user_agent text
@@ -240,26 +300,136 @@ Table activity_logs {
     created_at
     activity_type
   }
+}
+
+// Invalid Ingredients Reports (Optional - Post MVP)
+Table invalid_ingredients_reports {
+  report_id varchar(36) [pk]
+  ingredient_name varchar(256) [not null]
+  normalized_name varchar(256) [not null, note: &#39;Chữ thường, không dấu&#39;]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  user_report_count int [default: 1, note: &#39;Số lần user này report&#39;]
+  total_reports int [default: 1, note: &#39;Tổng số reports từ tất cả users&#39;]
+  status enum(&#39;pending&#39;, &#39;reviewed&#39;, &#39;added_to_master&#39;, &#39;spam&#39;) [default: &#39;pending&#39;]
+  admin_notes text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (normalized_name, user_id) [unique]
+    total_reports
+    status
+  }
+}
+
+// Bài Đăng (Posts)
+Table posts {
+  post_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  recipe_id varchar(36) [ref: &gt; recipes.recipe_id, note: &#39;Optional - nếu chia sẻ công thức&#39;]
+  content text [note: &#39;Nội dung bài đăng&#39;]
+  images json [note: &#39;Mảng URLs ảnh&#39;]
+  is_public boolean [default: true]
+  likes_count int [default: 0]
+  comments_count int [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    recipe_id
+    created_at
+    is_public
+  }
+}
+
+// Bình Luận (Comments)
+Table comments {
+  comment_id varchar(36) [pk]
+  post_id varchar(36) [ref: &gt; posts.post_id, not null]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  parent_comment_id varchar(36) [ref: &gt; comments.comment_id, note: &#39;Cho reply/thread&#39;]
+  content text [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    post_id
+    user_id
+    parent_comment_id
+    created_at
+  }
+}
+
+// Lượt Thích/Reactions
+Table reactions {
+  reaction_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;) [not null]
+  target_id varchar(36) [not null, note: &#39;ID của post/recipe/comment&#39;]
+  reaction_type enum(&#39;like&#39;, &#39;love&#39;, &#39;wow&#39;, &#39;sad&#39;, &#39;angry&#39;) [default: &#39;like&#39;]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, target_type, target_id) [unique]
+    target_type
+    target_id
+    user_id
+  }
+}
+
+// Thông Báo (Notifications)
+Table notifications {
+  notification_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  actor_id varchar(36) [ref: &gt; users.user_id, note: &#39;Người thực hiện hành động&#39;]
+  type enum(&#39;friend_request&#39;, &#39;friend_accept&#39;, &#39;comment&#39;, &#39;like&#39;, &#39;mention&#39;, &#39;recipe_share&#39;) [not null]
+  target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;, &#39;friend_request&#39;) [not null]
+  target_id varchar(36) [not null]
+  content text [note: &#39;Nội dung thông báo&#39;]
+  is_read boolean [default: false]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    is_read
+    created_at
+    type
+  }
+}
+
+// Người Theo Dõi (Followers) - Nếu muốn mô hình follow ngoài friendship
+Table user_followers {
+  follow_id varchar(36) [pk]
+  follower_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người theo dõi&#39;]
+  following_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người được theo dõi&#39;]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (follower_id, following_id) [unique]
+    follower_id
+    following_id
+  }
 }Công Nghệ Cơ Sở Dữ Liệu#
 Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/database-diagram/">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/docs/summary/database-diagram/">
   <meta property="og:site_name" content="Together">
   <meta property="og:title" content="Database Schema Diagram">
-  <meta property="og:description" content="Sơ Đồ Cấu Trúc Cơ Sở Dữ Liệu#ERD (Sơ Đồ Quan Hệ Thực Thể)#// Bảng Người DùngTable users {user_id varchar(36) [pk, note: &#39;UUID từ Cognito&#39;]email varchar(255) [unique, not null]username varchar(50) [unique, not null]full_name varchar(100)date_of_birth dategender enum(&#39;male&#39;, &#39;female&#39;, &#39;other&#39;)country varchar(50)avatar_url varchar(500)role enum(&#39;user&#39;, &#39;admin&#39;) [default: &#39;user&#39;]is_active boolean [default: true]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]last_login timestampindexes {emailusernamerole}}// Tùy Chọn Người DùngTable user_preferences {preference_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]dietary_restrictions json [note: &#39;chay, thuần chay, halal, kosher, v.v.&#39;]allergies json [note: &#39;Danh sách dị ứng&#39;]favorite_cuisines json [note: &#39;Ý, Việt Nam, Nhật Bản, v.v.&#39;]cooking_methods json [note: &#39;hấp, chiên, nướng, súp, v.v.&#39;]spice_level enum(&#39;none&#39;, &#39;mild&#39;, &#39;medium&#39;, &#39;hot&#39;, &#39;very_hot&#39;)created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]}// Cài Đặt Quyền Riêng TưTable privacy_settings {setting_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null, unique]profile_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;, note: &#39;Ai có thể xem hồ sơ&#39;]email_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;private&#39;]date_of_birth_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]gender_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]country_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]recipes_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]ingredients_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]preferences_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {user_id}}// Quan Hệ Bạn BèTable friendships {friendship_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]friend_id varchar(36) [ref: &gt; users.user_id, not null]status enum(&#39;pending&#39;, &#39;accepted&#39;, &#39;blocked&#39;) [default: &#39;pending&#39;]requested_at timestamp [default: `now()`]responded_at timestampindexes {(user_id, friend_id) [unique]user_idfriend_idstatus}}// Nguyên Liệu Người Dùng (Danh sách đơn giản - không theo dõi số lượng)Table user_ingredients {ingredient_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]ingredient_name varchar(100) [not null]category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]added_at timestamp [default: `now()`]indexes {(user_id, ingredient_name) [unique]}}// Công Thức (Do người dùng tạo &amp; AI tạo)Table recipes {recipe_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, note: &#39;Người tạo - null nếu là công thức hệ thống&#39;]title varchar(200) [not null]normalized_title varchar(200) [note: &#39;Chữ thường, không dấu để tìm kiếm&#39;]description textcuisine_type varchar(50)cooking_method varchar(50)difficulty enum(&#39;easy&#39;, &#39;medium&#39;, &#39;hard&#39;)prep_time_minutes intcook_time_minutes intservings intcalories_per_serving intinstructions json [note: &#39;Mảng các đối tượng bước&#39;]nutrition json [note: &#39;Protein, carbs, chất béo, v.v.&#39;]is_public boolean [default: false]is_ai_generated boolean [default: false]ai_cache_hit_count int [default: 0, note: &#39;Số lần tái sử dụng từ cache&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {user_idnormalized_titlecuisine_typecooking_method}}// Bộ Nhớ Cache Công Thức (Công thức AI tạo để tái sử dụng)Table recipe_cache {cache_id varchar(36) [pk]recipe_name varchar(200) [not null]normalized_name varchar(200) [unique, not null, note: &#39;Khóa tìm kiếm&#39;]recipe_data json [note: &#39;JSON công thức đầy đủ từ AI&#39;]ingredients_hash varchar(64) [note: &#39;Hash của danh sách nguyên liệu&#39;]cuisine_type varchar(50)hit_count int [default: 0, note: &#39;Bộ đếm tái sử dụng&#39;]last_accessed timestampcreated_at timestamp [default: `now()`]indexes {normalized_nameingredients_hashcuisine_type}}// Nguyên Liệu Công ThứcTable recipe_ingredients {id varchar(36) [pk]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]ingredient_name varchar(100) [not null]quantity varchar(50) [note: &#39;2 chén, 500g, v.v.&#39;]unit varchar(20)is_optional boolean [default: false]indexes {recipe_id}}// Lịch Sử Gợi Ý AITable ai_suggestions {suggestion_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id]cache_id varchar(36) [ref: &gt; recipe_cache.cache_id, note: &#39;Nếu từ cache&#39;]prompt_text text [note: &#39;Đầu vào của người dùng cho AI&#39;]ingredients_used json [note: &#39;Danh sách nguyên liệu từ user_ingredients&#39;]ai_response json [note: &#39;Phản hồi AI đầy đủ&#39;]was_from_cache boolean [default: false, note: &#39;True nếu tái sử dụng từ cache&#39;]was_accepted boolean [default: false]feedback_rating int [note: &#39;1-5 sao&#39;]feedback_comment textcreated_at timestamp [default: `now()`]indexes {user_idcreated_atcache_id}}// Yêu ThíchTable favorites {favorite_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]created_at timestamp [default: `now()`]indexes {(user_id, recipe_id) [unique]user_id}}// Kế Hoạch Bữa ĂnTable meal_plans {plan_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]plan_name varchar(100)start_date date [not null]end_date date [not null]is_active boolean [default: true]created_at timestamp [default: `now()`]indexes {user_idstart_date}}// Mục Kế Hoạch Bữa ĂnTable meal_plan_items {item_id varchar(36) [pk]plan_id varchar(36) [ref: &gt; meal_plans.plan_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]meal_date date [not null]meal_type enum(&#39;breakfast&#39;, &#39;lunch&#39;, &#39;dinner&#39;, &#39;snack&#39;)notes textindexes {plan_idmeal_date}}// Nhật Ký Hoạt Động Người DùngTable activity_logs {log_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;)activity_data jsonip_address varchar(45)user_agent textcreated_at timestamp [default: `now()`]indexes {user_idcreated_atactivity_type}}Công Nghệ Cơ Sở Dữ Liệu#Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)">
+  <meta property="og:description" content="Sơ Đồ Cấu Trúc Cơ Sở Dữ Liệu#ERD (Sơ Đồ Quan Hệ Thực Thể)#// Bảng Người DùngTable users {user_id varchar(36) [pk, note: &#39;UUID từ Cognito&#39;]email varchar(255) [unique, not null]username varchar(50) [unique, not null]full_name varchar(100)date_of_birth dategender enum(&#39;male&#39;, &#39;female&#39;, &#39;other&#39;)country varchar(50)avatar_url varchar(500)role enum(&#39;user&#39;, &#39;admin&#39;) [default: &#39;user&#39;]is_active boolean [default: true]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]last_login timestampindexes {emailusernamerole}}// Tùy Chọn Người DùngTable user_preferences {preference_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]dietary_restrictions json [note: &#39;chay, thuần chay, halal, kosher, v.v.&#39;]allergies json [note: &#39;Danh sách dị ứng&#39;]favorite_cuisines json [note: &#39;Ý, Việt Nam, Nhật Bản, v.v.&#39;]preferred_cooking_methods json [note: &#39;xào, hấp, canh, kho, chiên - ưu tiên khi AI suggest&#39;]preferred_recipe_count int [default: 1, note: &#39;1-5 món muốn nấu mỗi lần, FREE: 1, PREMIUM: 5&#39;]spice_level enum(&#39;none&#39;, &#39;mild&#39;, &#39;medium&#39;, &#39;hot&#39;, &#39;very_hot&#39;)created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]}// Cài Đặt Quyền Riêng TưTable privacy_settings {setting_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null, unique]profile_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;, note: &#39;Ai có thể xem hồ sơ&#39;]email_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;private&#39;]date_of_birth_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]gender_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]country_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]recipes_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;public&#39;]ingredients_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]preferences_visibility enum(&#39;public&#39;, &#39;friends&#39;, &#39;private&#39;) [default: &#39;friends&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {user_id}}// Quan Hệ Bạn BèTable friendships {friendship_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]friend_id varchar(36) [ref: &gt; users.user_id, not null]status enum(&#39;pending&#39;, &#39;accepted&#39;, &#39;blocked&#39;) [default: &#39;pending&#39;]requested_at timestamp [default: `now()`]responded_at timestampindexes {(user_id, friend_id) [unique]user_idfriend_idstatus}}// Nguyên Liệu Người Dùng (Danh sách đơn giản - không theo dõi số lượng)Table user_ingredients {ingredient_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]ingredient_name varchar(256) [not null]added_at timestamp [default: `now()`]indexes {(user_id, ingredient_name) [unique]}}// Công Thức (Do người dùng tạo &amp; AI tạo)Table recipes {recipe_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, note: &#39;Người tạo - null nếu là công thức hệ thống&#39;]title varchar(200) [not null]normalized_title varchar(200) [note: &#39;Chữ thường, không dấu để tìm kiếm&#39;]description textcuisine_type varchar(50)cooking_method varchar(50) [note: &#39;xào, hấp, luộc, chiên, nướng, kho, rim, trộn, canh, lẩu&#39;]meal_type varchar(50) [note: &#39;món chính, món phụ, canh, khai vị, tráng miệng&#39;]prep_time_minutes intcook_time_minutes intservings intcalories_per_serving intinstructions json [note: &#39;Mảng các đối tượng bước&#39;]is_public boolean [default: false]is_ai_generated boolean [default: false]is_approved boolean [default: false, note: &#39;Auto-approved nếu rating &gt;= 4 sao&#39;]approval_type enum(&#39;manual&#39;, &#39;auto_rating&#39;, &#39;auto_popular&#39;, &#39;system&#39;) [note: &#39;Cách thức approval&#39;]average_rating decimal(2,1) [default: 0.0, note: &#39;Rating trung bình&#39;]rating_count int [default: 0, note: &#39;Số lượng đánh giá&#39;]ai_cache_hit_count int [default: 0, note: &#39;Số lần tái sử dụng từ cache&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]approved_at timestamp [note: &#39;Thời điểm được approve&#39;]indexes {user_idnormalized_titlecuisine_typecooking_methodmeal_typeis_approvedaverage_rating}}// Bộ Nhớ Cache Công Thức (Công thức AI tạo để tái sử dụng)Table recipe_cache {cache_id varchar(36) [pk]recipe_name varchar(200) [not null]normalized_name varchar(200) [unique, not null, note: &#39;Khóa tìm kiếm&#39;]recipe_data json [note: &#39;JSON công thức đầy đủ từ AI&#39;]ingredients_hash varchar(64) [note: &#39;Hash của danh sách nguyên liệu&#39;]cuisine_type varchar(50)hit_count int [default: 0, note: &#39;Bộ đếm tái sử dụng&#39;]last_accessed timestampcreated_at timestamp [default: `now()`]indexes {normalized_nameingredients_hashcuisine_type}}// Nguyên Liệu Công ThứcTable recipe_ingredients {id varchar(36) [pk]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]ingredient_name varchar(100) [not null]quantity varchar(50) [note: &#39;2 chén, 500g, v.v.&#39;]unit varchar(20)is_optional boolean [default: false]indexes {recipe_id}}// Lịch Sử Gợi Ý AI (Enhanced)Table ai_suggestions {suggestion_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id]cache_id varchar(36) [ref: &gt; recipe_cache.cache_id, note: &#39;Nếu từ cache&#39;]prompt_text text [note: &#39;Đầu vào của người dùng cho AI&#39;]ingredients_used json [note: &#39;Danh sách nguyên liệu từ user_ingredients&#39;]requested_recipe_count int [default: 1, note: &#39;1-5 món user yêu cầu&#39;]recipes_from_db int [default: 0, note: &#39;Số món từ database&#39;]recipes_from_ai int [default: 0, note: &#39;Số món AI tạo mới&#39;]invalid_ingredients json [note: &#39;Nguyên liệu không hợp lệ - logged&#39;]ai_response json [note: &#39;Phản hồi AI đầy đủ&#39;]was_from_cache boolean [default: false, note: &#39;True nếu tái sử dụng từ cache&#39;]was_accepted boolean [default: false]feedback_rating int [note: &#39;1-5 sao&#39;]feedback_comment textcreated_at timestamp [default: `now()`]indexes {user_idcreated_atcache_id}}// Lịch Sử Nấu Ăn Cá Nhân (Thay thế favorites - mở rộng hơn)Table user_cooking_history {history_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]suggestion_id varchar(36) [ref: &gt; ai_suggestions.suggestion_id, note: &#39;Nếu từ AI suggestion&#39;]status enum(&#39;planned&#39;, &#39;cooking&#39;, &#39;completed&#39;, &#39;failed&#39;) [default: &#39;planned&#39;]personal_rating int [note: &#39;1-5 sao - đánh giá cá nhân&#39;]personal_notes text [note: &#39;Ghi chú cá nhân&#39;]is_favorite boolean [default: false, note: &#39;Đánh dấu yêu thích&#39;]cook_date timestamp [note: &#39;Ngày nấu thực tế&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {user_idrecipe_idstatusis_favoritecook_date(user_id, recipe_id) [note: &#39;Cho phép multiple entries - lịch sử nấu nhiều lần&#39;]}}// Đánh Giá Công Thức (Cho auto-approval system)Table recipe_ratings {rating_id varchar(36) [pk]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]user_id varchar(36) [ref: &gt; users.user_id, not null]history_id varchar(36) [ref: &gt; user_cooking_history.history_id, note: &#39;Link đến lịch sử nấu&#39;]rating int [not null, note: &#39;1-5 sao&#39;]comment textis_verified_cook boolean [default: false, note: &#39;User đã thực sự nấu món này&#39;]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {recipe_iduser_idrating(recipe_id, user_id) [unique, note: &#39;Mỗi user chỉ rate 1 lần mỗi recipe&#39;]}}// Kế Hoạch Bữa ĂnTable meal_plans {plan_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]plan_name varchar(100)start_date date [not null]end_date date [not null]is_active boolean [default: true]created_at timestamp [default: `now()`]indexes {user_idstart_date}}// Mục Kế Hoạch Bữa ĂnTable meal_plan_items {item_id varchar(36) [pk]plan_id varchar(36) [ref: &gt; meal_plans.plan_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]meal_date date [not null]meal_type enum(&#39;breakfast&#39;, &#39;lunch&#39;, &#39;dinner&#39;, &#39;snack&#39;)notes textindexes {plan_idmeal_date}}// Master Ingredients (Danh sách nguyên liệu hợp lệ cho validation)Table master_ingredients {ingredient_id varchar(36) [pk]name varchar(256) [unique, not null]normalized_name varchar(256) [unique, not null, note: &#39;Không dấu, chữ thường&#39;]category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]aliases json [note: &#39;Các tên gọi khác: [&#34;thịt bò&#34;, &#34;bò&#34;, &#34;beef&#34;]&#39;]is_active boolean [default: true]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {normalized_namecategoryis_active}}// Nhật Ký Hoạt Động Người Dùng (Enhanced với invalid ingredient tracking)Table activity_logs {log_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;, &#39;recipe_cook&#39;, &#39;recipe_rate&#39;, &#39;invalid_ingredient&#39;)activity_data jsonip_address varchar(45)user_agent textcreated_at timestamp [default: `now()`]indexes {user_idcreated_atactivity_type}}// Invalid Ingredients Reports (Optional - Post MVP)Table invalid_ingredients_reports {report_id varchar(36) [pk]ingredient_name varchar(256) [not null]normalized_name varchar(256) [not null, note: &#39;Chữ thường, không dấu&#39;]user_id varchar(36) [ref: &gt; users.user_id, not null]user_report_count int [default: 1, note: &#39;Số lần user này report&#39;]total_reports int [default: 1, note: &#39;Tổng số reports từ tất cả users&#39;]status enum(&#39;pending&#39;, &#39;reviewed&#39;, &#39;added_to_master&#39;, &#39;spam&#39;) [default: &#39;pending&#39;]admin_notes textcreated_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {(normalized_name, user_id) [unique]total_reportsstatus}}// Bài Đăng (Posts)Table posts {post_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]recipe_id varchar(36) [ref: &gt; recipes.recipe_id, note: &#39;Optional - nếu chia sẻ công thức&#39;]content text [note: &#39;Nội dung bài đăng&#39;]images json [note: &#39;Mảng URLs ảnh&#39;]is_public boolean [default: true]likes_count int [default: 0]comments_count int [default: 0]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {user_idrecipe_idcreated_atis_public}}// Bình Luận (Comments)Table comments {comment_id varchar(36) [pk]post_id varchar(36) [ref: &gt; posts.post_id, not null]user_id varchar(36) [ref: &gt; users.user_id, not null]parent_comment_id varchar(36) [ref: &gt; comments.comment_id, note: &#39;Cho reply/thread&#39;]content text [not null]created_at timestamp [default: `now()`]updated_at timestamp [default: `now()`]indexes {post_iduser_idparent_comment_idcreated_at}}// Lượt Thích/ReactionsTable reactions {reaction_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;) [not null]target_id varchar(36) [not null, note: &#39;ID của post/recipe/comment&#39;]reaction_type enum(&#39;like&#39;, &#39;love&#39;, &#39;wow&#39;, &#39;sad&#39;, &#39;angry&#39;) [default: &#39;like&#39;]created_at timestamp [default: `now()`]indexes {(user_id, target_type, target_id) [unique]target_typetarget_iduser_id}}// Thông Báo (Notifications)Table notifications {notification_id varchar(36) [pk]user_id varchar(36) [ref: &gt; users.user_id, not null]actor_id varchar(36) [ref: &gt; users.user_id, note: &#39;Người thực hiện hành động&#39;]type enum(&#39;friend_request&#39;, &#39;friend_accept&#39;, &#39;comment&#39;, &#39;like&#39;, &#39;mention&#39;, &#39;recipe_share&#39;) [not null]target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;, &#39;friend_request&#39;) [not null]target_id varchar(36) [not null]content text [note: &#39;Nội dung thông báo&#39;]is_read boolean [default: false]created_at timestamp [default: `now()`]indexes {user_idis_readcreated_attype}}// Người Theo Dõi (Followers) - Nếu muốn mô hình follow ngoài friendshipTable user_followers {follow_id varchar(36) [pk]follower_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người theo dõi&#39;]following_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người được theo dõi&#39;]created_at timestamp [default: `now()`]indexes {(follower_id, following_id) [unique]follower_idfollowing_id}}Công Nghệ Cơ Sở Dữ Liệu#Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="article">
     <meta property="article:section" content="docs">
 <title>Database Schema Diagram | Together</title>
 <link rel="icon" href="/favicon.png" >
 <link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="https://example.org/docs/summary/database-diagram/">
+<link rel="canonical" href="http://localhost:1313/docs/summary/database-diagram/">
 <link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
 
 
   <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.aaea68bdd9a9b12aedcf86c752b21fa6a3095dc2401d7024a6670dccab3e29fb.js" integrity="sha256-qupovdmpsSrtz4bHUrIfpqMJXcJAHXAkpmcNzKs&#43;Kfs=" crossorigin="anonymous"></script>
+  <script defer src="/en.search.min.376a404bc31930eb14d43e5d85755241913f934623356d5b6b3a1175ca8a9489.js" integrity="sha256-N2pAS8MZMOsU1D5dhXVSQZE/k0YjNW1bazoRdcqKlIk=" crossorigin="anonymous"></script>
 
   
 </head>
@@ -431,7 +601,7 @@ Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)">
     <li><a href="#công-nghệ-cơ-sở-dữ-liệu">Công Nghệ Cơ Sở Dữ Liệu</a></li>
     <li><a href="#mẫu-truy-cập-dữ-liệu">Mẫu Truy Cập Dữ Liệu</a>
       <ul>
-        <li><a href="#mẫu-truy-cập-chính">Mẫu Truy Cập Chính</a></li>
+        <li><a href="#mẫu-truy-cập-chính-enhanced">Mẫu Truy Cập Chính (Enhanced)</a></li>
         <li><a href="#mẫu-thứ-cấp">Mẫu Thứ Cấp</a></li>
       </ul>
     </li>
@@ -444,8 +614,8 @@ Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)">
     <li><a href="#ước-tính-dung-lượng-lưu-trữ--chi-phí">Ước Tính Dung Lượng Lưu Trữ &amp; Chi Phí</a>
       <ul>
         <li><a href="#giả-định">Giả Định</a></li>
-        <li><a href="#ước-tính-dung-lượng">Ước Tính Dung Lượng</a></li>
-        <li><a href="#chi-phí-dynamodb-hàng-tháng">Chi Phí DynamoDB (Hàng Tháng)</a></li>
+        <li><a href="#ước-tính-dung-lượng-enhanced">Ước Tính Dung Lượng (Enhanced)</a></li>
+        <li><a href="#chi-phí-dynamodb-hàng-tháng---enhanced">Chi Phí DynamoDB (Hàng Tháng) - Enhanced</a></li>
       </ul>
     </li>
   </ul>
@@ -492,7 +662,8 @@ Table user_preferences {
   dietary_restrictions json [note: &#39;chay, thuần chay, halal, kosher, v.v.&#39;]
   allergies json [note: &#39;Danh sách dị ứng&#39;]
   favorite_cuisines json [note: &#39;Ý, Việt Nam, Nhật Bản, v.v.&#39;]
-  cooking_methods json [note: &#39;hấp, chiên, nướng, súp, v.v.&#39;]
+  preferred_cooking_methods json [note: &#39;xào, hấp, canh, kho, chiên - ưu tiên khi AI suggest&#39;]
+  preferred_recipe_count int [default: 1, note: &#39;1-5 món muốn nấu mỗi lần, FREE: 1, PREMIUM: 5&#39;]
   spice_level enum(&#39;none&#39;, &#39;mild&#39;, &#39;medium&#39;, &#39;hot&#39;, &#39;very_hot&#39;)
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
@@ -539,8 +710,7 @@ Table friendships {
 Table user_ingredients {
   ingredient_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
-  ingredient_name varchar(100) [not null]
-  category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]
+  ingredient_name varchar(256) [not null]
   added_at timestamp [default: `now()`]
 
   indexes {
@@ -556,25 +726,32 @@ Table recipes {
   normalized_title varchar(200) [note: &#39;Chữ thường, không dấu để tìm kiếm&#39;]
   description text
   cuisine_type varchar(50)
-  cooking_method varchar(50)
-  difficulty enum(&#39;easy&#39;, &#39;medium&#39;, &#39;hard&#39;)
+  cooking_method varchar(50) [note: &#39;xào, hấp, luộc, chiên, nướng, kho, rim, trộn, canh, lẩu&#39;]
+  meal_type varchar(50) [note: &#39;món chính, món phụ, canh, khai vị, tráng miệng&#39;]
   prep_time_minutes int
   cook_time_minutes int
   servings int
   calories_per_serving int
   instructions json [note: &#39;Mảng các đối tượng bước&#39;]
-  nutrition json [note: &#39;Protein, carbs, chất béo, v.v.&#39;]
   is_public boolean [default: false]
   is_ai_generated boolean [default: false]
+  is_approved boolean [default: false, note: &#39;Auto-approved nếu rating &gt;= 4 sao&#39;]
+  approval_type enum(&#39;manual&#39;, &#39;auto_rating&#39;, &#39;auto_popular&#39;, &#39;system&#39;) [note: &#39;Cách thức approval&#39;]
+  average_rating decimal(2,1) [default: 0.0, note: &#39;Rating trung bình&#39;]
+  rating_count int [default: 0, note: &#39;Số lượng đánh giá&#39;]
   ai_cache_hit_count int [default: 0, note: &#39;Số lần tái sử dụng từ cache&#39;]
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
+  approved_at timestamp [note: &#39;Thời điểm được approve&#39;]
 
   indexes {
     user_id
     normalized_title
     cuisine_type
     cooking_method
+    meal_type
+    is_approved
+    average_rating
   }
 }
 
@@ -611,7 +788,7 @@ Table recipe_ingredients {
   }
 }
 
-// Lịch Sử Gợi Ý AI
+// Lịch Sử Gợi Ý AI (Enhanced)
 Table ai_suggestions {
   suggestion_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
@@ -619,6 +796,10 @@ Table ai_suggestions {
   cache_id varchar(36) [ref: &gt; recipe_cache.cache_id, note: &#39;Nếu từ cache&#39;]
   prompt_text text [note: &#39;Đầu vào của người dùng cho AI&#39;]
   ingredients_used json [note: &#39;Danh sách nguyên liệu từ user_ingredients&#39;]
+  requested_recipe_count int [default: 1, note: &#39;1-5 món user yêu cầu&#39;]
+  recipes_from_db int [default: 0, note: &#39;Số món từ database&#39;]
+  recipes_from_ai int [default: 0, note: &#39;Số món AI tạo mới&#39;]
+  invalid_ingredients json [note: &#39;Nguyên liệu không hợp lệ - logged&#39;]
   ai_response json [note: &#39;Phản hồi AI đầy đủ&#39;]
   was_from_cache boolean [default: false, note: &#39;True nếu tái sử dụng từ cache&#39;]
   was_accepted boolean [default: false]
@@ -633,16 +814,47 @@ Table ai_suggestions {
   }
 }
 
-// Yêu Thích
-Table favorites {
-  favorite_id varchar(36) [pk]
+// Lịch Sử Nấu Ăn Cá Nhân (Thay thế favorites - mở rộng hơn)
+Table user_cooking_history {
+  history_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
   recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]
+  suggestion_id varchar(36) [ref: &gt; ai_suggestions.suggestion_id, note: &#39;Nếu từ AI suggestion&#39;]
+  status enum(&#39;planned&#39;, &#39;cooking&#39;, &#39;completed&#39;, &#39;failed&#39;) [default: &#39;planned&#39;]
+  personal_rating int [note: &#39;1-5 sao - đánh giá cá nhân&#39;]
+  personal_notes text [note: &#39;Ghi chú cá nhân&#39;]
+  is_favorite boolean [default: false, note: &#39;Đánh dấu yêu thích&#39;]
+  cook_date timestamp [note: &#39;Ngày nấu thực tế&#39;]
   created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
 
   indexes {
-    (user_id, recipe_id) [unique]
     user_id
+    recipe_id
+    status
+    is_favorite
+    cook_date
+    (user_id, recipe_id) [note: &#39;Cho phép multiple entries - lịch sử nấu nhiều lần&#39;]
+  }
+}
+
+// Đánh Giá Công Thức (Cho auto-approval system)
+Table recipe_ratings {
+  rating_id varchar(36) [pk]
+  recipe_id varchar(36) [ref: &gt; recipes.recipe_id, not null]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  history_id varchar(36) [ref: &gt; user_cooking_history.history_id, note: &#39;Link đến lịch sử nấu&#39;]
+  rating int [not null, note: &#39;1-5 sao&#39;]
+  comment text
+  is_verified_cook boolean [default: false, note: &#39;User đã thực sự nấu món này&#39;]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    recipe_id
+    user_id
+    rating
+    (recipe_id, user_id) [unique, note: &#39;Mỗi user chỉ rate 1 lần mỗi recipe&#39;]
   }
 }
 
@@ -677,11 +889,29 @@ Table meal_plan_items {
   }
 }
 
-// Nhật Ký Hoạt Động Người Dùng
+// Master Ingredients (Danh sách nguyên liệu hợp lệ cho validation)
+Table master_ingredients {
+  ingredient_id varchar(36) [pk]
+  name varchar(256) [unique, not null]
+  normalized_name varchar(256) [unique, not null, note: &#39;Không dấu, chữ thường&#39;]
+  category varchar(50) [note: &#39;thịt, rau, gia vị, sữa, v.v.&#39;]
+  aliases json [note: &#39;Các tên gọi khác: [&#34;thịt bò&#34;, &#34;bò&#34;, &#34;beef&#34;]&#39;]
+  is_active boolean [default: true]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    normalized_name
+    category
+    is_active
+  }
+}
+
+// Nhật Ký Hoạt Động Người Dùng (Enhanced với invalid ingredient tracking)
 Table activity_logs {
   log_id varchar(36) [pk]
   user_id varchar(36) [ref: &gt; users.user_id, not null]
-  activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;)
+  activity_type enum(&#39;login&#39;, &#39;recipe_view&#39;, &#39;recipe_create&#39;, &#39;ai_suggestion&#39;, &#39;ingredient_add&#39;, &#39;recipe_cook&#39;, &#39;recipe_rate&#39;, &#39;invalid_ingredient&#39;)
   activity_data json
   ip_address varchar(45)
   user_agent text
@@ -691,6 +921,116 @@ Table activity_logs {
     user_id
     created_at
     activity_type
+  }
+}
+
+// Invalid Ingredients Reports (Optional - Post MVP)
+Table invalid_ingredients_reports {
+  report_id varchar(36) [pk]
+  ingredient_name varchar(256) [not null]
+  normalized_name varchar(256) [not null, note: &#39;Chữ thường, không dấu&#39;]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  user_report_count int [default: 1, note: &#39;Số lần user này report&#39;]
+  total_reports int [default: 1, note: &#39;Tổng số reports từ tất cả users&#39;]
+  status enum(&#39;pending&#39;, &#39;reviewed&#39;, &#39;added_to_master&#39;, &#39;spam&#39;) [default: &#39;pending&#39;]
+  admin_notes text
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    (normalized_name, user_id) [unique]
+    total_reports
+    status
+  }
+}
+
+// Bài Đăng (Posts)
+Table posts {
+  post_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  recipe_id varchar(36) [ref: &gt; recipes.recipe_id, note: &#39;Optional - nếu chia sẻ công thức&#39;]
+  content text [note: &#39;Nội dung bài đăng&#39;]
+  images json [note: &#39;Mảng URLs ảnh&#39;]
+  is_public boolean [default: true]
+  likes_count int [default: 0]
+  comments_count int [default: 0]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    recipe_id
+    created_at
+    is_public
+  }
+}
+
+// Bình Luận (Comments)
+Table comments {
+  comment_id varchar(36) [pk]
+  post_id varchar(36) [ref: &gt; posts.post_id, not null]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  parent_comment_id varchar(36) [ref: &gt; comments.comment_id, note: &#39;Cho reply/thread&#39;]
+  content text [not null]
+  created_at timestamp [default: `now()`]
+  updated_at timestamp [default: `now()`]
+
+  indexes {
+    post_id
+    user_id
+    parent_comment_id
+    created_at
+  }
+}
+
+// Lượt Thích/Reactions
+Table reactions {
+  reaction_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;) [not null]
+  target_id varchar(36) [not null, note: &#39;ID của post/recipe/comment&#39;]
+  reaction_type enum(&#39;like&#39;, &#39;love&#39;, &#39;wow&#39;, &#39;sad&#39;, &#39;angry&#39;) [default: &#39;like&#39;]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (user_id, target_type, target_id) [unique]
+    target_type
+    target_id
+    user_id
+  }
+}
+
+// Thông Báo (Notifications)
+Table notifications {
+  notification_id varchar(36) [pk]
+  user_id varchar(36) [ref: &gt; users.user_id, not null]
+  actor_id varchar(36) [ref: &gt; users.user_id, note: &#39;Người thực hiện hành động&#39;]
+  type enum(&#39;friend_request&#39;, &#39;friend_accept&#39;, &#39;comment&#39;, &#39;like&#39;, &#39;mention&#39;, &#39;recipe_share&#39;) [not null]
+  target_type enum(&#39;post&#39;, &#39;recipe&#39;, &#39;comment&#39;, &#39;friend_request&#39;) [not null]
+  target_id varchar(36) [not null]
+  content text [note: &#39;Nội dung thông báo&#39;]
+  is_read boolean [default: false]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    user_id
+    is_read
+    created_at
+    type
+  }
+}
+
+// Người Theo Dõi (Followers) - Nếu muốn mô hình follow ngoài friendship
+Table user_followers {
+  follow_id varchar(36) [pk]
+  follower_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người theo dõi&#39;]
+  following_id varchar(36) [ref: &gt; users.user_id, not null, note: &#39;Người được theo dõi&#39;]
+  created_at timestamp [default: `now()`]
+
+  indexes {
+    (follower_id, following_id) [unique]
+    follower_id
+    following_id
   }
 }</code></pre><h2 id="công-nghệ-cơ-sở-dữ-liệu">Công Nghệ Cơ Sở Dữ Liệu<a class="anchor" href="#c%c3%b4ng-ngh%e1%bb%87-c%c6%a1-s%e1%bb%9f-d%e1%bb%af-li%e1%bb%87u">#</a></h2>
 <p><strong>Cơ Sở Dữ Liệu Chính: Amazon DynamoDB (NoSQL)</strong></p>
@@ -706,19 +1046,31 @@ Table activity_logs {
 <li>Tốt hơn cho phân tích và báo cáo</li>
 </ul>
 <h2 id="mẫu-truy-cập-dữ-liệu">Mẫu Truy Cập Dữ Liệu<a class="anchor" href="#m%e1%ba%abu-truy-c%e1%ba%adp-d%e1%bb%af-li%e1%bb%87u">#</a></h2>
-<h3 id="mẫu-truy-cập-chính">Mẫu Truy Cập Chính<a class="anchor" href="#m%e1%ba%abu-truy-c%e1%ba%adp-ch%c3%adnh">#</a></h3>
+<h3 id="mẫu-truy-cập-chính-enhanced">Mẫu Truy Cập Chính (Enhanced)<a class="anchor" href="#m%e1%ba%abu-truy-c%e1%ba%adp-ch%c3%adnh-enhanced">#</a></h3>
 <ol>
 <li><strong>Lấy Hồ Sơ Người Dùng</strong>: users.user_id → Dữ liệu người dùng + vai trò</li>
-<li><strong>Lấy Tùy Chọn Người Dùng</strong>: user_preferences.user_id → Tùy chọn</li>
+<li><strong>Lấy Tùy Chọn Người Dùng</strong>: user_preferences.user_id → Tùy chọn + preferred_recipe_count</li>
 <li><strong>Lấy Nguyên Liệu Người Dùng</strong>: user_ingredients.user_id → Danh sách nguyên liệu</li>
+<li><strong>Validate Nguyên Liệu</strong>: master_ingredients.normalized_name → Kiểm tra hợp lệ</li>
 <li><strong>Lấy Cài Đặt Quyền Riêng Tư</strong>: privacy_settings.user_id → Cấu hình riêng tư</li>
 <li><strong>Kiểm Tra Quan Hệ Bạn Bè</strong>: friendships(user_id, friend_id) → Trạng thái bạn bè</li>
 <li><strong>Lấy Danh Sách Bạn Bè</strong>: friendships.user_id → Tất cả bạn bè</li>
 <li><strong>Lấy Chi Tiết Công Thức</strong>: recipes.recipe_id → Công thức + Nguyên liệu</li>
-<li><strong>Lấy Công Thức Người Dùng</strong>: recipes.user_id → Công thức của người dùng (lọc theo quyền riêng tư)</li>
+<li><strong>Lấy Công Thức Đã Duyệt</strong>: recipes.is_approved=true → Công thức công khai</li>
+<li><strong>Query Recipes by Category</strong>: recipes.cooking_method + meal_type → Diverse suggestions ⭐</li>
 <li><strong>Lấy Gợi Ý AI</strong>: ai_suggestions.user_id + created_at → Gợi ý gần đây</li>
-<li><strong>Lấy Yêu Thích</strong>: favorites.user_id → Công thức yêu thích</li>
-<li><strong>Lấy Kế Hoạch Bữa Ăn</strong>: meal_plans.user_id + start_date → Kế hoạch bữa ăn đang hoạt động</li>
+<li><strong>Lấy Lịch Sử Nấu Ăn</strong>: user_cooking_history.user_id → Lịch sử cá nhân</li>
+<li><strong>Lấy Món Yêu Thích</strong>: user_cooking_history.user_id + is_favorite=true → Món yêu thích</li>
+<li><strong>Lấy Đánh Giá Công Thức</strong>: recipe_ratings.recipe_id → Tất cả rating</li>
+<li><strong>Tính Toán Auto-Approval</strong>: recipe_ratings.recipe_id + rating&gt;=4 → Kiểm tra điều kiện</li>
+<li><strong>Log Invalid Ingredients</strong>: activity_logs.activity_type=&lsquo;invalid_ingredient&rsquo; → CloudWatch ⭐</li>
+<li><strong>Admin: Top Invalid Reports</strong>: invalid_ingredients_reports.total_reports → Admin dashboard ⭐</li>
+<li><strong>Lấy Bài Đăng Người Dùng</strong>: posts.user_id + created_at → Danh sách bài đăng</li>
+<li><strong>Lấy Newsfeed</strong>: posts(bạn bè) + created_at → Bài đăng của bạn bè</li>
+<li><strong>Lấy Bình Luận</strong>: comments.post_id + created_at → Bình luận của bài đăng</li>
+<li><strong>Lấy Reactions</strong>: reactions(target_type, target_id) → Lượt thích/reactions</li>
+<li><strong>Lấy Thông Báo</strong>: notifications.user_id + is_read → Thông báo chưa đọc</li>
+<li><strong>Lấy Followers</strong>: user_followers.following_id → Danh sách người theo dõi</li>
 </ol>
 <h3 id="mẫu-thứ-cấp">Mẫu Thứ Cấp<a class="anchor" href="#m%e1%ba%abu-th%e1%bb%a9-c%e1%ba%a5p">#</a></h3>
 <ul>
@@ -783,11 +1135,69 @@ Table activity_logs {
 <li><strong>SK</strong>: <code>SUGGESTION#&lt;timestamp&gt;</code></li>
 <li><strong>Thuộc tính</strong>: recipe_id, prompt_text, ai_response, was_accepted</li>
 </ul>
-<h4 id="yêu-thích">Yêu Thích<a class="anchor" href="#y%c3%aau-th%c3%adch">#</a></h4>
+<h4 id="lịch-sử-nấu-ăn">Lịch Sử Nấu Ăn<a class="anchor" href="#l%e1%bb%8bch-s%e1%bb%ad-n%e1%ba%a5u-%c4%83n">#</a></h4>
 <ul>
 <li><strong>PK</strong>: <code>USER#&lt;user_id&gt;</code></li>
-<li><strong>SK</strong>: <code>FAVORITE#&lt;recipe_id&gt;</code></li>
+<li><strong>SK</strong>: <code>COOKING#&lt;timestamp&gt;#&lt;history_id&gt;</code></li>
+<li><strong>Thuộc tính</strong>: recipe_id, status, personal_rating, is_favorite, cook_date</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;#FAVORITE</code> (nếu is_favorite=true)</li>
+<li><strong>GSI1SK</strong>: <code>COOKING#&lt;cook_date&gt;</code></li>
+</ul>
+<h4 id="đánh-giá-công-thức">Đánh Giá Công Thức<a class="anchor" href="#%c4%91%c3%a1nh-gi%c3%a1-c%c3%b4ng-th%e1%bb%a9c">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>RECIPE#&lt;recipe_id&gt;</code></li>
+<li><strong>SK</strong>: <code>RATING#&lt;user_id&gt;</code></li>
+<li><strong>Thuộc tính</strong>: rating, comment, is_verified_cook, history_id</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;</code> (ratings của user)</li>
+<li><strong>GSI1SK</strong>: <code>RATING#&lt;created_at&gt;</code></li>
+</ul>
+<h4 id="master-ingredients">Master Ingredients<a class="anchor" href="#master-ingredients">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>INGREDIENT#&lt;ingredient_id&gt;</code></li>
+<li><strong>SK</strong>: <code>METADATA</code></li>
+<li><strong>Thuộc tính</strong>: name, normalized_name, category, aliases</li>
+<li><strong>GSI1PK</strong>: <code>CATEGORY#&lt;category&gt;</code></li>
+<li><strong>GSI1SK</strong>: <code>INGREDIENT#&lt;name&gt;</code></li>
+</ul>
+<h4 id="bài-đăng-posts">Bài Đăng (Posts)<a class="anchor" href="#b%c3%a0i-%c4%91%c4%83ng-posts">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>POST#&lt;post_id&gt;</code></li>
+<li><strong>SK</strong>: <code>METADATA</code></li>
+<li><strong>Thuộc tính</strong>: user_id, recipe_id, content, images, is_public, likes_count, comments_count</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;</code> (bài đăng của người dùng)</li>
+<li><strong>GSI1SK</strong>: <code>POST#&lt;created_at&gt;</code></li>
+</ul>
+<h4 id="bình-luận-comments">Bình Luận (Comments)<a class="anchor" href="#b%c3%acnh-lu%e1%ba%adn-comments">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>POST#&lt;post_id&gt;</code></li>
+<li><strong>SK</strong>: <code>COMMENT#&lt;timestamp&gt;#&lt;comment_id&gt;</code></li>
+<li><strong>Thuộc tính</strong>: user_id, parent_comment_id, content</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;</code> (bình luận của người dùng)</li>
+<li><strong>GSI1SK</strong>: <code>COMMENT#&lt;timestamp&gt;</code></li>
+</ul>
+<h4 id="reactions-lượt-thích">Reactions (Lượt thích)<a class="anchor" href="#reactions-l%c6%b0%e1%bb%a3t-th%c3%adch">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>&lt;target_type&gt;#&lt;target_id&gt;</code> (ví dụ: POST#123, RECIPE#456)</li>
+<li><strong>SK</strong>: <code>REACTION#&lt;user_id&gt;</code></li>
+<li><strong>Thuộc tính</strong>: reaction_type, created_at</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;</code> (reactions của người dùng)</li>
+<li><strong>GSI1SK</strong>: <code>REACTION#&lt;created_at&gt;</code></li>
+</ul>
+<h4 id="thông-báo-notifications">Thông Báo (Notifications)<a class="anchor" href="#th%c3%b4ng-b%c3%a1o-notifications">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>USER#&lt;user_id&gt;</code></li>
+<li><strong>SK</strong>: <code>NOTIFICATION#&lt;timestamp&gt;#&lt;notification_id&gt;</code></li>
+<li><strong>Thuộc tính</strong>: actor_id, type, target_type, target_id, content, is_read</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;user_id&gt;#UNREAD</code> (nếu is_read=false)</li>
+<li><strong>GSI1SK</strong>: <code>NOTIFICATION#&lt;timestamp&gt;</code></li>
+</ul>
+<h4 id="followers">Followers<a class="anchor" href="#followers">#</a></h4>
+<ul>
+<li><strong>PK</strong>: <code>USER#&lt;following_id&gt;</code></li>
+<li><strong>SK</strong>: <code>FOLLOWER#&lt;follower_id&gt;</code></li>
 <li><strong>Thuộc tính</strong>: created_at</li>
+<li><strong>GSI1PK</strong>: <code>USER#&lt;follower_id&gt;</code> (tra cứu ngược - ai người này đang follow)</li>
+<li><strong>GSI1SK</strong>: <code>FOLLOWING#&lt;following_id&gt;</code></li>
 </ul>
 <h3 id="chỉ-mục-thứ-cấp-toàn-cục-gsi">Chỉ Mục Thứ Cấp Toàn Cục (GSI)<a class="anchor" href="#ch%e1%bb%89-m%e1%bb%a5c-th%e1%bb%a9-c%e1%ba%a5p-to%c3%a0n-c%e1%bb%a5c-gsi">#</a></h3>
 <p><strong>GSI1</strong>: Truy vấn dựa trên người dùng</p>
@@ -799,18 +1209,37 @@ Table activity_logs {
 <li>Lấy tất cả quản trị viên</li>
 <li>Lấy công thức của người dùng sắp xếp theo ngày</li>
 <li>Lấy quan hệ bạn bè (tra cứu ngược)</li>
+<li>Lấy bài đăng của người dùng</li>
+<li>Lấy bình luận của người dùng</li>
+<li>Lấy reactions của người dùng</li>
+<li>Lấy thông báo chưa đọc</li>
+<li>Lấy danh sách following</li>
 </ul>
 </li>
 </ul>
-<p><strong>GSI2</strong>: Tìm kiếm &amp; khám phá công thức</p>
+<p><strong>GSI2</strong>: Tìm kiếm &amp; khám phá công thức (Enhanced)</p>
 <ul>
-<li><strong>PK</strong>: GSI2PK (ví dụ: <code>CUISINE#&lt;type&gt;</code>, <code>METHOD#&lt;type&gt;</code>)</li>
+<li><strong>PK</strong>: GSI2PK (ví dụ: <code>CUISINE#&lt;type&gt;</code>, <code>METHOD#&lt;cooking_method&gt;</code>, <code>MEALTYPE#&lt;meal_type&gt;</code>) ⭐</li>
 <li><strong>SK</strong>: GSI2SK (ví dụ: <code>RECIPE#&lt;created_at&gt;</code>)</li>
 <li><strong>Trường hợp sử dụng</strong>:
 <ul>
 <li>Tìm kiếm công thức theo món ăn</li>
-<li>Tìm kiếm công thức theo phương pháp nấu</li>
+<li>Tìm kiếm công thức theo phương pháp nấu (xào, hấp, canh&hellip;) ⭐</li>
+<li>Tìm kiếm theo loại món (món chính, món phụ&hellip;) ⭐</li>
 <li>Lấy công thức phổ biến</li>
+<li>Diverse recipe suggestions ⭐</li>
+</ul>
+</li>
+</ul>
+<p><strong>GSI3</strong>: Social Feed &amp; Discovery</p>
+<ul>
+<li><strong>PK</strong>: GSI3PK (ví dụ: <code>FEED#&lt;user_id&gt;</code>, <code>PUBLIC</code>)</li>
+<li><strong>SK</strong>: GSI3SK (ví dụ: <code>POST#&lt;created_at&gt;</code>)</li>
+<li><strong>Trường hợp sử dụng</strong>:
+<ul>
+<li>Lấy newsfeed (bài đăng của bạn bè)</li>
+<li>Lấy bài đăng công khai (explore feed)</li>
+<li>Lấy bài đăng trending</li>
 </ul>
 </li>
 </ul>
@@ -821,21 +1250,36 @@ Table activity_logs {
 <li>Trung bình 20 nguyên liệu mỗi người dùng</li>
 <li>Trung bình 5 công thức đã lưu mỗi người dùng</li>
 <li>Trung bình 10 gợi ý AI mỗi người dùng mỗi tháng</li>
+<li>Trung bình 10 bài đăng mỗi người dùng</li>
+<li>Trung bình 30 bình luận mỗi người dùng</li>
+<li>Trung bình 100 reactions mỗi người dùng</li>
+<li>Trung bình 50 thông báo mỗi người dùng</li>
+<li>Trung bình 20 followers mỗi người dùng</li>
 </ul>
-<h3 id="ước-tính-dung-lượng">Ước Tính Dung Lượng<a class="anchor" href="#%c6%b0%e1%bb%9bc-t%c3%adnh-dung-l%c6%b0%e1%bb%a3ng">#</a></h3>
+<h3 id="ước-tính-dung-lượng-enhanced">Ước Tính Dung Lượng (Enhanced)<a class="anchor" href="#%c6%b0%e1%bb%9bc-t%c3%adnh-dung-l%c6%b0%e1%bb%a3ng-enhanced">#</a></h3>
 <ul>
-<li>Người dùng: 1.000 × 1KB = 1MB</li>
+<li>Người dùng (with preferences): 1.000 × 1.2KB = 1.2MB</li>
 <li>Nguyên liệu người dùng: 1.000 × 20 × 0.5KB = 10MB</li>
-<li>Công thức: 5.000 × 5KB = 25MB</li>
-<li>Gợi ý AI: 10.000 × 2KB = 20MB</li>
-<li><strong>Tổng cộng: ~60MB</strong></li>
+<li>Master ingredients: 5.000 × 0.8KB = 4MB</li>
+<li>Công thức (with categories): 5.000 × 5.5KB = 27.5MB ⭐</li>
+<li>Lịch sử nấu ăn: 1.000 × 50 × 0.8KB = 40MB</li>
+<li>Đánh giá công thức: 10.000 × 0.5KB = 5MB</li>
+<li>Gợi ý AI (enhanced): 10.000 × 2.5KB = 25MB ⭐</li>
+<li>Invalid reports (optional): 500 × 0.5KB = 0.25MB ⭐</li>
+<li>Bài đăng: 10.000 × 3KB = 30MB</li>
+<li>Bình luận: 30.000 × 0.5KB = 15MB</li>
+<li>Reactions: 100.000 × 0.2KB = 20MB</li>
+<li>Thông báo: 50.000 × 0.5KB = 25MB</li>
+<li>Followers: 20.000 × 0.3KB = 6MB</li>
+<li><strong>Tổng cộng: ~209MB</strong></li>
 </ul>
-<h3 id="chi-phí-dynamodb-hàng-tháng">Chi Phí DynamoDB (Hàng Tháng)<a class="anchor" href="#chi-ph%c3%ad-dynamodb-h%c3%a0ng-th%c3%a1ng">#</a></h3>
+<h3 id="chi-phí-dynamodb-hàng-tháng---enhanced">Chi Phí DynamoDB (Hàng Tháng) - Enhanced<a class="anchor" href="#chi-ph%c3%ad-dynamodb-h%c3%a0ng-th%c3%a1ng---enhanced">#</a></h3>
 <ul>
-<li>Lưu trữ: 60MB × $0.25/GB = ~$0.02</li>
-<li>Khả năng đọc: ~$5-10</li>
-<li>Khả năng ghi: ~$5-10</li>
-<li><strong>Tổng cộng: ~$10-20/tháng</strong></li>
+<li>Lưu trữ: 209MB × $0.25/GB = ~$0.05</li>
+<li>Khả năng đọc: ~$15-20 (tăng do category queries) ⭐</li>
+<li>Khả năng ghi: ~$15-20 (tăng do invalid logging, enhanced suggestions) ⭐</li>
+<li>GSI (4 indexes): ~$10-15 (tăng do GSI2 category index) ⭐</li>
+<li><strong>Tổng cộng: ~$40-55/tháng</strong> (vs $32-48 trước đó)</li>
 </ul>
 </article>
  
@@ -917,7 +1361,7 @@ Table activity_logs {
     <li><a href="#công-nghệ-cơ-sở-dữ-liệu">Công Nghệ Cơ Sở Dữ Liệu</a></li>
     <li><a href="#mẫu-truy-cập-dữ-liệu">Mẫu Truy Cập Dữ Liệu</a>
       <ul>
-        <li><a href="#mẫu-truy-cập-chính">Mẫu Truy Cập Chính</a></li>
+        <li><a href="#mẫu-truy-cập-chính-enhanced">Mẫu Truy Cập Chính (Enhanced)</a></li>
         <li><a href="#mẫu-thứ-cấp">Mẫu Thứ Cấp</a></li>
       </ul>
     </li>
@@ -930,8 +1374,8 @@ Table activity_logs {
     <li><a href="#ước-tính-dung-lượng-lưu-trữ--chi-phí">Ước Tính Dung Lượng Lưu Trữ &amp; Chi Phí</a>
       <ul>
         <li><a href="#giả-định">Giả Định</a></li>
-        <li><a href="#ước-tính-dung-lượng">Ước Tính Dung Lượng</a></li>
-        <li><a href="#chi-phí-dynamodb-hàng-tháng">Chi Phí DynamoDB (Hàng Tháng)</a></li>
+        <li><a href="#ước-tính-dung-lượng-enhanced">Ước Tính Dung Lượng (Enhanced)</a></li>
+        <li><a href="#chi-phí-dynamodb-hàng-tháng---enhanced">Chi Phí DynamoDB (Hàng Tháng) - Enhanced</a></li>
       </ul>
     </li>
   </ul>
