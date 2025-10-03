@@ -2,22 +2,22 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>http://localhost:1313/docs/summary/aws-services-diagram/</loc>
+    <loc>https://example.org/docs/summary/aws-services-diagram/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/summary/</loc>
+    <loc>https://example.org/docs/summary/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/summary/ai-agent-implementation/</loc>
+    <loc>https://example.org/docs/summary/ai-agent-implementation/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/summary/database-diagram/</loc>
+    <loc>https://example.org/docs/summary/database-diagram/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/summary/cost-analysis/</loc>
+    <loc>https://example.org/docs/summary/cost-analysis/</loc>
   </url><url>
-    <loc>http://localhost:1313/categories/</loc>
+    <loc>https://example.org/categories/</loc>
   </url><url>
-    <loc>http://localhost:1313/docs/</loc>
+    <loc>https://example.org/docs/</loc>
   </url><url>
-    <loc>http://localhost:1313/tags/</loc>
+    <loc>https://example.org/tags/</loc>
   </url><url>
-    <loc>http://localhost:1313/</loc>
+    <loc>https://example.org/</loc>
   </url>
 </urlset>

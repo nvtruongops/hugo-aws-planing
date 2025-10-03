@@ -163,6 +163,33 @@ Hệ Thống Gợi Ý Công Thức Thông Minh
 
 ## 🏗️ TRIỂN KHAI KỸ THUẬT
 
+### Kiến Trúc Tables & Relationships
+
+**Các Tables Liên Kết:**
+```
+master_ingredients (nguyên liệu chuẩn)
+          ↓
+    [VALIDATE]
+          ↓
+user_ingredients (nguyên liệu người dùng nhập)
+          ↓
+    [QUERY & MATCH]
+          ↓
+    ┌─────────────────┬─────────────────┐
+    ↓                 ↓                 ↓
+recipes          user_data      user_preferences
+(is_approved)    (sở thích)     (năm sinh, giới tính, quốc gia)
+    ↓                 ↓                 ↓
+    └─────────────────┴─────────────────┘
+                      ↓
+              [AI AGENT PROMPT]
+                      ↓
+            ┌─────────────────┐
+            ↓                 ↓
+    Database Recipes    AI Generated Recipe
+    (4 món phù hợp)     (1 món sáng tạo)
+```
+
 ### Backend: Node.js 20 Lambda Functions
 
 **Lambda AI Suggestion Engine:**
@@ -177,7 +204,7 @@ const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
 // Flow mới:
 // 1. Validate ingredients với master_ingredients table
 // 2. Query 4 recipes từ DynamoDB (is_approved=true)
-// 3. Generate 1 recipe mới bằng Bedrock AI
+// 3. Generate 1 recipe mới bằng Bedrock AI với context đầy đủ
 // 4. Return 5 suggestions (4 DB + 1 AI)
 
 async function suggestRecipes(userIngredients, userPreferences) {
@@ -196,19 +223,23 @@ async function suggestRecipes(userIngredients, userPreferences) {
     };
   }
 
-  // Step 2: Query 4 approved recipes từ DynamoDB
-  const dbRecipes = await queryApprovedRecipesByIngredients(
+  // Step 2: Query user preferences từ user_data table
+  const userContext = await getUserContext(userPreferences.userId);
+
+  // Step 3: Query 4 approved recipes từ DynamoDB matching user preferences
+  const dbRecipes = await queryApprovedRecipesByIngredientsAndPreferences(
     validatedIngredients.ingredients,
+    userContext,
     4
   );
 
-  // Step 3: Generate 1 AI recipe
+  // Step 4: Generate 1 AI recipe với context đầy đủ
   const aiRecipe = await generateAIRecipe(
     validatedIngredients.ingredients,
-    userPreferences
+    userContext
   );
 
-  // Step 4: Save AI suggestion to history
+  // Step 5: Save AI suggestion to history
   await saveAISuggestion({
     userId: userPreferences.userId,
     ingredients: validatedIngredients.ingredients,
@@ -216,7 +247,7 @@ async function suggestRecipes(userIngredients, userPreferences) {
     dbRecipes
   });
 
-  // Step 5: Return combined results
+  // Step 6: Return combined results
   return {
     statusCode: 200,
     body: {
@@ -227,6 +258,72 @@ async function suggestRecipes(userIngredients, userPreferences) {
       }
     }
   };
+}
+
+// Lấy thông tin người dùng từ user_data & user_preferences
+async function getUserContext(userId) {
+  // Query user_data cho sở thích món ăn
+  const userDataResult = await ddb.send(new QueryCommand({
+    TableName: 'smart-cooking-data',
+    KeyConditionExpression: 'PK = :pk AND SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `USER#${userId}`,
+      ':sk': 'PREFERENCES'
+    }
+  }));
+
+  // Query user profile cho thông tin cá nhân (năm sinh, giới tính, quốc gia)
+  const userProfileResult = await ddb.send(new QueryCommand({
+    TableName: 'smart-cooking-data',
+    KeyConditionExpression: 'PK = :pk AND SK = :sk',
+    ExpressionAttributeValues: {
+      ':pk': `USER#${userId}`,
+      ':sk': 'METADATA'
+    }
+  }));
+
+  const userData = userDataResult.Items?.[0] || {};
+  const userProfile = userProfileResult.Items?.[0] || {};
+
+  return {
+    // Sở thích món ăn
+    preferred_cooking_methods: userData.preferred_cooking_methods || [],
+    preferred_meal_types: userData.preferred_meal_types || [],
+    favorite_cuisines: userData.favorite_cuisines || [],
+    allergies: userData.allergies || [],
+
+    // Thông tin cá nhân (cho personalization)
+    birth_year: userProfile.birth_year,
+    gender: userProfile.gender,
+    country: userProfile.country,
+
+    // Mở rộng: món yêu thích quốc gia
+    // VD: nếu country = "Vietnam" → ưu tiên món Việt
+    //     nếu favorite_cuisines = ["Italy"] → ưu tiên món Ý
+    cuisine_preference: determineCuisinePreference(userProfile, userData)
+  };
+}
+
+// Xác định ưu tiên món quốc gia
+function determineCuisinePreference(profile, userData) {
+  // Ưu tiên 1: món yêu thích được chọn
+  if (userData.favorite_cuisines && userData.favorite_cuisines.length > 0) {
+    return userData.favorite_cuisines;
+  }
+
+  // Ưu tiên 2: món của quốc gia người dùng
+  if (profile.country) {
+    const countryToCuisine = {
+      'Vietnam': ['Vietnamese'],
+      'Italy': ['Italian'],
+      'Japan': ['Japanese'],
+      'Thailand': ['Thai'],
+      'Korea': ['Korean']
+    };
+    return countryToCuisine[profile.country] || [];
+  }
+
+  return [];
 }
 
 // Validate ingredients với master_ingredients table
@@ -288,8 +385,9 @@ async function fuzzySearchIngredients(searchTerm) {
   return result.Items.map(item => item.name);
 }
 
-// Query approved recipes matching ingredients
-async function queryApprovedRecipesByIngredients(ingredients, limit) {
+// Query approved recipes matching ingredients AND user preferences
+async function queryApprovedRecipesByIngredientsAndPreferences(ingredients, userContext, limit) {
+  // Query recipes theo nguyên liệu và sở thích
   const recipes = await ddb.send(new QueryCommand({
     TableName: 'smart-cooking-data',
     IndexName: 'GSI2',
@@ -299,11 +397,41 @@ async function queryApprovedRecipesByIngredients(ingredients, limit) {
       ':pk': `RECIPES#APPROVED`,
       ':approved': true
     },
-    Limit: limit,
     ScanIndexForward: false // Sắp xếp theo rating cao nhất
   }));
 
-  return recipes.Items || [];
+  let filteredRecipes = recipes.Items || [];
+
+  // Filter theo món yêu thích quốc gia (nếu có)
+  if (userContext.cuisine_preference && userContext.cuisine_preference.length > 0) {
+    const cuisineMatches = filteredRecipes.filter(recipe =>
+      userContext.cuisine_preference.includes(recipe.cuisine_type)
+    );
+
+    // Nếu có món khớp quốc gia, ưu tiên chúng
+    if (cuisineMatches.length > 0) {
+      filteredRecipes = cuisineMatches;
+    }
+  }
+
+  // Filter theo sở thích cooking methods (canh, món chiên, món hấp...)
+  if (userContext.preferred_cooking_methods && userContext.preferred_cooking_methods.length > 0) {
+    filteredRecipes = filteredRecipes.filter(recipe =>
+      userContext.preferred_cooking_methods.includes(recipe.cooking_method)
+    );
+  }
+
+  // Filter tránh dị ứng
+  if (userContext.allergies && userContext.allergies.length > 0) {
+    filteredRecipes = filteredRecipes.filter(recipe => {
+      const recipeIngredients = recipe.ingredients || [];
+      return !recipeIngredients.some(ing =>
+        userContext.allergies.includes(ing.ingredient_name)
+      );
+    });
+  }
+
+  return filteredRecipes.slice(0, limit);
 }
 
 // Normalize text (bỏ dấu, lowercase)
@@ -314,6 +442,149 @@ function normalizeText(text) {
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
 }
+```
+
+**AI Agent Prompt & Privacy Policy:**
+```javascript
+// Generate AI recipe với context đầy đủ + privacy protection
+async function generateAIRecipe(ingredients, userContext) {
+  const bedrockClient = new BedrockRuntimeClient({ region: 'us-east-1' });
+
+  // ===== PRIVACY POLICY =====
+  // Dữ liệu được sử dụng cho personalization:
+  // ✅ Năm sinh (birth_year) - để tính tuổi và khuyến nghị dinh dưỡng phù hợp
+  // ✅ Giới tính (gender) - để khuyến nghị khẩu phần và dinh dưỡng
+  // ✅ Quốc gia (country) - để gợi ý món ăn địa phương/quốc gia
+  // ✅ Sở thích món (preferred_cooking_methods, favorite_cuisines)
+  // ✅ Dị ứng (allergies) - QUAN TRỌNG để an toàn thực phẩm
+  //
+  // ❌ KHÔNG sử dụng:
+  // - Email, số điện thoại, địa chỉ cụ thể
+  // - Tên đầy đủ hoặc thông tin định danh cá nhân khác
+  //
+  // Mục đích: Cá nhân hóa gợi ý món ăn, KHÔNG theo dõi hoặc khai thác thông tin cá nhân
+
+  // Tính tuổi từ năm sinh (nếu có)
+  const age = userContext.birth_year
+    ? new Date().getFullYear() - userContext.birth_year
+    : null;
+
+  // Tạo prompt cho AI với context đầy đủ
+  const prompt = `Bạn là một đầu bếp chuyên nghiệp. Hãy tạo một công thức nấu ăn sáng tạo dựa trên thông tin sau:
+
+**Nguyên liệu có sẵn:**
+${ingredients.map(ing => `- ${ing}`).join('\n')}
+
+**Thông tin người dùng (để cá nhân hóa):**
+${age ? `- Tuổi: ${age} tuổi (khuyến nghị dinh dưỡng phù hợp)` : ''}
+${userContext.gender ? `- Giới tính: ${userContext.gender} (khẩu phần phù hợp)` : ''}
+${userContext.country ? `- Quốc gia: ${userContext.country} (gợi ý món địa phương)` : ''}
+
+**Sở thích món ăn:**
+${userContext.preferred_cooking_methods?.length > 0
+  ? `- Thích: ${userContext.preferred_cooking_methods.join(', ')}`
+  : '- Không có sở thích cụ thể'}
+
+**Món yêu thích quốc gia:**
+${userContext.cuisine_preference?.length > 0
+  ? `- Ưu tiên món: ${userContext.cuisine_preference.join(', ')}`
+  : '- Không có món quốc gia yêu thích'}
+
+**Dị ứng (TRÁNH TUYỆT ĐỐI):**
+${userContext.allergies?.length > 0
+  ? userContext.allergies.map(a => `- ❌ ${a}`).join('\n')
+  : '- Không có dị ứng'}
+
+**Yêu cầu:**
+1. Sử dụng TOÀN BỘ hoặc phần lớn nguyên liệu đã cho
+2. Nếu người dùng từ ${userContext.country}, ưu tiên phong cách nấu ăn địa phương
+3. Nếu thích món ${userContext.cuisine_preference?.join('/')}, tạo món theo hướng đó
+4. Nếu thích ${userContext.preferred_cooking_methods?.join('/')}, ưu tiên phương pháp đó
+5. TUYỆT ĐỐI KHÔNG dùng nguyên liệu gây dị ứng: ${userContext.allergies?.join(', ') || 'Không'}
+6. Phù hợp với tuổi ${age ? `${age} tuổi` : 'người lớn'}
+7. Món ăn sáng tạo, độc đáo, chưa có trong database
+
+**Trả về JSON format:**
+{
+  "name": "Tên món ăn",
+  "cuisine_type": "${userContext.cuisine_preference?.[0] || 'Vietnamese'}",
+  "cooking_method": "${userContext.preferred_cooking_methods?.[0] || 'nấu'}",
+  "meal_type": "món chính/món phụ/canh",
+  "difficulty": "dễ/trung bình/khó",
+  "cooking_time": "30 phút",
+  "servings": 2,
+  "ingredients": [
+    {
+      "ingredient_name": "Tên nguyên liệu",
+      "quantity": "100g",
+      "preparation": "Cắt nhỏ"
+    }
+  ],
+  "instructions": [
+    {
+      "step_number": 1,
+      "description": "Mô tả bước làm",
+      "duration": "5 phút"
+    }
+  ],
+  "nutritional_info": {
+    "calories": 300,
+    "protein": "20g",
+    "carbs": "30g",
+    "fat": "10g"
+  },
+  "tags": ["healthy", "quick"],
+  "notes": "Phù hợp cho người ${age ? `${age} tuổi` : 'người lớn'}"
+}`;
+
+  try {
+    const response = await bedrockClient.send(new InvokeModelCommand({
+      modelId: 'anthropic.claude-3-haiku-20240307-v1:0',
+      contentType: 'application/json',
+      accept: 'application/json',
+      body: JSON.stringify({
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: 2048,
+        messages: [
+          {
+            role: 'user',
+            content: prompt
+          }
+        ]
+      })
+    }));
+
+    const responseBody = JSON.parse(new TextDecoder().decode(response.body));
+    const aiRecipeJSON = JSON.parse(responseBody.content[0].text);
+
+    // Thêm metadata cho AI-generated recipe
+    const aiRecipe = {
+      ...aiRecipeJSON,
+      recipe_id: `ai-gen-${generateUUID()}`,
+      source: 'ai',
+      is_new: true,
+      is_approved: false,
+      created_by: 'bedrock-ai',
+      created_at: new Date().toISOString(),
+
+      // Privacy metadata: Log rằng đã sử dụng thông tin cá nhân (cho audit)
+      personalization_used: {
+        age_range: age ? `${Math.floor(age / 10) * 10}-${Math.floor(age / 10) * 10 + 9}` : null,
+        gender: userContext.gender || null,
+        country: userContext.country || null,
+        cuisine_preference: userContext.cuisine_preference || [],
+        allergies_avoided: userContext.allergies || []
+      }
+    };
+
+    return aiRecipe;
+
+  } catch (error) {
+    console.error('AI Recipe Generation Error:', error);
+    throw new Error('Failed to generate AI recipe');
+  }
+}
+
 ```
 
 **Lambda Recipe Rating Handler:**

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="en-us" dir="ltr">
-<head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=1313&amp;path=livereload" data-no-instant defer></script>
+<head>
   <!--
 Made with Book Theme
 https://github.com/alex-shpak/hugo-book
@@ -28,7 +28,7 @@ Phạm vi:
 Thời gian: 2 tuần (Tuần 3-4 trong deployment plan)">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="http://localhost:1313/docs/summary/ai-agent-implementation/">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/ai-agent-implementation/">
   <meta property="og:site_name" content="Together">
   <meta property="og:title" content="Kế Hoạch Triển Khai AI Agent">
   <meta property="og:description" content="KẾ HOẠCH TRIỂN KHAI AI AGENT#Hệ Thống Gợi Ý Công Thức Thông Minh
@@ -41,12 +41,12 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 <title>Kế Hoạch Triển Khai AI Agent | Together</title>
 <link rel="icon" href="/favicon.png" >
 <link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="http://localhost:1313/docs/summary/ai-agent-implementation/">
+<link rel="canonical" href="https://example.org/docs/summary/ai-agent-implementation/">
 <link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
 
 
   <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.376a404bc31930eb14d43e5d85755241913f934623356d5b6b3a1175ca8a9489.js" integrity="sha256-N2pAS8MZMOsU1D5dhXVSQZE/k0YjNW1bazoRdcqKlIk=" crossorigin="anonymous"></script>
+  <script defer src="/en.search.min.c7dc19d694c5cf890b38c0f1f2632c57461a855f1a7448c8de0d288c8fbc68f2.js" integrity="sha256-x9wZ1pTFz4kLOMDx8mMsV0YahV8adEjI3g0ojI&#43;8aPI=" crossorigin="anonymous"></script>
 
   
 </head>
@@ -224,6 +224,7 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
     </li>
     <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
       <ul>
+        <li><a href="#kiến-trúc-tables--relationships">Kiến Trúc Tables &amp; Relationships</a></li>
         <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>
         <li><a href="#cơ-sở-dữ-liệu-amazon-dynamodb">Cơ Sở Dữ Liệu: Amazon DynamoDB</a></li>
         <li><a href="#api-endpoints">API Endpoints</a></li>
@@ -390,7 +391,29 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 │      &#34;confidence&#34;: 0.85                                 │
 │    }                                                    │
 └─────────────────────────────────────────────────────────┘</code></pre><h2 id="-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT<a class="anchor" href="#-tri%e1%bb%83n-khai-k%e1%bb%b9-thu%e1%ba%adt">#</a></h2>
-<h3 id="backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions<a class="anchor" href="#backend-nodejs-20-lambda-functions">#</a></h3>
+<h3 id="kiến-trúc-tables--relationships">Kiến Trúc Tables &amp; Relationships<a class="anchor" href="#ki%e1%ba%bfn-tr%c3%bac-tables--relationships">#</a></h3>
+<p><strong>Các Tables Liên Kết:</strong></p>
+<pre tabindex="0"><code>master_ingredients (nguyên liệu chuẩn)
+          ↓
+    [VALIDATE]
+          ↓
+user_ingredients (nguyên liệu người dùng nhập)
+          ↓
+    [QUERY &amp; MATCH]
+          ↓
+    ┌─────────────────┬─────────────────┐
+    ↓                 ↓                 ↓
+recipes          user_data      user_preferences
+(is_approved)    (sở thích)     (năm sinh, giới tính, quốc gia)
+    ↓                 ↓                 ↓
+    └─────────────────┴─────────────────┘
+                      ↓
+              [AI AGENT PROMPT]
+                      ↓
+            ┌─────────────────┐
+            ↓                 ↓
+    Database Recipes    AI Generated Recipe
+    (4 món phù hợp)     (1 món sáng tạo)</code></pre><h3 id="backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions<a class="anchor" href="#backend-nodejs-20-lambda-functions">#</a></h3>
 <p><strong>Lambda AI Suggestion Engine:</strong></p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Sử dụng AWS SDK v3 cho Bedrock
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">BedrockRuntimeClient</span>, <span style="color:#a6e22e">InvokeModelCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-bedrock-runtime&#39;</span>);
@@ -402,7 +425,7 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span><span style="color:#75715e">// Flow mới:
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 1. Validate ingredients với master_ingredients table
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 2. Query 4 recipes từ DynamoDB (is_approved=true)
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 3. Generate 1 recipe mới bằng Bedrock AI
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 3. Generate 1 recipe mới bằng Bedrock AI với context đầy đủ
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e">// 4. Return 5 suggestions (4 DB + 1 AI)
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
 </span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">suggestRecipes</span>(<span style="color:#a6e22e">userIngredients</span>, <span style="color:#a6e22e">userPreferences</span>) {
@@ -421,19 +444,23 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>    };
 </span></span><span style="display:flex;"><span>  }
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 2: Query 4 approved recipes từ DynamoDB
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dbRecipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredients</span>(
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 2: Query user preferences từ user_data table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userContext</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">getUserContext</span>(<span style="color:#a6e22e">userPreferences</span>.<span style="color:#a6e22e">userId</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 3: Query 4 approved recipes từ DynamoDB matching user preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">dbRecipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredientsAndPreferences</span>(
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userContext</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#ae81ff">4</span>
 </span></span><span style="display:flex;"><span>  );
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 3: Generate 1 AI recipe
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 4: Generate 1 AI recipe với context đầy đủ
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipe</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">generateAIRecipe</span>(
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userPreferences</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userContext</span>
 </span></span><span style="display:flex;"><span>  );
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 4: Save AI suggestion to history
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 5: Save AI suggestion to history
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">saveAISuggestion</span>({
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">userId</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userPreferences</span>.<span style="color:#a6e22e">userId</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">validatedIngredients</span>.<span style="color:#a6e22e">ingredients</span>,
@@ -441,7 +468,7 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">dbRecipes</span>
 </span></span><span style="display:flex;"><span>  });
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 5: Return combined results
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Step 6: Return combined results
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">return</span> {
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">statusCode</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">200</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> {
@@ -452,6 +479,72 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>      }
 </span></span><span style="display:flex;"><span>    }
 </span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Lấy thông tin người dùng từ user_data &amp; user_preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">getUserContext</span>(<span style="color:#a6e22e">userId</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Query user_data cho sở thích món ăn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userDataResult</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND SK = :sk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PREFERENCES&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Query user profile cho thông tin cá nhân (năm sinh, giới tính, quốc gia)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userProfileResult</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK = :pk AND SK = :sk&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ExpressionAttributeValues</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`USER#</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:sk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;METADATA&#39;</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userData</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userDataResult</span>.<span style="color:#a6e22e">Items</span><span style="color:#f92672">?</span>.[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">||</span> {};
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userProfile</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userProfileResult</span>.<span style="color:#a6e22e">Items</span><span style="color:#f92672">?</span>.[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">||</span> {};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Sở thích món ăn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">preferred_cooking_methods</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">preferred_meal_types</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">preferred_meal_types</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">favorite_cuisines</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">favorite_cuisines</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">allergies</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">allergies</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Thông tin cá nhân (cho personalization)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">birth_year</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userProfile</span>.<span style="color:#a6e22e">birth_year</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userProfile</span>.<span style="color:#a6e22e">gender</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userProfile</span>.<span style="color:#a6e22e">country</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Mở rộng: món yêu thích quốc gia
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// VD: nếu country = &#34;Vietnam&#34; → ưu tiên món Việt
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">//     nếu favorite_cuisines = [&#34;Italy&#34;] → ưu tiên món Ý
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">determineCuisinePreference</span>(<span style="color:#a6e22e">userProfile</span>, <span style="color:#a6e22e">userData</span>)
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Xác định ưu tiên món quốc gia
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">determineCuisinePreference</span>(<span style="color:#a6e22e">profile</span>, <span style="color:#a6e22e">userData</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Ưu tiên 1: món yêu thích được chọn
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">favorite_cuisines</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">favorite_cuisines</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">favorite_cuisines</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Ưu tiên 2: món của quốc gia người dùng
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">profile</span>.<span style="color:#a6e22e">country</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">countryToCuisine</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Vietnam&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;Vietnamese&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Italy&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;Italian&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Japan&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;Japanese&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Thailand&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;Thai&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;Korea&#39;</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;Korean&#39;</span>]
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">countryToCuisine</span>[<span style="color:#a6e22e">profile</span>.<span style="color:#a6e22e">country</span>] <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> [];
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">// Validate ingredients với master_ingredients table
@@ -513,9 +606,10 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">Items</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">item</span> =&gt; <span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">name</span>);
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#75715e">// Query approved recipes matching ingredients
-</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredients</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">limit</span>) {
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Query approved recipes matching ingredients AND user preferences
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">queryApprovedRecipesByIngredientsAndPreferences</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">limit</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Query recipes theo nguyên liệu và sở thích
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipes</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">ddb</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>({
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">TableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">IndexName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2&#39;</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">KeyConditionExpression</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;GSI2PK = :pk&#39;</span>,
@@ -524,11 +618,41 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:pk&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`RECIPES#APPROVED`</span>,
 </span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;:approved&#39;</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>
 </span></span><span style="display:flex;"><span>    },
-</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Limit</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">limit</span>,
 </span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ScanIndexForward</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span> <span style="color:#75715e">// Sắp xếp theo rating cao nhất
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  }));
 </span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">let</span> <span style="color:#a6e22e">filteredRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">recipes</span>.<span style="color:#a6e22e">Items</span> <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Filter theo món yêu thích quốc gia (nếu có)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">cuisineMatches</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">filteredRecipes</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">recipe</span> =&gt;
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cuisine_type</span>)
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Nếu có món khớp quốc gia, ưu tiên chúng
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">cuisineMatches</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">filteredRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">cuisineMatches</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Filter theo sở thích cooking methods (canh, món chiên, món hấp...)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">filteredRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">filteredRecipes</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">recipe</span> =&gt;
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cooking_method</span>)
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Filter tránh dị ứng
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">filteredRecipes</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">filteredRecipes</span>.<span style="color:#a6e22e">filter</span>(<span style="color:#a6e22e">recipe</span> =&gt; {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">recipeIngredients</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">ingredients</span> <span style="color:#f92672">||</span> [];
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#f92672">!</span><span style="color:#a6e22e">recipeIngredients</span>.<span style="color:#a6e22e">some</span>(<span style="color:#a6e22e">ing</span> =&gt;
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>.<span style="color:#a6e22e">includes</span>(<span style="color:#a6e22e">ing</span>.<span style="color:#a6e22e">ingredient_name</span>)
+</span></span><span style="display:flex;"><span>      );
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">filteredRecipes</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#a6e22e">limit</span>);
 </span></span><span style="display:flex;"><span>}
 </span></span><span style="display:flex;"><span>
 </span></span><span style="display:flex;"><span><span style="color:#75715e">// Normalize text (bỏ dấu, lowercase)
@@ -538,6 +662,144 @@ Thông tin cá nhân (giới tính, tuổi, quốc gia) Sở thích ẩm thực 
 </span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">normalize</span>(<span style="color:#e6db74">&#39;NFD&#39;</span>)
 </span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">/[\u0300-\u036f]/g</span>, <span style="color:#e6db74">&#39;&#39;</span>)
 </span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">trim</span>();
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>AI Agent Prompt &amp; Privacy Policy:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Generate AI recipe với context đầy đủ + privacy protection
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">generateAIRecipe</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">bedrockClient</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">BedrockRuntimeClient</span>({ <span style="color:#a6e22e">region</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1&#39;</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// ===== PRIVACY POLICY =====
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// Dữ liệu được sử dụng cho personalization:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ✅ Năm sinh (birth_year) - để tính tuổi và khuyến nghị dinh dưỡng phù hợp
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ✅ Giới tính (gender) - để khuyến nghị khẩu phần và dinh dưỡng
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ✅ Quốc gia (country) - để gợi ý món ăn địa phương/quốc gia
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ✅ Sở thích món (preferred_cooking_methods, favorite_cuisines)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ✅ Dị ứng (allergies) - QUAN TRỌNG để an toàn thực phẩm
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">//
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// ❌ KHÔNG sử dụng:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// - Email, số điện thoại, địa chỉ cụ thể
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// - Tên đầy đủ hoặc thông tin định danh cá nhân khác
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">//
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// Mục đích: Cá nhân hóa gợi ý món ăn, KHÔNG theo dõi hoặc khai thác thông tin cá nhân
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Tính tuổi từ năm sinh (nếu có)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">?</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">getFullYear</span>() <span style="color:#f92672">-</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">birth_year</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Tạo prompt cho AI với context đầy đủ
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">prompt</span> <span style="color:#f92672">=</span> <span style="color:#e6db74">`Bạn là một đầu bếp chuyên nghiệp. Hãy tạo một công thức nấu ăn sáng tạo dựa trên thông tin sau:
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Nguyên liệu có sẵn:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">ing</span> =&gt; <span style="color:#e6db74">`- </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">ing</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;\n&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Thông tin người dùng (để cá nhân hóa):**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Tuổi: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> tuổi (khuyến nghị dinh dưỡng phù hợp)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Giới tính: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> (khẩu phần phù hợp)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Quốc gia: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> (gợi ý món địa phương)`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Sở thích món ăn:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Thích: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- Không có sở thích cụ thể&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Món yêu thích quốc gia:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#e6db74">`- Ưu tiên món: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- Không có món quốc gia yêu thích&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Dị ứng (TRÁNH TUYỆT ĐỐI):**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74"></span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">?</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span>.<span style="color:#a6e22e">map</span>(<span style="color:#a6e22e">a</span> =&gt; <span style="color:#e6db74">`- ❌ </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">a</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>).<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;\n&#39;</span>)
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;- Không có dị ứng&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Yêu cầu:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">1. Sử dụng TOÀN BỘ hoặc phần lớn nguyên liệu đã cho
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">2. Nếu người dùng từ </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span><span style="color:#e6db74">}</span><span style="color:#e6db74">, ưu tiên phong cách nấu ăn địa phương
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">3. Nếu thích món </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;/&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">, tạo món theo hướng đó
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">4. Nếu thích </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;/&#39;</span>)<span style="color:#e6db74">}</span><span style="color:#e6db74">, ưu tiên phương pháp đó
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">5. TUYỆT ĐỐI KHÔNG dùng nguyên liệu gây dị ứng: </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">join</span>(<span style="color:#e6db74">&#39;, &#39;</span>) <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Không&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">6. Phù hợp với tuổi </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> tuổi`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;người lớn&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">7. Món ăn sáng tạo, độc đáo, chưa có trong database
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">**Trả về JSON format:**
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">{
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;name&#34;: &#34;Tên món ăn&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cuisine_type&#34;: &#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">?</span>.[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;Vietnamese&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cooking_method&#34;: &#34;</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">preferred_cooking_methods</span><span style="color:#f92672">?</span>.[<span style="color:#ae81ff">0</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;nấu&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;meal_type&#34;: &#34;món chính/món phụ/canh&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;difficulty&#34;: &#34;dễ/trung bình/khó&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;cooking_time&#34;: &#34;30 phút&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;servings&#34;: 2,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;ingredients&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;ingredient_name&#34;: &#34;Tên nguyên liệu&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;quantity&#34;: &#34;100g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;preparation&#34;: &#34;Cắt nhỏ&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  ],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;instructions&#34;: [
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;step_number&#34;: 1,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;description&#34;: &#34;Mô tả bước làm&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">      &#34;duration&#34;: &#34;5 phút&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    }
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  ],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;nutritional_info&#34;: {
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;calories&#34;: 300,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;protein&#34;: &#34;20g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;carbs&#34;: &#34;30g&#34;,
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">    &#34;fat&#34;: &#34;10g&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  },
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;tags&#34;: [&#34;healthy&#34;, &#34;quick&#34;],
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">  &#34;notes&#34;: &#34;Phù hợp cho người </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">age</span><span style="color:#e6db74">}</span><span style="color:#e6db74"> tuổi`</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;người lớn&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">&#34;
+</span></span></span><span style="display:flex;"><span><span style="color:#e6db74">}`</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">bedrockClient</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">InvokeModelCommand</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">modelId</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;anthropic.claude-3-haiku-20240307-v1:0&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">contentType</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">accept</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;application/json&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">body</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">anthropic_version</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bedrock-2023-05-31&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">max_tokens</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">2048</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">messages</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>          {
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;user&#39;</span>,
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">content</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">prompt</span>
+</span></span><span style="display:flex;"><span>          }
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>    }));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">responseBody</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">TextDecoder</span>().<span style="color:#a6e22e">decode</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>));
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipeJSON</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">parse</span>(<span style="color:#a6e22e">responseBody</span>.<span style="color:#a6e22e">content</span>[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">text</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Thêm metadata cho AI-generated recipe
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiRecipe</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      ...<span style="color:#a6e22e">aiRecipeJSON</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_id</span><span style="color:#f92672">:</span> <span style="color:#e6db74">`ai-gen-</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">generateUUID</span>()<span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">source</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ai&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">is_new</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">is_approved</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_by</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;bedrock-ai&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">created_at</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Privacy metadata: Log rằng đã sử dụng thông tin cá nhân (cho audit)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#a6e22e">personalization_used</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">age_range</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">age</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">`</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span><span style="color:#e6db74">}</span><span style="color:#e6db74">-</span><span style="color:#e6db74">${</span>Math.<span style="color:#a6e22e">floor</span>(<span style="color:#a6e22e">age</span> <span style="color:#f92672">/</span> <span style="color:#ae81ff">10</span>) <span style="color:#f92672">*</span> <span style="color:#ae81ff">10</span> <span style="color:#f92672">+</span> <span style="color:#ae81ff">9</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span> <span style="color:#f92672">:</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">gender</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">gender</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">country</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">country</span> <span style="color:#f92672">||</span> <span style="color:#66d9ef">null</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">cuisine_preference</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">cuisine_preference</span> <span style="color:#f92672">||</span> [],
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">allergies_avoided</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userContext</span>.<span style="color:#a6e22e">allergies</span> <span style="color:#f92672">||</span> []
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">aiRecipe</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;AI Recipe Generation Error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Failed to generate AI recipe&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
 </span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Lambda Recipe Rating Handler:</strong></p>
 <div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// Auto-approval dựa trên rating (&gt;= 4 sao)
 </span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">handleRecipeRating</span>(<span style="color:#a6e22e">recipeId</span>, <span style="color:#a6e22e">userId</span>, <span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>, <span style="color:#a6e22e">historyId</span>) {
@@ -1049,6 +1311,7 @@ GET /notifications - Lấy thông báo</code></pre><h2 id="-quyền-riêng-tư--
     </li>
     <li><a href="#-triển-khai-kỹ-thuật">🏗️ TRIỂN KHAI KỸ THUẬT</a>
       <ul>
+        <li><a href="#kiến-trúc-tables--relationships">Kiến Trúc Tables &amp; Relationships</a></li>
         <li><a href="#backend-nodejs-20-lambda-functions">Backend: Node.js 20 Lambda Functions</a></li>
         <li><a href="#cơ-sở-dữ-liệu-amazon-dynamodb">Cơ Sở Dữ Liệu: Amazon DynamoDB</a></li>
         <li><a href="#api-endpoints">API Endpoints</a></li>

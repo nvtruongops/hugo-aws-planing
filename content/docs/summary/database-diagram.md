@@ -8,15 +8,15 @@ weight: 3
 ## ERD (Sơ Đồ Quan Hệ Thực Thể)
 
 ```dbml
-// Bảng Người Dùng
+// Bảng Người Dùng (AI sử dụng: birth_year, gender, country)
 Table users {
   user_id varchar(36) [pk, note: 'UUID từ Cognito']
   email varchar(255) [unique, not null]
   username varchar(50) [unique, not null]
   full_name varchar(100)
-  date_of_birth date
-  gender enum('male', 'female', 'other')
-  country varchar(50)
+  date_of_birth date [note: 'AI dùng để tính tuổi → khuyến nghị dinh dưỡng phù hợp']
+  gender enum('male', 'female', 'other') [note: 'AI dùng để khuyến nghị khẩu phần']
+  country varchar(50) [note: 'AI ưu tiên món ăn địa phương (VD: Vietnam → món Việt)']
   avatar_url varchar(500)
   role enum('user', 'admin') [default: 'user']
   is_active boolean [default: true]
@@ -29,20 +29,38 @@ Table users {
     username
     role
   }
+
+  Note: '''
+  **AI Agent Privacy Policy:**
+  AI chỉ sử dụng: năm sinh (age range), giới tính, quốc gia
+  Mục đích: Cá nhân hóa gợi ý món ăn
+  KHÔNG sử dụng: Email, tên đầy đủ, địa chỉ cụ thể
+  '''
 }
 
-// Tùy Chọn Người Dùng
+// Tùy Chọn Người Dùng (Sử dụng bởi AI Agent)
 Table user_preferences {
   preference_id varchar(36) [pk]
   user_id varchar(36) [ref: > users.user_id, not null]
   dietary_restrictions json [note: 'chay, thuần chay, halal, kosher, v.v.']
-  allergies json [note: 'Danh sách dị ứng']
-  favorite_cuisines json [note: 'Ý, Việt Nam, Nhật Bản, v.v.']
-  preferred_cooking_methods json [note: 'xào, hấp, canh, kho, chiên - ưu tiên khi AI suggest']
+  allergies json [note: 'Danh sách dị ứng - AI TRÁNH TUYỆT ĐỐI các nguyên liệu này']
+  favorite_cuisines json [note: 'Ý, Việt Nam, Nhật Bản - AI ưu tiên món quốc gia này']
+  preferred_cooking_methods json [note: 'xào, hấp, canh, kho, chiên - AI ưu tiên phương pháp này khi suggest']
   preferred_recipe_count int [default: 1, note: '1-5 món muốn nấu mỗi lần, FREE: 1, PREMIUM: 5']
   spice_level enum('none', 'mild', 'medium', 'hot', 'very_hot')
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
+
+  Note: '''
+  **AI Agent sử dụng fields:**
+  - allergies: Filter recipe ingredients (bảo vệ an toàn thực phẩm)
+  - favorite_cuisines: Ưu tiên món Ý/Việt/... (personalization)
+  - preferred_cooking_methods: Ưu tiên canh/hấp/chiên/... (đa dạng món)
+
+  **Privacy Policy:**
+  - Chỉ sử dụng cho personalization gợi ý món ăn
+  - KHÔNG chia sẻ hoặc khai thác thông tin cá nhân
+  '''
 }
 
 // Cài Đặt Quyền Riêng Tư
@@ -265,13 +283,13 @@ Table meal_plan_items {
   }
 }
 
-// Master Ingredients (Danh sách nguyên liệu hợp lệ cho validation)
+// Master Ingredients (Danh sách nguyên liệu hợp lệ cho AI validation)
 Table master_ingredients {
   ingredient_id varchar(36) [pk]
   name varchar(256) [unique, not null]
-  normalized_name varchar(256) [unique, not null, note: 'Không dấu, chữ thường']
+  normalized_name varchar(256) [unique, not null, note: 'Không dấu, chữ thường - cho fuzzy search']
   category varchar(50) [note: 'thịt, rau, gia vị, sữa, v.v.']
-  aliases json [note: 'Các tên gọi khác: ["thịt bò", "bò", "beef"]']
+  aliases json [note: 'Các tên gọi khác: ["thịt bò", "bò", "beef"] - hỗ trợ auto-correct']
   is_active boolean [default: true]
   created_at timestamp [default: `now()`]
   updated_at timestamp [default: `now()`]
@@ -281,6 +299,20 @@ Table master_ingredients {
     category
     is_active
   }
+
+  Note: '''
+  **AI Agent Validation Flow:**
+  1. User nhập nguyên liệu → normalize (bỏ dấu, lowercase)
+  2. Check exact match với normalized_name
+  3. Nếu không match → fuzzy search trong aliases
+  4. Nếu vẫn không → gợi ý nguyên liệu tương tự (category match)
+  5. Log invalid ingredients → report cho admin
+
+  **Kết nối với AI Agent:**
+  - validateIngredientsWithMaster() function
+  - Tránh AI hallucination về tên nguyên liệu
+  - Đảm bảo recipe accuracy
+  '''
 }
 
 // Nhật Ký Hoạt Động Người Dùng (Enhanced với invalid ingredient tracking)
