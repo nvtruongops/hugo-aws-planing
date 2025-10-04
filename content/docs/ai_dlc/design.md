@@ -1,3 +1,10 @@
+---
+title: "Design"
+menu:
+  ai_dlc:
+    parent: ai_dlc
+    weight: 1
+---
 # Design Document - Smart Cooking MVP
 
 ## Overview
@@ -997,6 +1004,340 @@ Admin Functions:
 
 Runtime: Node.js 20 (all functions)
 ```
+
+## Social Features Architecture
+
+### 5. Privacy & Access Control System
+
+**Purpose:** User-controlled data visibility with friend-based access levels
+
+**Privacy Levels:**
+- **Public:** Visible to all users
+- **Friends:** Visible to accepted friends only
+- **Private:** Visible to user only
+
+**Data Models:**
+
+```json
+{
+  "PK": "USER#<user_id>",
+  "SK": "PRIVACY",
+  "entity_type": "PRIVACY_SETTINGS",
+  "profile_visibility": "public",
+  "email_visibility": "private",
+  "date_of_birth_visibility": "friends",
+  "recipes_visibility": "public",
+  "ingredients_visibility": "friends",
+  "preferences_visibility": "friends"
+}
+```
+
+**Privacy Filtering Middleware:**
+```javascript
+async function applyPrivacyFilter(requestingUserId, targetUserId, data) {
+  // Get privacy settings for target user
+  const privacySettings = await getPrivacySettings(targetUserId);
+
+  // Check friendship status
+  const areFriends = await checkFriendship(requestingUserId, targetUserId);
+
+  // Filter data based on privacy rules
+  return Object.keys(data).reduce((filtered, key) => {
+    const visibility = privacySettings[`${key}_visibility`];
+
+    if (visibility === 'public') {
+      filtered[key] = data[key];
+    } else if (visibility === 'friends' && areFriends) {
+      filtered[key] = data[key];
+    } else if (visibility === 'private' && requestingUserId === targetUserId) {
+      filtered[key] = data[key];
+    }
+
+    return filtered;
+  }, {});
+}
+```
+
+### 6. Friends System
+
+**Purpose:** Bidirectional friendship management with request/accept workflow
+
+**Data Model:**
+```json
+{
+  "PK": "USER#<user_id>",
+  "SK": "FRIEND#<friend_id>",
+  "entity_type": "FRIENDSHIP",
+  "friendship_id": "uuid-505",
+  "user_id": "uuid-123",
+  "friend_id": "uuid-456",
+  "status": "accepted",
+  "requested_at": "2025-01-18T10:00:00Z",
+  "responded_at": "2025-01-18T14:00:00Z",
+  "GSI1PK": "USER#uuid-456",
+  "GSI1SK": "FRIEND#uuid-123"
+}
+```
+
+**Friendship Workflow:**
+```mermaid
+sequenceDiagram
+    participant UserA
+    participant API
+    participant DDB
+    participant UserB
+
+    UserA->>API: POST /friends/request {friend_id: UserB}
+    API->>DDB: Create friendship (status: pending)
+    API->>DDB: Create reverse friendship (GSI1)
+    API->>UserB: Send notification
+    API-->>UserA: Request sent
+
+    UserB->>API: PUT /friends/{id}/accept
+    API->>DDB: Update status = accepted
+    API->>UserA: Send notification
+    API-->>UserB: Friendship established
+```
+
+**Access Patterns:**
+- List friends: `PK=USER#<id>, SK begins_with FRIEND#, Filter status=accepted`
+- Pending requests: `PK=USER#<id>, SK begins_with FRIEND#, Filter status=pending`
+- Reverse lookup: `GSI1PK=USER#<id>, SK begins_with FRIEND#`
+
+### 7. Social Feed & Posts System
+
+**Purpose:** Share cooking experiences with friends and public community
+
+**Data Models:**
+
+**Post:**
+```json
+{
+  "PK": "POST#<post_id>",
+  "SK": "METADATA",
+  "entity_type": "POST",
+  "post_id": "uuid-606",
+  "user_id": "uuid-123",
+  "recipe_id": "uuid-101",
+  "content": "Vừa nấu món này, rất ngon!",
+  "images": ["https://s3.../post1.jpg"],
+  "is_public": true,
+  "likes_count": 15,
+  "comments_count": 3,
+  "created_at": "2025-01-20T20:00:00Z",
+  "GSI1PK": "USER#uuid-123",
+  "GSI1SK": "POST#2025-01-20T20:00:00Z",
+  "GSI3PK": "FEED#PUBLIC",
+  "GSI3SK": "POST#2025-01-20T20:00:00Z"
+}
+```
+
+**Comment:**
+```json
+{
+  "PK": "POST#<post_id>",
+  "SK": "COMMENT#2025-01-20T21:00:00Z#<comment_id>",
+  "entity_type": "COMMENT",
+  "comment_id": "uuid-707",
+  "user_id": "uuid-456",
+  "parent_comment_id": null,
+  "content": "Trông rất ngon!",
+  "created_at": "2025-01-20T21:00:00Z",
+  "GSI1PK": "USER#uuid-456",
+  "GSI1SK": "COMMENT#2025-01-20T21:00:00Z"
+}
+```
+
+**Reaction:**
+```json
+{
+  "PK": "POST#<post_id>",
+  "SK": "REACTION#<user_id>",
+  "entity_type": "REACTION",
+  "user_id": "uuid-456",
+  "reaction_type": "like",
+  "created_at": "2025-01-20T21:30:00Z"
+}
+```
+
+**Feed Generation Algorithm:**
+```javascript
+async function generatePersonalizedFeed(userId, limit = 20) {
+  // Get user's friends list
+  const friends = await getFriends(userId);
+
+  // Query posts from friends (GSI1: USER#<friend_id>)
+  const friendPosts = await Promise.all(
+    friends.map(friend => getUserPosts(friend.id, limit))
+  );
+
+  // Query public posts (GSI3: FEED#PUBLIC)
+  const publicPosts = await getPublicPosts(limit);
+
+  // Merge and sort by created_at DESC
+  const allPosts = [...friendPosts.flat(), ...publicPosts]
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .slice(0, limit);
+
+  // Apply privacy filtering
+  return await Promise.all(
+    allPosts.map(post => applyPrivacyFilter(userId, post.user_id, post))
+  );
+}
+```
+
+### 8. Notifications System
+
+**Purpose:** Real-time notifications for social interactions and system events
+
+**Data Model:**
+```json
+{
+  "PK": "USER#<user_id>",
+  "SK": "NOTIFICATION#2025-01-20T21:00:00Z#<notification_id>",
+  "entity_type": "NOTIFICATION",
+  "notification_id": "uuid-909",
+  "user_id": "uuid-123",
+  "actor_id": "uuid-456",
+  "type": "comment",
+  "target_type": "post",
+  "target_id": "uuid-606",
+  "content": "John commented on your post",
+  "is_read": false,
+  "created_at": "2025-01-20T21:00:00Z",
+  "ttl": 1706097600,
+  "GSI1PK": "USER#uuid-123#UNREAD",
+  "GSI1SK": "NOTIFICATION#2025-01-20T21:00:00Z"
+}
+```
+
+**Notification Types:**
+- `friend_request`: New friend request received
+- `friend_accept`: Friend request accepted
+- `comment`: Someone commented on your post
+- `like`: Someone liked your post/comment
+- `mention`: Someone mentioned you in a comment
+- `recipe_approved`: Your recipe was auto-approved
+- `recipe_share`: Friend shared a recipe
+
+**DynamoDB Streams Trigger:**
+```javascript
+exports.handler = async (event) => {
+  for (const record of event.Records) {
+    if (record.eventName === 'INSERT') {
+      const newItem = record.dynamodb.NewImage;
+
+      // Create notification based on event type
+      if (newItem.entity_type.S === 'COMMENT') {
+        await createNotification({
+          userId: newItem.post_owner_id.S,
+          actorId: newItem.user_id.S,
+          type: 'comment',
+          targetType: 'post',
+          targetId: newItem.post_id.S,
+          content: `${actorName} commented on your post`
+        });
+      }
+
+      // Similar logic for likes, friend requests, etc.
+    }
+  }
+};
+```
+
+**TTL Cleanup:**
+- Notifications auto-deleted after 30 days
+- TTL attribute: `Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)`
+- When notification is read, update GSI1PK to remove from UNREAD index
+
+### GSI3: Social Feed Index
+
+```
+GSI3PK: Feed type
+GSI3SK: Timestamp
+
+Use Cases:
+  - FEED#PUBLIC → Public posts (explore feed)
+  - FEED#<user_id> → User's personalized feed
+```
+
+**Projection**: ALL (include all attributes)
+
+## Build & Deployment Configuration
+
+### Frontend Build Process
+
+**Next.js Static Export:**
+- Configure `output: 'export'` in next.config.js for static site generation
+- Build command: `npm run build` → generates static files in `/out` directory
+- Environment variables management for dev/staging/prod environments
+- Build optimizations: minification, compression, tree shaking enabled
+- Local testing of static export to verify all pages render correctly
+
+**S3 Static Hosting:**
+- S3 bucket with public read access for static website hosting
+- Static website hosting enabled with index.html and error.html configuration
+- Bucket policy allowing public GetObject for website files
+- CORS configuration for API calls from frontend
+- Bucket versioning enabled for rollback capability
+
+**CloudFront Distribution:**
+- CloudFront distribution with S3 bucket as origin
+- Custom domain configured via Route 53 DNS records
+- SSL/TLS certificate from ACM (us-east-1 region)
+- Cache behaviors: cache static assets, no-cache for HTML files
+- Custom error pages: 404 → index.html for SPA routing support
+- Compression enabled (gzip, brotli) for performance
+
+### CI/CD Pipeline
+
+**GitHub Actions Workflow:**
+- Workflow file: `.github/workflows/deploy.yml`
+- Build job: install dependencies → run tests → build static export
+- Deploy job: upload build artifacts to S3 with AWS credentials
+- CloudFront cache invalidation after successful deployment
+- Deployment notifications (success/failure) to team communication channels
+- Separate workflows for dev, staging, and production branches
+
+**Backend Lambda Deployment:**
+- CDK deployment script for all Lambda functions
+- Lambda layers for shared dependencies (AWS SDK, utilities)
+- Automated build and packaging for Lambda code (zip/container)
+- Blue-green deployment strategy for zero-downtime updates
+- Lambda versioning and aliases (dev, staging, prod)
+- CloudFormation stack update automation via GitHub Actions
+
+### Deployment Verification
+
+**Health Checks:**
+- Smoke tests for critical API endpoints after deployment
+- Health check API: GET /health (checks DB, Bedrock, S3 connectivity)
+- Post-deployment verification script testing core user flows
+- Rollback triggers if health checks fail
+- Deployment status reporting to monitoring dashboard
+
+**Deployment Alerts:**
+- SNS topics for deployment events (started, success, failed)
+- CloudWatch alarms for deployment-related errors
+- Slack/email notifications for deployment status
+- Deployment metrics tracking (frequency, duration, success rate)
+- Automated rollback notifications to team
+
+### Production Readiness
+
+**Production Environment Setup:**
+- Complete infrastructure deployment to production AWS account via CDK
+- Production-grade DynamoDB with point-in-time recovery
+- Production Cognito User Pool with MFA options
+- AWS WAF rules enabled for production API Gateway and CloudFront
+- Production SSL certificates and custom domain configured
+
+**Go-Live Preparation:**
+- Complete deployment to staging environment for dry run
+- Full end-to-end testing in staging (all user flows)
+- Monitoring dashboards and alerts verification
+- Rollback procedure testing in staging environment
+- Issue documentation and mitigation plan creation
 
 ### Shared Utilities
 

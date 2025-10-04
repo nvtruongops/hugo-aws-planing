@@ -3,3 +3,5 @@ languageCode = 'en-us'
 title = 'Together'
 theme = 'hugo-book'
 ignoreLogs = ['warning-goldmark-raw-html']
+
+includeConfig = ["config.menu.toml"]

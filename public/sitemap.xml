@@ -2,63 +2,61 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://example.org/docs/dlc/00-overview/</loc>
+    <loc>https://example.org/docs/summary/00-overview/</loc>
   </url><url>
-    <loc>https://example.org/docs/summary/aws-services-diagram/</loc>
+    <loc>https://example.org/docs/ai_dlc/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/01-requirements/</loc>
+    <loc>https://example.org/docs/summary/01-requirements/</loc>
   </url><url>
-    <loc>https://example.org/docs/summary/ai-agent-implementation/</loc>
+    <loc>https://example.org/docs/summary/02-constraints/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/02-constraints/</loc>
-  </url><url>
-    <loc>https://example.org/docs/summary/database-diagram/</loc>
-  </url><url>
-    <loc>https://example.org/docs/summary/cost-analysis/</loc>
+    <loc>https://example.org/docs/summary/10-architecture/</loc>
   </url><url>
     <loc>https://example.org/docs/summary/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/10-architecture/</loc>
+    <loc>https://example.org/docs/summary/11-database/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/</loc>
+    <loc>https://example.org/docs/summary/12-api-spec/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/11-database/</loc>
+    <loc>https://example.org/docs/summary/13-security/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/12-api-spec/</loc>
+    <loc>https://example.org/docs/summary/14-ai-agent/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/13-security/</loc>
+    <loc>https://example.org/docs/summary/20-backend/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/14-ai-agent/</loc>
+    <loc>https://example.org/docs/summary/21-frontend/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/20-backend/</loc>
+    <loc>https://example.org/docs/summary/22-devops/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/21-frontend/</loc>
+    <loc>https://example.org/docs/summary/23-tasks/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/22-devops/</loc>
+    <loc>https://example.org/docs/summary/30-cost-analysis/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/23-tasks/</loc>
+    <loc>https://example.org/docs/summary/31-scaling/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/30-cost-analysis/</loc>
+    <loc>https://example.org/docs/summary/32-monitoring/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/31-scaling/</loc>
+    <loc>https://example.org/docs/summary/40-auth/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/32-monitoring/</loc>
+    <loc>https://example.org/docs/summary/41-privacy/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/40-auth/</loc>
+    <loc>https://example.org/docs/summary/42-compliance/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/41-privacy/</loc>
+    <loc>https://example.org/docs/summary/99-glossary/</loc>
   </url><url>
-    <loc>https://example.org/docs/dlc/42-compliance/</loc>
-  </url><url>
-    <loc>https://example.org/docs/dlc/99-glossary/</loc>
-  </url><url>
-    <loc>https://example.org/docs/dlc/99-references/</loc>
+    <loc>https://example.org/docs/summary/99-references/</loc>
   </url><url>
     <loc>https://example.org/categories/</loc>
   </url><url>
+    <loc>https://example.org/docs/ai_dlc/design/</loc>
+  </url><url>
     <loc>https://example.org/docs/</loc>
   </url><url>
+    <loc>https://example.org/docs/ai_dlc/requirements/</loc>
+  </url><url>
     <loc>https://example.org/tags/</loc>
+  </url><url>
+    <loc>https://example.org/docs/ai_dlc/tasks/</loc>
   </url><url>
     <loc>https://example.org/</loc>
   </url>

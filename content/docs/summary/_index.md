@@ -1,5 +1,5 @@
 ---
-title: "AI DLC"
+title: "Summary"
 weight: 10
 bookCollapseSection: false
 ---

@@ -8,22 +8,54 @@ https://github.com/alex-shpak/hugo-book
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Project Summary#
-Tóm tắt tổng quan về dự án Together Smart Cooking App.
-Nội dung Summary#
+<meta name="description" content="AI DLC - Together Smart Cooking App#
+Tài liệu chi tiết về dự án Together - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.
+Cấu trúc tài liệu#
+Project Foundation (00-02)#
 
-AWS Services Diagram - Sơ đồ dịch vụ AWS
-Database Diagram - Sơ đồ cơ sở dữ liệu
-AI Agent Implementation - Triển khai AI Agent
-Cost Analysis - Phân tích chi phí
+00 - Overview - Tổng quan dự án
+01 - Requirements - Yêu cầu chức năng &amp; phi chức năng
+02 - Constraints - Ràng buộc dự án
+
+Design &amp; Architecture (10-14)#
+
+10 - Architecture - Kiến trúc hệ thống
+11 - Database - Thiết kế cơ sở dữ liệu
+12 - API Spec - Đặc tả API
+13 - Security - Bảo mật hệ thống
+14 - AI Agent - Thiết kế AI Agent
+
+Implementation (20-23)#
+
+20 - Backend - Triển khai Backend
+21 - Frontend - Triển khai Frontend
+22 - DevOps - DevOps &amp; CI/CD
+23 - Tasks - Phân chia công việc
+
+Cost &amp; Operation (30-32)#
+
+30 - Cost Analysis - Phân tích chi phí
+31 - Scaling - Chiến lược mở rộng
+32 - Monitoring - Giám sát hệ thống
+
+User &amp; Privacy (40-42)#
+
+40 - Auth - Xác thực người dùng
+41 - Privacy - Cài đặt quyền riêng tư
+42 - Compliance - Tuân thủ GDPR
+
+Appendix (99-xx)#
+
+99 - Glossary - Thuật ngữ
+99 - References - Tài liệu tham khảo
 ">
 <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
 <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
 <meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/">
   <meta property="og:site_name" content="Together">
   <meta property="og:title" content="Summary">
-  <meta property="og:description" content="Project Summary#Tóm tắt tổng quan về dự án Together Smart Cooking App.
-Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Diagram - Sơ đồ cơ sở dữ liệu AI Agent Implementation - Triển khai AI Agent Cost Analysis - Phân tích chi phí">
+  <meta property="og:description" content="AI DLC - Together Smart Cooking App#Tài liệu chi tiết về dự án Together - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.
+Cấu trúc tài liệu#Project Foundation (00-02)#00 - Overview - Tổng quan dự án 01 - Requirements - Yêu cầu chức năng &amp; phi chức năng 02 - Constraints - Ràng buộc dự án Design &amp; Architecture (10-14)#10 - Architecture - Kiến trúc hệ thống 11 - Database - Thiết kế cơ sở dữ liệu 12 - API Spec - Đặc tả API 13 - Security - Bảo mật hệ thống 14 - AI Agent - Thiết kế AI Agent Implementation (20-23)#20 - Backend - Triển khai Backend 21 - Frontend - Triển khai Frontend 22 - DevOps - DevOps &amp; CI/CD 23 - Tasks - Phân chia công việc Cost &amp; Operation (30-32)#30 - Cost Analysis - Phân tích chi phí 31 - Scaling - Chiến lược mở rộng 32 - Monitoring - Giám sát hệ thống User &amp; Privacy (40-42)#40 - Auth - Xác thực người dùng 41 - Privacy - Cài đặt quyền riêng tư 42 - Compliance - Tuân thủ GDPR Appendix (99-xx)#99 - Glossary - Thuật ngữ 99 - References - Tài liệu tham khảo">
   <meta property="og:locale" content="en_us">
   <meta property="og:type" content="website">
 <title>Summary | Together</title>
@@ -34,7 +66,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
 
 
   <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.a12a0edc5979b40b3a21762e87b6bf03e2526b9cde0291a4eb1be5a9403b30b3.js" integrity="sha256-oSoO3Fl5tAs6IXYuh7a/A&#43;JSa5zeApGk6xvlqUA7MLM=" crossorigin="anonymous"></script>
+  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
 <link rel="alternate" type="application/rss+xml" href="https://example.org/docs/summary/index.xml" title="Together" />
 
   
@@ -84,8 +116,12 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/summary/" class="active">
-      Summary</a>
+    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle"  />
+    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
+      <a href="/docs/ai_dlc/" class="">
+        AI DLC</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" />
+    </label>
   
 
           
@@ -98,8 +134,8 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/summary/aws-services-diagram/" class="">
-      AWS Services Architecture Diagram</a>
+    <a href="/docs/ai_dlc/design/" class="">
+      Design</a>
   
 
         </li>
@@ -112,8 +148,8 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/summary/ai-agent-implementation/" class="">
-      Kế Hoạch Triển Khai AI Agent</a>
+    <a href="/docs/ai_dlc/requirements/" class="">
+      Requirements</a>
   
 
         </li>
@@ -126,22 +162,8 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/summary/database-diagram/" class="">
-      Database Schema Diagram</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/cost-analysis/" class="">
-      Phân Tích Chi Phí</a>
+    <a href="/docs/ai_dlc/tasks/" class="">
+      Tasks</a>
   
 
         </li>
@@ -159,8 +181,8 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/" class="">
-      AI DLC</a>
+    <a href="/docs/summary/" class="active">
+      Summary</a>
   
 
           
@@ -173,7 +195,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/00-overview/" class="">
+    <a href="/docs/summary/00-overview/" class="">
       00 - Project Overview</a>
   
 
@@ -187,7 +209,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/01-requirements/" class="">
+    <a href="/docs/summary/01-requirements/" class="">
       01 - Requirements</a>
   
 
@@ -201,7 +223,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/02-constraints/" class="">
+    <a href="/docs/summary/02-constraints/" class="">
       02 - Constraints</a>
   
 
@@ -215,7 +237,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/10-architecture/" class="">
+    <a href="/docs/summary/10-architecture/" class="">
       10 - Architecture</a>
   
 
@@ -229,7 +251,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/11-database/" class="">
+    <a href="/docs/summary/11-database/" class="">
       11 - Database Design</a>
   
 
@@ -243,7 +265,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/12-api-spec/" class="">
+    <a href="/docs/summary/12-api-spec/" class="">
       12 - API Specification</a>
   
 
@@ -257,7 +279,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/13-security/" class="">
+    <a href="/docs/summary/13-security/" class="">
       13 - Security</a>
   
 
@@ -271,7 +293,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/14-ai-agent/" class="">
+    <a href="/docs/summary/14-ai-agent/" class="">
       14 - AI Agent Design</a>
   
 
@@ -285,7 +307,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/20-backend/" class="">
+    <a href="/docs/summary/20-backend/" class="">
       20 - Backend Implementation</a>
   
 
@@ -299,7 +321,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/21-frontend/" class="">
+    <a href="/docs/summary/21-frontend/" class="">
       21 - Frontend Implementation</a>
   
 
@@ -313,7 +335,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/22-devops/" class="">
+    <a href="/docs/summary/22-devops/" class="">
       22 - DevOps &amp; Deployment</a>
   
 
@@ -327,7 +349,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/23-tasks/" class="">
+    <a href="/docs/summary/23-tasks/" class="">
       23 - Implementation Tasks</a>
   
 
@@ -341,7 +363,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/30-cost-analysis/" class="">
+    <a href="/docs/summary/30-cost-analysis/" class="">
       30 - Cost Analysis</a>
   
 
@@ -355,7 +377,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/31-scaling/" class="">
+    <a href="/docs/summary/31-scaling/" class="">
       31 - Scaling Strategy</a>
   
 
@@ -369,7 +391,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/32-monitoring/" class="">
+    <a href="/docs/summary/32-monitoring/" class="">
       32 - Monitoring &amp; Observability</a>
   
 
@@ -383,7 +405,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/40-auth/" class="">
+    <a href="/docs/summary/40-auth/" class="">
       40 - Authentication &amp; Authorization</a>
   
 
@@ -397,7 +419,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/41-privacy/" class="">
+    <a href="/docs/summary/41-privacy/" class="">
       41 - Privacy &amp; Data Protection</a>
   
 
@@ -411,7 +433,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/42-compliance/" class="">
+    <a href="/docs/summary/42-compliance/" class="">
       42 - Compliance &amp; Governance</a>
   
 
@@ -425,7 +447,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/99-glossary/" class="">
+    <a href="/docs/summary/99-glossary/" class="">
       99 - Glossary</a>
   
 
@@ -439,7 +461,7 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 
   
-    <a href="/docs/dlc/99-references/" class="">
+    <a href="/docs/summary/99-references/" class="">
       99 - References</a>
   
 
@@ -502,7 +524,16 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 <nav id="TableOfContents">
   <ul>
-    <li><a href="#nội-dung-summary">Nội dung Summary</a></li>
+    <li><a href="#cấu-trúc-tài-liệu">Cấu trúc tài liệu</a>
+      <ul>
+        <li><a href="#project-foundation-00-02">Project Foundation (00-02)</a></li>
+        <li><a href="#design--architecture-10-14">Design &amp; Architecture (10-14)</a></li>
+        <li><a href="#implementation-20-23">Implementation (20-23)</a></li>
+        <li><a href="#cost--operation-30-32">Cost &amp; Operation (30-32)</a></li>
+        <li><a href="#user--privacy-40-42">User &amp; Privacy (40-42)</a></li>
+        <li><a href="#appendix-99-xx">Appendix (99-xx)</a></li>
+      </ul>
+    </li>
   </ul>
 </nav>
 
@@ -515,14 +546,46 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
 
       
       
-  <article class="markdown book-article"><h1 id="project-summary">Project Summary<a class="anchor" href="#project-summary">#</a></h1>
-<p>Tóm tắt tổng quan về dự án <strong>Together</strong> Smart Cooking App.</p>
-<h2 id="nội-dung-summary">Nội dung Summary<a class="anchor" href="#n%e1%bb%99i-dung-summary">#</a></h2>
+  <article class="markdown book-article"><h1 id="ai-dlc---together-smart-cooking-app">AI DLC - Together Smart Cooking App<a class="anchor" href="#ai-dlc---together-smart-cooking-app">#</a></h1>
+<p>Tài liệu chi tiết về dự án <strong>Together</strong> - hệ thống gợi ý công thức nấu ăn thông minh với AI Agent trên AWS.</p>
+<h2 id="cấu-trúc-tài-liệu">Cấu trúc tài liệu<a class="anchor" href="#c%e1%ba%a5u-tr%c3%bac-t%c3%a0i-li%e1%bb%87u">#</a></h2>
+<h3 id="project-foundation-00-02">Project Foundation (00-02)<a class="anchor" href="#project-foundation-00-02">#</a></h3>
 <ul>
-<li><a href="aws-services-diagram">AWS Services Diagram</a> - Sơ đồ dịch vụ AWS</li>
-<li><a href="database-diagram">Database Diagram</a> - Sơ đồ cơ sở dữ liệu</li>
-<li><a href="ai-agent-implementation">AI Agent Implementation</a> - Triển khai AI Agent</li>
-<li><a href="cost-analysis">Cost Analysis</a> - Phân tích chi phí</li>
+<li><a href="00-overview">00 - Overview</a> - Tổng quan dự án</li>
+<li><a href="01-requirements">01 - Requirements</a> - Yêu cầu chức năng &amp; phi chức năng</li>
+<li><a href="02-constraints">02 - Constraints</a> - Ràng buộc dự án</li>
+</ul>
+<h3 id="design--architecture-10-14">Design &amp; Architecture (10-14)<a class="anchor" href="#design--architecture-10-14">#</a></h3>
+<ul>
+<li><a href="10-architecture">10 - Architecture</a> - Kiến trúc hệ thống</li>
+<li><a href="11-database">11 - Database</a> - Thiết kế cơ sở dữ liệu</li>
+<li><a href="12-api-spec">12 - API Spec</a> - Đặc tả API</li>
+<li><a href="13-security">13 - Security</a> - Bảo mật hệ thống</li>
+<li><a href="14-ai-agent">14 - AI Agent</a> - Thiết kế AI Agent</li>
+</ul>
+<h3 id="implementation-20-23">Implementation (20-23)<a class="anchor" href="#implementation-20-23">#</a></h3>
+<ul>
+<li><a href="20-backend">20 - Backend</a> - Triển khai Backend</li>
+<li><a href="21-frontend">21 - Frontend</a> - Triển khai Frontend</li>
+<li><a href="22-devops">22 - DevOps</a> - DevOps &amp; CI/CD</li>
+<li><a href="23-tasks">23 - Tasks</a> - Phân chia công việc</li>
+</ul>
+<h3 id="cost--operation-30-32">Cost &amp; Operation (30-32)<a class="anchor" href="#cost--operation-30-32">#</a></h3>
+<ul>
+<li><a href="30-cost-analysis">30 - Cost Analysis</a> - Phân tích chi phí</li>
+<li><a href="31-scaling">31 - Scaling</a> - Chiến lược mở rộng</li>
+<li><a href="32-monitoring">32 - Monitoring</a> - Giám sát hệ thống</li>
+</ul>
+<h3 id="user--privacy-40-42">User &amp; Privacy (40-42)<a class="anchor" href="#user--privacy-40-42">#</a></h3>
+<ul>
+<li><a href="40-auth">40 - Auth</a> - Xác thực người dùng</li>
+<li><a href="41-privacy">41 - Privacy</a> - Cài đặt quyền riêng tư</li>
+<li><a href="42-compliance">42 - Compliance</a> - Tuân thủ GDPR</li>
+</ul>
+<h3 id="appendix-99-xx">Appendix (99-xx)<a class="anchor" href="#appendix-99-xx">#</a></h3>
+<ul>
+<li><a href="99-glossary">99 - Glossary</a> - Thuật ngữ</li>
+<li><a href="99-references">99 - References</a> - Tài liệu tham khảo</li>
 </ul>
 </article>
  
@@ -552,12 +615,17 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   <div class="flex flex-wrap justify-between">
     <span>
     
+      <a href="/docs/ai_dlc/tasks/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="Tasks" />
+        <span>Tasks</span>
+      </a>
+    
     </span>
     <span>
     
-      <a href="/docs/summary/aws-services-diagram/" class="flex align-center">
-        <span>AWS Services Architecture Diagram</span>
-        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="AWS Services Architecture Diagram" />
+      <a href="/docs/summary/00-overview/" class="flex align-center">
+        <span>00 - Project Overview</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="00 - Project Overview" />
       </a>
     
     </span>
@@ -595,7 +663,16 @@ Nội dung Summary#AWS Services Diagram - Sơ đồ dịch vụ AWS Database Di
   
 <nav id="TableOfContents">
   <ul>
-    <li><a href="#nội-dung-summary">Nội dung Summary</a></li>
+    <li><a href="#cấu-trúc-tài-liệu">Cấu trúc tài liệu</a>
+      <ul>
+        <li><a href="#project-foundation-00-02">Project Foundation (00-02)</a></li>
+        <li><a href="#design--architecture-10-14">Design &amp; Architecture (10-14)</a></li>
+        <li><a href="#implementation-20-23">Implementation (20-23)</a></li>
+        <li><a href="#cost--operation-30-32">Cost &amp; Operation (30-32)</a></li>
+        <li><a href="#user--privacy-40-42">User &amp; Privacy (40-42)</a></li>
+        <li><a href="#appendix-99-xx">Appendix (99-xx)</a></li>
+      </ul>
+    </li>
   </ul>
 </nav>
 

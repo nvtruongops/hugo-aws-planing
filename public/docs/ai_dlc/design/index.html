@@ -1,0 +1,1783 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Design Document - Smart Cooking MVP#
+Overview#
+Smart Cooking MVP là một ứng dụng nấu ăn thông minh sử dụng kiến trúc serverless trên AWS với AI engine để gợi ý công thức dựa trên nguyên liệu có sẵn. Hệ thống áp dụng chiến lược flexible mix giữa database và AI generation để tối ưu chi phí và chất lượng, kết hợp với community-driven auto-approval system.
+Architecture#
+High-Level Architecture#
+graph TB
+    subgraph &#34;Client Layer&#34;
+        Web[Next.js Web App&lt;br/&gt;Responsive Design]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CF[CloudFront CDN&lt;br/&gt;Global Distribution]
+        S3[S3 Static Hosting&lt;br/&gt;Next.js Build Output]
+        R53[Route 53&lt;br/&gt;Custom Domain]
+    end
+
+    subgraph &#34;API Gateway&#34;
+        APIGW[API Gateway&lt;br/&gt;REST API &#43; CORS]
+        Auth[Cognito Authorizer&lt;br/&gt;JWT Validation]
+        WAF[AWS WAF&lt;br/&gt;Security Rules]
+    end
+
+    subgraph &#34;Lambda Functions&#34;
+        L1[auth-handler&lt;br/&gt;256MB, 10s]
+        L2[ai-suggestion&lt;br/&gt;1024MB, 60s]
+        L3[cooking-history&lt;br/&gt;256MB, 10s]
+        L4[rating-handler&lt;br/&gt;256MB, 10s]
+        L5[ingredient-validator&lt;br/&gt;256MB, 10s]
+        L6[recipe-crud&lt;br/&gt;512MB, 30s]
+        L7[user-profile&lt;br/&gt;256MB, 10s]
+    end
+
+    subgraph &#34;AI &amp; Data&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3 Haiku]
+        DDB[(DynamoDB&lt;br/&gt;Single Table Design)]
+        S3[(S3 Bucket&lt;br/&gt;Recipe Images)]
+    end
+
+    subgraph &#34;Monitoring&#34;
+        CW[CloudWatch&lt;br/&gt;Logs &#43; Metrics]
+        XRay[X-Ray Tracing&lt;br/&gt;Performance]
+    end
+
+    Web --&gt; CF
+    CF --&gt; S3
+    CF --&gt; APIGW
+    R53 --&gt; CF
+    APIGW --&gt; WAF
+    WAF --&gt; Auth
+    Auth --&gt; L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7
+
+    L2 --&gt; Bedrock
+    L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 --&gt; DDB
+    L6 --&gt; S3
+
+    L2 &amp; L3 &amp; L4 --&gt; CW
+    APIGW --&gt; XRayTechnology Stack#
+Frontend:">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/ai_dlc/design/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="Design">
+  <meta property="og:description" content="Design Document - Smart Cooking MVP#Overview#Smart Cooking MVP là một ứng dụng nấu ăn thông minh sử dụng kiến trúc serverless trên AWS với AI engine để gợi ý công thức dựa trên nguyên liệu có sẵn. Hệ thống áp dụng chiến lược flexible mix giữa database và AI generation để tối ưu chi phí và chất lượng, kết hợp với community-driven auto-approval system.
+Architecture#High-Level Architecture#graph TBsubgraph &#34;Client Layer&#34;Web[Next.js Web App&lt;br/&gt;Responsive Design]endsubgraph &#34;CDN &amp; Hosting&#34;CF[CloudFront CDN&lt;br/&gt;Global Distribution]S3[S3 Static Hosting&lt;br/&gt;Next.js Build Output]R53[Route 53&lt;br/&gt;Custom Domain]endsubgraph &#34;API Gateway&#34;APIGW[API Gateway&lt;br/&gt;REST API &#43; CORS]Auth[Cognito Authorizer&lt;br/&gt;JWT Validation]WAF[AWS WAF&lt;br/&gt;Security Rules]endsubgraph &#34;Lambda Functions&#34;L1[auth-handler&lt;br/&gt;256MB, 10s]L2[ai-suggestion&lt;br/&gt;1024MB, 60s]L3[cooking-history&lt;br/&gt;256MB, 10s]L4[rating-handler&lt;br/&gt;256MB, 10s]L5[ingredient-validator&lt;br/&gt;256MB, 10s]L6[recipe-crud&lt;br/&gt;512MB, 30s]L7[user-profile&lt;br/&gt;256MB, 10s]endsubgraph &#34;AI &amp; Data&#34;Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3 Haiku]DDB[(DynamoDB&lt;br/&gt;Single Table Design)]S3[(S3 Bucket&lt;br/&gt;Recipe Images)]endsubgraph &#34;Monitoring&#34;CW[CloudWatch&lt;br/&gt;Logs &#43; Metrics]XRay[X-Ray Tracing&lt;br/&gt;Performance]endWeb --&gt; CFCF --&gt; S3CF --&gt; APIGWR53 --&gt; CFAPIGW --&gt; WAFWAF --&gt; AuthAuth --&gt; L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7L2 --&gt; BedrockL1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 --&gt; DDBL6 --&gt; S3L2 &amp; L3 &amp; L4 --&gt; CWAPIGW --&gt; XRayTechnology Stack#Frontend:">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>Design | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/ai_dlc/design/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle" checked />
+    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
+      <a href="/docs/ai_dlc/" class="">
+        AI DLC</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/design/" class="active">
+      Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/requirements/" class="">
+      Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/tasks/" class="">
+      Tasks</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>Design</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#architecture">Architecture</a>
+      <ul>
+        <li><a href="#high-level-architecture">High-Level Architecture</a></li>
+        <li><a href="#technology-stack">Technology Stack</a></li>
+      </ul>
+    </li>
+    <li><a href="#components-and-interfaces">Components and Interfaces</a>
+      <ul>
+        <li><a href="#1-ai-suggestion-engine-core-component">1. AI Suggestion Engine (Core Component)</a></li>
+        <li><a href="#2-auto-approval-system">2. Auto-Approval System</a></li>
+        <li><a href="#3-ingredient-validation-system">3. Ingredient Validation System</a></li>
+        <li><a href="#4-cooking-history-tracker">4. Cooking History Tracker</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-models">Data Models</a>
+      <ul>
+        <li><a href="#dynamodb-single-table-design">DynamoDB Single-Table Design</a></li>
+        <li><a href="#global-secondary-indexes-gsi">Global Secondary Indexes (GSI)</a></li>
+      </ul>
+    </li>
+    <li><a href="#error-handling">Error Handling</a>
+      <ul>
+        <li><a href="#error-classification">Error Classification</a></li>
+        <li><a href="#error-recovery-strategies">Error Recovery Strategies</a></li>
+      </ul>
+    </li>
+    <li><a href="#testing-strategy">Testing Strategy</a>
+      <ul>
+        <li><a href="#unit-testing">Unit Testing</a></li>
+        <li><a href="#integration-testing">Integration Testing</a></li>
+        <li><a href="#performance-testing">Performance Testing</a></li>
+        <li><a href="#security-testing">Security Testing</a></li>
+      </ul>
+    </li>
+    <li><a href="#deployment-architecture">Deployment Architecture</a>
+      <ul>
+        <li><a href="#infrastructure-as-code">Infrastructure as Code</a></li>
+        <li><a href="#cicd-pipeline">CI/CD Pipeline</a></li>
+        <li><a href="#environment-configuration">Environment Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring-and-observability">Monitoring and Observability</a>
+      <ul>
+        <li><a href="#cloudwatch-metrics">CloudWatch Metrics</a></li>
+        <li><a href="#x-ray-tracing">X-Ray Tracing</a></li>
+        <li><a href="#structured-logging">Structured Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-considerations">Security Considerations</a>
+      <ul>
+        <li><a href="#data-privacy">Data Privacy</a></li>
+        <li><a href="#authentication--authorization">Authentication &amp; Authorization</a></li>
+        <li><a href="#input-validation">Input Validation</a></li>
+      </ul>
+    </li>
+    <li><a href="#devops--deployment">DevOps &amp; Deployment</a>
+      <ul>
+        <li><a href="#infrastructure-as-code-iac">Infrastructure as Code (IaC)</a></li>
+        <li><a href="#cicd-pipeline-1">CI/CD Pipeline</a></li>
+        <li><a href="#monitoring--logging">Monitoring &amp; Logging</a></li>
+        <li><a href="#security-best-practices">Security Best Practices</a></li>
+      </ul>
+    </li>
+    <li><a href="#cost-analysis--optimization">Cost Analysis &amp; Optimization</a>
+      <ul>
+        <li><a href="#monthly-cost-breakdown-1000-users">Monthly Cost Breakdown (1,000 users)</a></li>
+        <li><a href="#cost-optimization-strategies">Cost Optimization Strategies</a></li>
+        <li><a href="#budget-alarms">Budget Alarms</a></li>
+        <li><a href="#cost-tracking-metrics">Cost Tracking Metrics</a></li>
+      </ul>
+    </li>
+    <li><a href="#scalability-strategy">Scalability Strategy</a>
+      <ul>
+        <li><a href="#horizontal-scaling">Horizontal Scaling</a></li>
+        <li><a href="#vertical-scaling">Vertical Scaling</a></li>
+        <li><a href="#caching-strategy">Caching Strategy</a></li>
+        <li><a href="#performance-targets">Performance Targets</a></li>
+      </ul>
+    </li>
+    <li><a href="#backend-implementation-details">Backend Implementation Details</a>
+      <ul>
+        <li><a href="#lambda-functions-11-total">Lambda Functions (11 total)</a></li>
+        <li><a href="#shared-utilities">Shared Utilities</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="design-document---smart-cooking-mvp">Design Document - Smart Cooking MVP<a class="anchor" href="#design-document---smart-cooking-mvp">#</a></h1>
+<h2 id="overview">Overview<a class="anchor" href="#overview">#</a></h2>
+<p>Smart Cooking MVP là một ứng dụng nấu ăn thông minh sử dụng kiến trúc serverless trên AWS với AI engine để gợi ý công thức dựa trên nguyên liệu có sẵn. Hệ thống áp dụng chiến lược flexible mix giữa database và AI generation để tối ưu chi phí và chất lượng, kết hợp với community-driven auto-approval system.</p>
+<h2 id="architecture">Architecture<a class="anchor" href="#architecture">#</a></h2>
+<h3 id="high-level-architecture">High-Level Architecture<a class="anchor" href="#high-level-architecture">#</a></h3>
+<pre class="mermaid">graph TB
+    subgraph &#34;Client Layer&#34;
+        Web[Next.js Web App&lt;br/&gt;Responsive Design]
+    end
+
+    subgraph &#34;CDN &amp; Hosting&#34;
+        CF[CloudFront CDN&lt;br/&gt;Global Distribution]
+        S3[S3 Static Hosting&lt;br/&gt;Next.js Build Output]
+        R53[Route 53&lt;br/&gt;Custom Domain]
+    end
+
+    subgraph &#34;API Gateway&#34;
+        APIGW[API Gateway&lt;br/&gt;REST API + CORS]
+        Auth[Cognito Authorizer&lt;br/&gt;JWT Validation]
+        WAF[AWS WAF&lt;br/&gt;Security Rules]
+    end
+
+    subgraph &#34;Lambda Functions&#34;
+        L1[auth-handler&lt;br/&gt;256MB, 10s]
+        L2[ai-suggestion&lt;br/&gt;1024MB, 60s]
+        L3[cooking-history&lt;br/&gt;256MB, 10s]
+        L4[rating-handler&lt;br/&gt;256MB, 10s]
+        L5[ingredient-validator&lt;br/&gt;256MB, 10s]
+        L6[recipe-crud&lt;br/&gt;512MB, 30s]
+        L7[user-profile&lt;br/&gt;256MB, 10s]
+    end
+
+    subgraph &#34;AI &amp; Data&#34;
+        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3 Haiku]
+        DDB[(DynamoDB&lt;br/&gt;Single Table Design)]
+        S3[(S3 Bucket&lt;br/&gt;Recipe Images)]
+    end
+
+    subgraph &#34;Monitoring&#34;
+        CW[CloudWatch&lt;br/&gt;Logs + Metrics]
+        XRay[X-Ray Tracing&lt;br/&gt;Performance]
+    end
+
+    Web --&gt; CF
+    CF --&gt; S3
+    CF --&gt; APIGW
+    R53 --&gt; CF
+    APIGW --&gt; WAF
+    WAF --&gt; Auth
+    Auth --&gt; L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7
+
+    L2 --&gt; Bedrock
+    L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 --&gt; DDB
+    L6 --&gt; S3
+
+    L2 &amp; L3 &amp; L4 --&gt; CW
+    APIGW --&gt; XRay</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h3 id="technology-stack">Technology Stack<a class="anchor" href="#technology-stack">#</a></h3>
+<p><strong>Frontend:</strong></p>
+<ul>
+<li>Framework: Next.js 14 (React-based)</li>
+<li>Styling: Tailwind CSS + shadcn/ui components</li>
+<li>State Management: React Context + useState/useEffect</li>
+<li>HTTP Client: Fetch API with custom wrapper</li>
+<li>Authentication: AWS Cognito SDK</li>
+</ul>
+<p><strong>Backend:</strong></p>
+<ul>
+<li>Runtime: Node.js 20 (AWS Lambda)</li>
+<li>Database: Amazon DynamoDB (single-table design)</li>
+<li>AI: Amazon Bedrock (Claude 3 Haiku)</li>
+<li>Authentication: Amazon Cognito User Pools</li>
+<li>File Storage: Amazon S3</li>
+<li>API: AWS API Gateway (REST)</li>
+</ul>
+<p><strong>Infrastructure:</strong></p>
+<ul>
+<li>Hosting: S3 Static Website + CloudFront CDN</li>
+<li>Domain: Route 53 Custom Domain</li>
+<li>Security: AWS WAF</li>
+<li>Monitoring: CloudWatch + X-Ray</li>
+<li>Deployment: AWS CDK</li>
+</ul>
+<h2 id="components-and-interfaces">Components and Interfaces<a class="anchor" href="#components-and-interfaces">#</a></h2>
+<h3 id="1-ai-suggestion-engine-core-component">1. AI Suggestion Engine (Core Component)<a class="anchor" href="#1-ai-suggestion-engine-core-component">#</a></h3>
+<p><strong>Purpose:</strong> Flexible mix strategy combining database recipes with AI-generated recipes</p>
+<p><strong>Interface:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">AISuggestionRequest</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ingredients</span>: <span style="color:#66d9ef">string</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe_count</span>: <span style="color:#66d9ef">number</span>; <span style="color:#75715e">// 1-5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">AISuggestionResponse</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">suggestions</span>: <span style="color:#66d9ef">Recipe</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">stats</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">requested</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">from_database</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">from_ai</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">warnings</span>: <span style="color:#66d9ef">ValidationWarning</span>[];
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Algorithm Flow:</strong></p>
+<pre class="mermaid">sequenceDiagram
+    participant User
+    participant Lambda
+    participant DDB
+    participant Bedrock
+
+    User-&gt;&gt;Lambda: Request 3 recipes with [gà, cà chua, hành]
+    
+    Note over Lambda: Step 1: Validate Ingredients
+    Lambda-&gt;&gt;DDB: Check master_ingredients table
+    DDB--&gt;&gt;Lambda: All valid ✅
+    
+    Note over Lambda: Step 2: Query Database (Diverse Categories)
+    Lambda-&gt;&gt;DDB: Query approved recipes by cooking methods
+    DDB--&gt;&gt;Lambda: Found 2 recipes (stir-fry, soup)
+    
+    Note over Lambda: Step 3: Calculate AI Gap
+    Note over Lambda: Requested: 3, DB: 2, Gap: 1
+    
+    Note over Lambda: Step 4: Generate AI Recipe
+    Lambda-&gt;&gt;Bedrock: Generate 1 recipe (steam method)
+    Bedrock--&gt;&gt;Lambda: AI recipe (gà hấp cà chua)
+    
+    Note over Lambda: Step 5: Combine Results
+    Lambda-&gt;&gt;DDB: Save suggestion history
+    Lambda--&gt;&gt;User: Return 2 DB + 1 AI = 3 recipes</pre><p><strong>Key Features:</strong></p>
+<ul>
+<li><strong>Cost Optimization:</strong> Prioritize database recipes over AI generation</li>
+<li><strong>Category Diversity:</strong> Ensure different cooking methods (xào, canh, hấp, chiên)</li>
+<li><strong>Personalization:</strong> Use user profile for AI context (age, gender, country, allergies)</li>
+<li><strong>Graceful Degradation:</strong> Return database recipes if AI fails</li>
+</ul>
+<h3 id="2-auto-approval-system">2. Auto-Approval System<a class="anchor" href="#2-auto-approval-system">#</a></h3>
+<p><strong>Purpose:</strong> Community-driven recipe approval based on ratings</p>
+<p><strong>Interface:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">RatingRequest</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe_id</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">rating</span>: <span style="color:#66d9ef">number</span>; <span style="color:#75715e">// 1-5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#a6e22e">comment?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">history_id?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">RatingResponse</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">success</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">average_rating</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">rating_count</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">auto_approved</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Auto-Approval Logic:</strong></p>
+<pre class="mermaid">graph TD
+    A[User Rates Recipe] --&gt; B{Rating &gt;= 1 &amp;&amp; &lt;= 5?}
+    B --&gt;|No| C[Return Error]
+    B --&gt;|Yes| D[Save Rating to DDB]
+    D --&gt; E[Calculate Average Rating]
+    E --&gt; F{Average &gt;= 4.0?}
+    F --&gt;|No| G[Thank User]
+    F --&gt;|Yes| H[Auto-Approve Recipe]
+    H --&gt; I[Set is_approved = true]
+    I --&gt; J[Set is_public = true]
+    J --&gt; K[Notify User: Recipe Added to DB!]</pre><h3 id="3-ingredient-validation-system">3. Ingredient Validation System<a class="anchor" href="#3-ingredient-validation-system">#</a></h3>
+<p><strong>Purpose:</strong> Validate user input against master ingredients with fuzzy matching</p>
+<p><strong>Interface:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ValidationRequest</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ingredients</span>: <span style="color:#66d9ef">string</span>[];
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ValidationResponse</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">valid</span>: <span style="color:#66d9ef">string</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">invalid</span>: <span style="color:#66d9ef">string</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">warnings</span>: <span style="color:#66d9ef">ValidationWarning</span>[];
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ValidationWarning</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">original?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">corrected?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">confidence?</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">ingredient?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">message?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">suggestions?</span>: <span style="color:#66d9ef">string</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">reported?</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Validation Flow:</strong></p>
+<pre class="mermaid">graph TD
+    A[User Input: &#39;thit ga&#39;] --&gt; B[Normalize Text]
+    B --&gt; C{Exact Match in Master DB?}
+    C --&gt;|Yes| D[Return Valid]
+    C --&gt;|No| E[Fuzzy Search]
+    E --&gt; F{Similarity &gt;= 0.8?}
+    F --&gt;|Yes| G[Auto-correct to &#39;Thịt gà&#39;]
+    F --&gt;|No| H[Mark Invalid]
+    H --&gt; I[Log to CloudWatch]
+    I --&gt; J[Increment Report Count]
+    J --&gt; K{Reports &gt;= 5?}
+    K --&gt;|Yes| L[Notify Admin]
+    K --&gt;|No| M[Return Suggestions]</pre><h3 id="4-cooking-history-tracker">4. Cooking History Tracker<a class="anchor" href="#4-cooking-history-tracker">#</a></h3>
+<p><strong>Purpose:</strong> Track personal cooking sessions and enable rating system</p>
+<p><strong>Interface:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">CookingSession</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">history_id</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe_id</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">suggestion_id?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">status</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;cooking&#39;</span> <span style="color:#f92672">|</span> <span style="color:#e6db74">&#39;completed&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">personal_rating?</span>: <span style="color:#66d9ef">number</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">personal_notes?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">is_favorite?</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">cook_date?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Session Lifecycle:</strong></p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --&gt; Cooking : Start Cooking
+    Cooking --&gt; Completed : Complete Cooking
+    Completed --&gt; Rated : Submit Rating
+    Rated --&gt; [*] : Session Closed
+    
+    Completed --&gt; Favorite : Mark Favorite
+    Favorite --&gt; [*] : Session Closed</pre><h2 id="data-models">Data Models<a class="anchor" href="#data-models">#</a></h2>
+<h3 id="dynamodb-single-table-design">DynamoDB Single-Table Design<a class="anchor" href="#dynamodb-single-table-design">#</a></h3>
+<p><strong>Table Name:</strong> <code>smart-cooking-data</code></p>
+<p><strong>Primary Key Structure:</strong></p>
+<ul>
+<li><strong>PK (Partition Key):</strong> Entity type + ID</li>
+<li><strong>SK (Sort Key):</strong> Sub-entity type + timestamp/ID</li>
+</ul>
+<p><strong>Key Entities:</strong></p>
+<h4 id="1-user-profile">1. User Profile<a class="anchor" href="#1-user-profile">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;PROFILE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;USER_PROFILE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;email&#34;</span>: <span style="color:#e6db74">&#34;user@example.com&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;username&#34;</span>: <span style="color:#e6db74">&#34;cookmaster&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;full_name&#34;</span>: <span style="color:#e6db74">&#34;John Doe&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;date_of_birth&#34;</span>: <span style="color:#e6db74">&#34;1990-01-15&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;gender&#34;</span>: <span style="color:#e6db74">&#34;male&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;country&#34;</span>: <span style="color:#e6db74">&#34;Vietnam&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;avatar_url&#34;</span>: <span style="color:#e6db74">&#34;https://s3.../avatar.jpg&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;updated_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="2-user-preferences">2. User Preferences<a class="anchor" href="#2-user-preferences">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;PREFERENCES&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;USER_PREFERENCES&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;dietary_restrictions&#34;</span>: [<span style="color:#e6db74">&#34;vegetarian&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;allergies&#34;</span>: [<span style="color:#e6db74">&#34;shrimp&#34;</span>, <span style="color:#e6db74">&#34;crab&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;favorite_cuisines&#34;</span>: [<span style="color:#e6db74">&#34;Vietnamese&#34;</span>, <span style="color:#e6db74">&#34;Italian&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;preferred_cooking_methods&#34;</span>: [<span style="color:#e6db74">&#34;stir-fry&#34;</span>, <span style="color:#e6db74">&#34;steam&#34;</span>, <span style="color:#e6db74">&#34;soup&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-15T10:00:00Z&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="3-master-ingredients">3. Master Ingredients<a class="anchor" href="#3-master-ingredients">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#&lt;ingredient_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;MASTER_INGREDIENT&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;ingredient_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-789&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;name&#34;</span>: <span style="color:#e6db74">&#34;Thịt gà&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;normalized_name&#34;</span>: <span style="color:#e6db74">&#34;thit ga&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;category&#34;</span>: <span style="color:#e6db74">&#34;meat&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;aliases&#34;</span>: [<span style="color:#e6db74">&#34;gà&#34;</span>, <span style="color:#e6db74">&#34;chicken&#34;</span>, <span style="color:#e6db74">&#34;thịt gà ta&#34;</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_active&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;CATEGORY#meat&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2PK&#34;</span>: <span style="color:#e6db74">&#34;INGREDIENT#SEARCH&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2SK&#34;</span>: <span style="color:#e6db74">&#34;NAME#thit ga&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="4-recipe-metadata">4. Recipe Metadata<a class="anchor" href="#4-recipe-metadata">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;RECIPE#&lt;recipe_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;METADATA&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;RECIPE&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;title&#34;</span>: <span style="color:#e6db74">&#34;Gà xào sả ớt&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;description&#34;</span>: <span style="color:#e6db74">&#34;Món gà xào thơm ngon...&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cuisine_type&#34;</span>: <span style="color:#e6db74">&#34;Vietnamese&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cooking_method&#34;</span>: <span style="color:#e6db74">&#34;stir-fry&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;meal_type&#34;</span>: <span style="color:#e6db74">&#34;main&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;prep_time_minutes&#34;</span>: <span style="color:#ae81ff">15</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cook_time_minutes&#34;</span>: <span style="color:#ae81ff">20</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;servings&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;instructions&#34;</span>: [<span style="color:#960050;background-color:#1e0010">...</span>],
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_public&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_ai_generated&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_approved&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;approval_type&#34;</span>: <span style="color:#e6db74">&#34;auto_rating&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;average_rating&#34;</span>: <span style="color:#ae81ff">4.5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;rating_count&#34;</span>: <span style="color:#ae81ff">12</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;created_at&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI2PK&#34;</span>: <span style="color:#e6db74">&#34;METHOD#stir-fry&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h4 id="5-cooking-history">5. Cooking History<a class="anchor" href="#5-cooking-history">#</a></h4>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;PK&#34;</span>: <span style="color:#e6db74">&#34;USER#&lt;user_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;SK&#34;</span>: <span style="color:#e6db74">&#34;COOKING#2025-01-20T15:30:00Z#&lt;history_id&gt;&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;entity_type&#34;</span>: <span style="color:#e6db74">&#34;COOKING_HISTORY&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;history_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-202&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;recipe_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-101&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;suggestion_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-303&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;status&#34;</span>: <span style="color:#e6db74">&#34;completed&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;personal_rating&#34;</span>: <span style="color:#ae81ff">5</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;personal_notes&#34;</span>: <span style="color:#e6db74">&#34;Rất ngon, sẽ nấu lại!&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;is_favorite&#34;</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;cook_date&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T18:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;GSI1PK&#34;</span>: <span style="color:#e6db74">&#34;USER#uuid-123#FAVORITE&#34;</span>
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="global-secondary-indexes-gsi">Global Secondary Indexes (GSI)<a class="anchor" href="#global-secondary-indexes-gsi">#</a></h3>
+<p><strong>GSI1: User-Based Queries</strong></p>
+<ul>
+<li>GSI1PK: Entity owner (USER#<!-- raw HTML omitted -->, CATEGORY#<!-- raw HTML omitted -->)</li>
+<li>GSI1SK: Timestamp or secondary sort</li>
+<li>Use Cases: User&rsquo;s recipes, favorites, categories</li>
+</ul>
+<p><strong>GSI2: Search &amp; Discovery</strong></p>
+<ul>
+<li>GSI2PK: Category or filter (METHOD#<!-- raw HTML omitted -->, INGREDIENT#SEARCH)</li>
+<li>GSI2SK: Composite sort key (rating + timestamp, NAME#<!-- raw HTML omitted -->)</li>
+<li>Use Cases: Recipe search, ingredient validation</li>
+</ul>
+<h2 id="error-handling">Error Handling<a class="anchor" href="#error-handling">#</a></h2>
+<h3 id="error-classification">Error Classification<a class="anchor" href="#error-classification">#</a></h3>
+<p><strong>1. Validation Errors (400)</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">ValidationError</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;validation_failed&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">details</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">field</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">value</span>: <span style="color:#66d9ef">any</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">constraint</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  }[];
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>2. Authentication Errors (401/403)</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">AuthError</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;unauthorized&#39;</span> <span style="color:#f92672">|</span> <span style="color:#e6db74">&#39;forbidden&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>3. AI Generation Errors (500)</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">AIError</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;ai_generation_failed&#39;</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">message</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">fallback_used</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">details</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">timeout?</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">rate_limit?</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">model_error?</span>: <span style="color:#66d9ef">string</span>;
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="error-recovery-strategies">Error Recovery Strategies<a class="anchor" href="#error-recovery-strategies">#</a></h3>
+<p><strong>AI Generation Failures:</strong></p>
+<ol>
+<li><strong>Timeout (&gt;60s):</strong> Return database recipes only</li>
+<li><strong>Rate Limit:</strong> Implement exponential backoff, return cached results</li>
+<li><strong>Model Error:</strong> Log error, return generic recipe template</li>
+</ol>
+<p><strong>Database Failures:</strong></p>
+<ol>
+<li><strong>Connection Error:</strong> Retry with exponential backoff (3 attempts)</li>
+<li><strong>Throttling:</strong> Implement circuit breaker pattern</li>
+<li><strong>Data Corruption:</strong> Validate data integrity, return error if critical</li>
+</ol>
+<p><strong>Invalid Ingredients:</strong></p>
+<ol>
+<li><strong>Fuzzy Match:</strong> Auto-correct with confidence score</li>
+<li><strong>No Match:</strong> Log for admin review, provide suggestions</li>
+<li><strong>Batch Invalid:</strong> Process valid ingredients, warn about invalid ones</li>
+</ol>
+<h2 id="testing-strategy">Testing Strategy<a class="anchor" href="#testing-strategy">#</a></h2>
+<h3 id="unit-testing">Unit Testing<a class="anchor" href="#unit-testing">#</a></h3>
+<p><strong>Coverage Target:</strong> 70% for critical paths</p>
+<p><strong>Key Test Areas:</strong></p>
+<ol>
+<li>
+<p><strong>AI Suggestion Logic</strong></p>
+<ul>
+<li>Flexible mix algorithm</li>
+<li>Category diversity</li>
+<li>Personalization context</li>
+<li>Error handling</li>
+</ul>
+</li>
+<li>
+<p><strong>Validation System</strong></p>
+<ul>
+<li>Exact matching</li>
+<li>Fuzzy search accuracy</li>
+<li>Auto-correction logic</li>
+<li>Invalid ingredient reporting</li>
+</ul>
+</li>
+<li>
+<p><strong>Auto-Approval System</strong></p>
+<ul>
+<li>Rating calculation</li>
+<li>Approval threshold logic</li>
+<li>Database updates</li>
+</ul>
+</li>
+</ol>
+<p><strong>Test Framework:</strong> Jest + AWS SDK mocks</p>
+<h3 id="integration-testing">Integration Testing<a class="anchor" href="#integration-testing">#</a></h3>
+<p><strong>API Endpoint Testing:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#a6e22e">describe</span>(<span style="color:#e6db74">&#39;AI Suggestion API&#39;</span>, () =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">test</span>(<span style="color:#e6db74">&#39;should return mixed DB/AI recipes&#39;</span>, <span style="color:#66d9ef">async</span> () =&gt; {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">request</span>(<span style="color:#a6e22e">app</span>)
+</span></span><span style="display:flex;"><span>      .<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/api/ai/suggest&#39;</span>)
+</span></span><span style="display:flex;"><span>      .<span style="color:#a6e22e">send</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredients</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;thịt gà&#39;</span>, <span style="color:#e6db74">&#39;cà chua&#39;</span>],
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">recipe_count</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">3</span>
+</span></span><span style="display:flex;"><span>      })
+</span></span><span style="display:flex;"><span>      .<span style="color:#a6e22e">expect</span>(<span style="color:#ae81ff">200</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">suggestions</span>).<span style="color:#a6e22e">toHaveLength</span>(<span style="color:#ae81ff">3</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">from_database</span>).<span style="color:#a6e22e">toBeGreaterThan</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">expect</span>(<span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">stats</span>.<span style="color:#a6e22e">from_ai</span>).<span style="color:#a6e22e">toBeGreaterThan</span>(<span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});</span></span></code></pre></div><h3 id="performance-testing">Performance Testing<a class="anchor" href="#performance-testing">#</a></h3>
+<p><strong>Load Testing Scenarios:</strong></p>
+<ol>
+<li><strong>Concurrent AI Requests:</strong> 50 simultaneous suggestion requests</li>
+<li><strong>Database Queries:</strong> 100 concurrent recipe searches</li>
+<li><strong>Rating Submissions:</strong> 20 concurrent rating submissions</li>
+</ol>
+<p><strong>Performance Targets:</strong></p>
+<ul>
+<li>API Response Time: &lt;500ms (95th percentile)</li>
+<li>AI Generation: &lt;5s per recipe</li>
+<li>Database Queries: &lt;100ms</li>
+</ul>
+<h3 id="security-testing">Security Testing<a class="anchor" href="#security-testing">#</a></h3>
+<p><strong>Security Checklist:</strong></p>
+<ol>
+<li><strong>Authentication:</strong> JWT token validation</li>
+<li><strong>Authorization:</strong> User can only access own data</li>
+<li><strong>Input Validation:</strong> SQL injection, XSS prevention</li>
+<li><strong>Rate Limiting:</strong> API abuse prevention</li>
+<li><strong>Data Privacy:</strong> No PII in AI prompts</li>
+</ol>
+<h2 id="deployment-architecture">Deployment Architecture<a class="anchor" href="#deployment-architecture">#</a></h2>
+<h3 id="infrastructure-as-code">Infrastructure as Code<a class="anchor" href="#infrastructure-as-code">#</a></h3>
+<p><strong>AWS CDK Stack:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">class</span> <span style="color:#a6e22e">SmartCookingStack</span> <span style="color:#66d9ef">extends</span> <span style="color:#a6e22e">Stack</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">constructor</span>(<span style="color:#a6e22e">scope</span>: <span style="color:#66d9ef">Construct</span>, <span style="color:#a6e22e">id</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">props?</span>: <span style="color:#66d9ef">StackProps</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">scope</span>, <span style="color:#a6e22e">id</span>, <span style="color:#a6e22e">props</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// S3 Bucket for Static Hosting
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">websiteBucket</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Bucket</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;WebsiteBucket&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">bucketName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-frontend&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">websiteIndexDocument</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.html&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">websiteErrorDocument</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;error.html&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">publicReadAccess</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">removalPolicy</span>: <span style="color:#66d9ef">RemovalPolicy.DESTROY</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// CloudFront Distribution
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">distribution</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Distribution</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;WebsiteDistribution&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">defaultBehavior</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">origin</span>: <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">S3Origin</span>(<span style="color:#a6e22e">websiteBucket</span>),
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">viewerProtocolPolicy</span>: <span style="color:#66d9ef">ViewerProtocolPolicy.REDIRECT_TO_HTTPS</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">cachePolicy</span>: <span style="color:#66d9ef">CachePolicy.CACHING_OPTIMIZED</span>
+</span></span><span style="display:flex;"><span>      },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">domainNames</span><span style="color:#f92672">:</span> [<span style="color:#e6db74">&#39;smartcooking.example.com&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">certificate</span>: <span style="color:#66d9ef">Certificate.fromCertificateArn</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;Certificate&#39;</span>, <span style="color:#a6e22e">certificateArn</span>)
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Route 53 Hosted Zone
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">hostedZone</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">HostedZone</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;HostedZone&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">zoneName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smartcooking.example.com&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// A Record for custom domain
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">ARecord</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;WebsiteARecord&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">zone</span>: <span style="color:#66d9ef">hostedZone</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">target</span>: <span style="color:#66d9ef">RecordTarget.fromAlias</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">CloudFrontTarget</span>(<span style="color:#a6e22e">distribution</span>))
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// DynamoDB Table
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">table</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">Table</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;SmartCookingTable&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">tableName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-data&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">partitionKey</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;PK&#39;</span>, <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">sortKey</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SK&#39;</span>, <span style="color:#66d9ef">type</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">AttributeType</span>.<span style="color:#a6e22e">STRING</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">billingMode</span>: <span style="color:#66d9ef">BillingMode.ON_DEMAND</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">encryption</span>: <span style="color:#66d9ef">TableEncryption.AWS_MANAGED</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">pointInTimeRecovery</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Lambda Functions
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">aiSuggestionFunction</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> Function(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;AISuggestionFunction&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">runtime</span>: <span style="color:#66d9ef">Runtime.NODEJS_20_X</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">handler</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;index.handler&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">code</span>: <span style="color:#66d9ef">Code.fromAsset</span>(<span style="color:#e6db74">&#39;lambda/ai-suggestion&#39;</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">memorySize</span>: <span style="color:#66d9ef">1024</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">timeout</span>: <span style="color:#66d9ef">Duration.seconds</span>(<span style="color:#ae81ff">60</span>),
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">environment</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">DYNAMODB_TABLE</span>: <span style="color:#66d9ef">table.tableName</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">BEDROCK_REGION</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1&#39;</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// API Gateway
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">api</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">RestApi</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;SmartCookingAPI&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">restApiName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Smart Cooking API&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">defaultCorsPreflightOptions</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">allowOrigins</span>: <span style="color:#66d9ef">Cors.ALL_ORIGINS</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">allowMethods</span>: <span style="color:#66d9ef">Cors.ALL_METHODS</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Cognito User Pool
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userPool</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">UserPool</span>(<span style="color:#66d9ef">this</span>, <span style="color:#e6db74">&#39;SmartCookingUserPool&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">userPoolName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;smart-cooking-users&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">selfSignUpEnabled</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">signInAliases</span><span style="color:#f92672">:</span> { <span style="color:#a6e22e">email</span>: <span style="color:#66d9ef">true</span>, <span style="color:#a6e22e">username</span>: <span style="color:#66d9ef">true</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">passwordPolicy</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">minLength</span>: <span style="color:#66d9ef">8</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">requireLowercase</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">requireUppercase</span>: <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">requireDigits</span>: <span style="color:#66d9ef">true</span>
+</span></span><span style="display:flex;"><span>      }
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="cicd-pipeline">CI/CD Pipeline<a class="anchor" href="#cicd-pipeline">#</a></h3>
+<p><strong>Deployment Stages:</strong></p>
+<ol>
+<li><strong>Source:</strong> GitHub repository</li>
+<li><strong>Build:</strong> AWS CodeBuild (npm install, test, build)</li>
+<li><strong>Deploy:</strong> AWS CDK deploy to staging</li>
+<li><strong>Test:</strong> Integration tests on staging</li>
+<li><strong>Deploy:</strong> CDK deploy to production</li>
+<li><strong>Monitor:</strong> CloudWatch alarms and dashboards</li>
+</ol>
+<h3 id="environment-configuration">Environment Configuration<a class="anchor" href="#environment-configuration">#</a></h3>
+<p><strong>Staging Environment:</strong></p>
+<ul>
+<li>Reduced Lambda memory (256MB)</li>
+<li>DynamoDB on-demand (lower limits)</li>
+<li>Basic monitoring</li>
+<li>Test data seeding</li>
+</ul>
+<p><strong>Production Environment:</strong></p>
+<ul>
+<li>Optimized Lambda memory (1024MB for AI)</li>
+<li>DynamoDB with backup enabled</li>
+<li>Comprehensive monitoring</li>
+<li>WAF security rules</li>
+<li>CloudFront CDN</li>
+</ul>
+<h2 id="monitoring-and-observability">Monitoring and Observability<a class="anchor" href="#monitoring-and-observability">#</a></h2>
+<h3 id="cloudwatch-metrics">CloudWatch Metrics<a class="anchor" href="#cloudwatch-metrics">#</a></h3>
+<p><strong>Custom Metrics:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// AI Suggestion Metrics
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">await</span> <span style="color:#a6e22e">cloudwatch</span>.<span style="color:#a6e22e">putMetricData</span>({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">Namespace</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;SmartCooking/AI&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">MetricData</span><span style="color:#f92672">:</span> [{
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">MetricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RecipesFromDB&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">dbRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Unit</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Count&#39;</span>
+</span></span><span style="display:flex;"><span>  }, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">MetricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;RecipesFromAI&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiRecipes</span>.<span style="color:#a6e22e">length</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Unit</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Count&#39;</span>
+</span></span><span style="display:flex;"><span>  }, {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">MetricName</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;AIGenerationTime&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">aiGenerationTime</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">Unit</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Milliseconds&#39;</span>
+</span></span><span style="display:flex;"><span>  }]
+</span></span><span style="display:flex;"><span>});</span></span></code></pre></div><p><strong>Key Alarms:</strong></p>
+<ul>
+<li>Lambda errors &gt; 1%</li>
+<li>API Gateway 5xx &gt; 10 requests/5min</li>
+<li>AI generation timeout &gt; 10%</li>
+<li>Monthly cost &gt; $170</li>
+</ul>
+<h3 id="x-ray-tracing">X-Ray Tracing<a class="anchor" href="#x-ray-tracing">#</a></h3>
+<p><strong>Trace Segments:</strong></p>
+<ol>
+<li>API Gateway → Lambda</li>
+<li>Lambda → DynamoDB</li>
+<li>Lambda → Bedrock AI</li>
+<li>Lambda → S3</li>
+</ol>
+<p><strong>Performance Analysis:</strong></p>
+<ul>
+<li>Identify bottlenecks in AI generation</li>
+<li>Monitor database query performance</li>
+<li>Track end-to-end request latency</li>
+</ul>
+<h3 id="structured-logging">Structured Logging<a class="anchor" href="#structured-logging">#</a></h3>
+<p><strong>Log Format:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;timestamp&#34;</span>: <span style="color:#e6db74">&#34;2025-01-20T10:00:00Z&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;level&#34;</span>: <span style="color:#e6db74">&#34;INFO&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;request_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-123&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;uuid-456&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;function&#34;</span>: <span style="color:#e6db74">&#34;ai-suggestion&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;event&#34;</span>: <span style="color:#e6db74">&#34;recipe_generated&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;metadata&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;ingredients_count&#34;</span>: <span style="color:#ae81ff">3</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;db_recipes&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;ai_recipes&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;generation_time_ms&#34;</span>: <span style="color:#ae81ff">3500</span>
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="security-considerations">Security Considerations<a class="anchor" href="#security-considerations">#</a></h2>
+<h3 id="data-privacy">Data Privacy<a class="anchor" href="#data-privacy">#</a></h3>
+<p><strong>AI Personalization Data:</strong></p>
+<ul>
+<li><strong>Used:</strong> Age range, gender, country, cooking preferences, allergies</li>
+<li><strong>NOT Used:</strong> Email, full name, exact birthdate, address</li>
+<li><strong>Purpose:</strong> Recipe personalization only</li>
+<li><strong>Retention:</strong> AI prompts deleted after 90 days</li>
+</ul>
+<h3 id="authentication--authorization">Authentication &amp; Authorization<a class="anchor" href="#authentication--authorization">#</a></h3>
+<p><strong>JWT Token Validation:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authorizer</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">type</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;COGNITO_USER_POOLS&#39;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">authorizerUri</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userPool</span>.<span style="color:#a6e22e">userPoolArn</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">identitySource</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;method.request.header.Authorization&#39;</span>
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><p><strong>Resource Access Control:</strong></p>
+<ul>
+<li>Users can only access their own data</li>
+<li>Recipe ratings are public (anonymous)</li>
+<li>Admin functions require special role</li>
+</ul>
+<h3 id="input-validation">Input Validation<a class="anchor" href="#input-validation">#</a></h3>
+<p><strong>API Gateway Request Validation:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;object&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;properties&#34;</span>: {
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;ingredients&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;array&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;items&#34;</span>: { <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;string&#34;</span> },
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;minItems&#34;</span>: <span style="color:#ae81ff">2</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;maxItems&#34;</span>: <span style="color:#ae81ff">10</span>
+</span></span><span style="display:flex;"><span>    },
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">&#34;recipe_count&#34;</span>: {
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;type&#34;</span>: <span style="color:#e6db74">&#34;integer&#34;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;minimum&#34;</span>: <span style="color:#ae81ff">1</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#f92672">&#34;maximum&#34;</span>: <span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;required&#34;</span>: [<span style="color:#e6db74">&#34;ingredients&#34;</span>]
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Lambda Input Sanitization:</strong></p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">sanitizeInput</span>(<span style="color:#a6e22e">input</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">input</span>
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">trim</span>()
+</span></span><span style="display:flex;"><span>    .<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">/[&lt;&gt;\&#34;&#39;&amp;]/g</span>, <span style="color:#e6db74">&#39;&#39;</span>) <span style="color:#75715e">// Remove potential XSS characters
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    .<span style="color:#a6e22e">substring</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">100</span>); <span style="color:#75715e">// Limit length
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}</span></span></code></pre></div><h2 id="devops--deployment">DevOps &amp; Deployment<a class="anchor" href="#devops--deployment">#</a></h2>
+<h3 id="infrastructure-as-code-iac">Infrastructure as Code (IaC)<a class="anchor" href="#infrastructure-as-code-iac">#</a></h3>
+<p><strong>Tool</strong>: AWS CDK (TypeScript)</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Structure</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">cdk/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">├── lib/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── database-stack.ts     </span> <span style="color:#75715e"># DynamoDB tables</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── lambda-stack.ts       </span> <span style="color:#75715e"># Lambda functions</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── api-stack.ts          </span> <span style="color:#75715e"># API Gateway</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── auth-stack.ts         </span> <span style="color:#75715e"># Cognito</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── storage-stack.ts      </span> <span style="color:#75715e"># S3 buckets</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   ├── monitoring-stack.ts   </span> <span style="color:#75715e"># CloudWatch, X-Ray</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   └── main-stack.ts         </span> <span style="color:#75715e"># Main orchestration</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">├── bin/</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">│   └── app.ts                </span> <span style="color:#75715e"># CDK app entry</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">└── package.json</span></span></span></code></pre></div><h3 id="cicd-pipeline-1">CI/CD Pipeline<a class="anchor" href="#cicd-pipeline-1">#</a></h3>
+<p><strong>Frontend Pipeline</strong> (GitHub Actions + CDK):</p>
+<ul>
+<li>Automatic build and deploy on git push</li>
+<li>Next.js static export build process</li>
+<li>S3 deployment with CloudFront cache invalidation</li>
+<li>Environment-specific configurations (dev/prod)</li>
+<li>Custom security headers via CloudFront</li>
+<li>Route 53 custom domain management</li>
+</ul>
+<p><strong>Backend Pipeline</strong> (GitHub Actions):</p>
+<ul>
+<li>Automated testing (unit tests, lint)</li>
+<li>CDK deployment to dev/prod</li>
+<li>Security scanning (npm audit, Snyk)</li>
+<li>Environment-specific configurations</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Workflow</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. Code push to GitHub</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Run tests and linting</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Deploy to dev (develop branch)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. Deploy to prod (main branch)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. Notify on success/failure</span></span></span></code></pre></div><h3 id="monitoring--logging">Monitoring &amp; Logging<a class="anchor" href="#monitoring--logging">#</a></h3>
+<p><strong>CloudWatch Dashboard</strong>:</p>
+<ul>
+<li>API Gateway metrics (requests, latency, errors)</li>
+<li>Lambda metrics (invocations, duration, errors)</li>
+<li>DynamoDB metrics (read/write capacity, throttles)</li>
+<li>Custom AI metrics (DB vs AI ratio, cost tracking)</li>
+</ul>
+<p><strong>Alarms</strong>:</p>
+<ul>
+<li>Lambda errors &gt; 1%</li>
+<li>API Gateway 5xx &gt; 10 requests/5min</li>
+<li>Lambda duration &gt; 5s (p95)</li>
+<li>Monthly cost &gt; $170 (critical)</li>
+<li>AI generation timeout &gt; 10%</li>
+</ul>
+<p><strong>Structured Logging</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-json" data-lang="json"><span style="display:flex;"><span>{
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;timestamp&#34;</span>: <span style="color:#e6db74">&#34;ISO 8601&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;level&#34;</span>: <span style="color:#e6db74">&#34;INFO|WARN|ERROR&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;request_id&#34;</span>: <span style="color:#e6db74">&#34;UUID&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;user_id&#34;</span>: <span style="color:#e6db74">&#34;UUID&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;function&#34;</span>: <span style="color:#e6db74">&#34;function_name&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;message&#34;</span>: <span style="color:#e6db74">&#34;...&#34;</span>,
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">&#34;metadata&#34;</span>: {<span style="color:#960050;background-color:#1e0010">...</span>}
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>X-Ray Tracing</strong>:</p>
+<ul>
+<li>100% sampling for AI Suggestion function</li>
+<li>10% sampling for other functions</li>
+<li>Track end-to-end request latency</li>
+<li>Identify bottlenecks in AI generation</li>
+</ul>
+<h3 id="security-best-practices">Security Best Practices<a class="anchor" href="#security-best-practices">#</a></h3>
+<p><strong>Authentication &amp; Authorization</strong>:</p>
+<ul>
+<li>Cognito User Pool with JWT tokens</li>
+<li>API Gateway authorizers</li>
+<li>IAM roles with least privilege</li>
+<li>Request validation at API Gateway</li>
+</ul>
+<p><strong>Data Encryption</strong>:</p>
+<ul>
+<li>At rest: DynamoDB encryption, S3 encryption</li>
+<li>In transit: HTTPS only, TLS 1.2+</li>
+<li>Keys: AWS KMS managed keys</li>
+</ul>
+<p><strong>API Security</strong>:</p>
+<ul>
+<li>AWS WAF rules (SQL injection, XSS)</li>
+<li>Rate limiting: 1000 requests/5min per IP</li>
+<li>CORS: Whitelist origins only</li>
+<li>Input sanitization on all Lambda functions</li>
+</ul>
+<p><strong>Security Scanning</strong>:</p>
+<ul>
+<li>Weekly npm audit</li>
+<li>Snyk security scanning</li>
+<li>OWASP ZAP scan on staging</li>
+</ul>
+<h2 id="cost-analysis--optimization">Cost Analysis &amp; Optimization<a class="anchor" href="#cost-analysis--optimization">#</a></h2>
+<h3 id="monthly-cost-breakdown-1000-users">Monthly Cost Breakdown (1,000 users)<a class="anchor" href="#monthly-cost-breakdown-1000-users">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>Service</th>
+          <th>Cost Estimate</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td><strong>S3 Static Hosting</strong></td>
+          <td>$3</td>
+          <td>Next.js static files storage</td>
+      </tr>
+      <tr>
+          <td><strong>CloudFront</strong></td>
+          <td>$8</td>
+          <td>CDN, 1TB data transfer</td>
+      </tr>
+      <tr>
+          <td><strong>Route 53</strong></td>
+          <td>$1</td>
+          <td>Custom domain hosting</td>
+      </tr>
+      <tr>
+          <td><strong>API Gateway</strong></td>
+          <td>$10</td>
+          <td>~180K requests/month</td>
+      </tr>
+      <tr>
+          <td><strong>Lambda Functions</strong></td>
+          <td>$25</td>
+          <td>11 functions total</td>
+      </tr>
+      <tr>
+          <td><strong>Amazon Bedrock</strong></td>
+          <td>$12-30</td>
+          <td>Flexible DB/AI mix ⭐</td>
+      </tr>
+      <tr>
+          <td><strong>DynamoDB</strong></td>
+          <td>$45</td>
+          <td>On-demand with enhanced features</td>
+      </tr>
+      <tr>
+          <td><strong>S3</strong></td>
+          <td>$10</td>
+          <td>100GB storage</td>
+      </tr>
+      <tr>
+          <td><strong>Cognito</strong></td>
+          <td>FREE</td>
+          <td>&lt; 50,000 MAU</td>
+      </tr>
+      <tr>
+          <td><strong>CloudWatch</strong></td>
+          <td>$12</td>
+          <td>Logging &amp; monitoring</td>
+      </tr>
+      <tr>
+          <td><strong>WAF</strong></td>
+          <td>$6</td>
+          <td>Security protection</td>
+      </tr>
+      <tr>
+          <td><strong>Secrets Manager</strong></td>
+          <td>$2</td>
+          <td>API keys</td>
+      </tr>
+  </tbody>
+</table>
+<p><strong>Total Monthly Cost</strong>: $123-168</p>
+<h3 id="cost-optimization-strategies">Cost Optimization Strategies<a class="anchor" href="#cost-optimization-strategies">#</a></h3>
+<h4 id="1-ai-cost-optimization-40-of-total-cost">1. AI Cost Optimization (40% of total cost)<a class="anchor" href="#1-ai-cost-optimization-40-of-total-cost">#</a></h4>
+<p><strong>Flexible DB/AI Mix Strategy</strong>:</p>
+<pre tabindex="0"><code>Month 1: 0% DB, 100% AI → $30/month AI cost
+Month 3: 30% DB, 70% AI → $21/month AI cost (30% savings)
+Month 6: 60% DB, 40% AI → $12/month AI cost (60% savings)
+Month 12: 80% DB, 20% AI → $6/month AI cost (80% savings)</code></pre><p><strong>Implementation</strong>:</p>
+<ul>
+<li>Use Claude 3 Haiku (70% cheaper than Sonnet)</li>
+<li>Cache popular AI responses</li>
+<li>Auto-approve recipes with 4+ stars</li>
+<li>Build database organically from user ratings</li>
+</ul>
+<p><strong>Savings</strong>: $24/month by Month 12</p>
+<h4 id="2-database-optimization-30-of-total-cost">2. Database Optimization (30% of total cost)<a class="anchor" href="#2-database-optimization-30-of-total-cost">#</a></h4>
+<p><strong>DynamoDB Strategies</strong>:</p>
+<ul>
+<li>On-demand pricing (pay per use)</li>
+<li>TTL for old AI suggestions (90 days)</li>
+<li>TTL for old notifications (30 days)</li>
+<li>Efficient GSI design (sparse indexes)</li>
+<li>Batch operations for writes</li>
+</ul>
+<p><strong>Current Cost</strong>: $45/month
+<strong>Optimized Cost</strong>: $35/month
+<strong>Savings</strong>: $10/month</p>
+<h4 id="3-lambda-optimization-12-of-total-cost">3. Lambda Optimization (12% of total cost)<a class="anchor" href="#3-lambda-optimization-12-of-total-cost">#</a></h4>
+<p><strong>Performance Tuning</strong>:</p>
+<ul>
+<li>Right-size memory allocation</li>
+<li>Connection pooling for DynamoDB</li>
+<li>In-memory caching for master ingredients</li>
+<li>Minimize cold starts with provisioned concurrency</li>
+<li>Efficient code packaging (tree-shaking)</li>
+</ul>
+<p><strong>Current Cost</strong>: $25/month
+<strong>Optimized Cost</strong>: $20/month
+<strong>Savings</strong>: $5/month</p>
+<h3 id="budget-alarms">Budget Alarms<a class="anchor" href="#budget-alarms">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Development</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Warning</span>: <span style="color:#ae81ff">$140/month</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Critical</span>: <span style="color:#ae81ff">$170/month</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Hard Stop</span>: <span style="color:#ae81ff">$200/month</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Production</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Warning</span>: <span style="color:#ae81ff">$180/month</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Critical</span>: <span style="color:#ae81ff">$450/month</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Hard Stop</span>: <span style="color:#ae81ff">$500/month</span></span></span></code></pre></div><h3 id="cost-tracking-metrics">Cost Tracking Metrics<a class="anchor" href="#cost-tracking-metrics">#</a></h3>
+<ul>
+<li>Cost per user (target: &lt;$0.20 MVP, &lt;$0.03 scale)</li>
+<li>AI cost percentage (target: decrease from 50% to 20%)</li>
+<li>DB coverage ratio (target: 0% → 80%)</li>
+<li>Revenue per user (target: &gt;$0.25/month)</li>
+</ul>
+<h2 id="scalability-strategy">Scalability Strategy<a class="anchor" href="#scalability-strategy">#</a></h2>
+<h3 id="horizontal-scaling">Horizontal Scaling<a class="anchor" href="#horizontal-scaling">#</a></h3>
+<ul>
+<li><strong>Lambda</strong>: Auto-scales to 1,000 concurrent executions (default)</li>
+<li><strong>DynamoDB</strong>: On-demand mode (auto-scales)</li>
+<li><strong>S3</strong>: Unlimited scaling</li>
+<li><strong>CloudFront</strong>: Global edge network</li>
+</ul>
+<h3 id="vertical-scaling">Vertical Scaling<a class="anchor" href="#vertical-scaling">#</a></h3>
+<ul>
+<li><strong>Lambda Memory</strong>: 256MB → 1024MB based on function needs</li>
+<li><strong>DynamoDB</strong>: On-demand → Provisioned (if predictable traffic)</li>
+<li><strong>Reserved Concurrency</strong>: Add for critical functions</li>
+</ul>
+<h3 id="caching-strategy">Caching Strategy<a class="anchor" href="#caching-strategy">#</a></h3>
+<pre tabindex="0"><code>Layer 1: CloudFront (Edge)
+  - Static assets: 24 hours
+  - Web pages: 1 hour
+
+Layer 2: Lambda (In-Memory)
+  - Master ingredients: Cache in Lambda
+  - User context: Cache for request duration
+
+Layer 3: DynamoDB
+  - DAX (DynamoDB Accelerator): Post-MVP
+  - Reduces read latency to microseconds</code></pre><h3 id="performance-targets">Performance Targets<a class="anchor" href="#performance-targets">#</a></h3>
+<ul>
+<li><strong>API Response Time</strong>: &lt; 500ms for non-AI endpoints (p95)</li>
+<li><strong>AI Generation</strong>: &lt; 5 seconds per recipe</li>
+<li><strong>Database Queries</strong>: &lt; 100ms for single-item queries</li>
+<li><strong>System Uptime</strong>: &gt;= 99.5%</li>
+<li><strong>Error Rate</strong>: &lt; 1%</li>
+</ul>
+<h2 id="backend-implementation-details">Backend Implementation Details<a class="anchor" href="#backend-implementation-details">#</a></h2>
+<h3 id="lambda-functions-11-total">Lambda Functions (11 total)<a class="anchor" href="#lambda-functions-11-total">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Core Functions</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. ai-suggestion (1024MB, 60s) ⭐ Core</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. cooking-history (256MB, 10s) ⭐ Core</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. rating-handler (256MB, 10s) ⭐ Core</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. ingredient-validator (256MB, 10s) ⭐ Core</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. user-profile (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">6</span><span style="color:#ae81ff">. recipe-crud (512MB, 30s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">7</span><span style="color:#ae81ff">. auth-handler (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Social Functions (Phase 2)</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">8</span><span style="color:#ae81ff">. social-friends (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">9</span><span style="color:#ae81ff">. posts-handler (512MB, 30s)</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">10</span><span style="color:#ae81ff">. notifications (256MB, 10s)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Admin Functions</span>:
+</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">11</span><span style="color:#ae81ff">. admin-ops (512MB, 30s)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Runtime</span>: <span style="color:#ae81ff">Node.js 20 (all functions)</span></span></span></code></pre></div><h3 id="shared-utilities">Shared Utilities<a class="anchor" href="#shared-utilities">#</a></h3>
+<p><strong>DynamoDB Helper</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">DynamoDBDocumentClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/lib-dynamodb&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">client</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">DynamoDBDocumentClient</span>.<span style="color:#a6e22e">from</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">DynamoDBClient</span>({}));
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">query</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">QueryCommand</span>(<span style="color:#a6e22e">params</span>)),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">put</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">PutCommand</span>(<span style="color:#a6e22e">params</span>)),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">update</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">params</span>) =&gt; <span style="color:#a6e22e">client</span>.<span style="color:#a6e22e">send</span>(<span style="color:#66d9ef">new</span> <span style="color:#a6e22e">UpdateCommand</span>(<span style="color:#a6e22e">params</span>))
+</span></span><span style="display:flex;"><span>};</span></span></code></pre></div><p><strong>Bedrock Client</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">BedrockRuntimeClient</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-bedrock-runtime&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">client</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">BedrockRuntimeClient</span>({ <span style="color:#a6e22e">region</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;us-east-1&#39;</span> });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">async</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">callBedrock</span>(<span style="color:#a6e22e">ingredients</span>, <span style="color:#a6e22e">userContext</span>, <span style="color:#a6e22e">cookingMethod</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#75715e">// Build prompt with user context
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// Call Claude 3 Haiku
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// Parse and validate response
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>  <span style="color:#75715e">// Return recipe JSON
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>}</span></span></code></pre></div><p><strong>Error Handler</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AppError</span> <span style="color:#66d9ef">extends</span> Error {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>(<span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">statusCode</span>, <span style="color:#a6e22e">errorCode</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">super</span>(<span style="color:#a6e22e">message</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">statusCode</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">statusCode</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">errorCode</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">errorCode</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">isOperational</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">true</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p><strong>Structured Logger</strong>:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#66d9ef">function</span> <span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">level</span>, <span style="color:#a6e22e">message</span>, <span style="color:#a6e22e">metadata</span> <span style="color:#f92672">=</span> {}) {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">log</span>(<span style="color:#a6e22e">JSON</span>.<span style="color:#a6e22e">stringify</span>({
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">timestamp</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">new</span> Date().<span style="color:#a6e22e">toISOString</span>(),
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">level</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>    ...<span style="color:#a6e22e">metadata</span>
+</span></span><span style="display:flex;"><span>  }));
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><p>This design provides a comprehensive foundation for implementing the Smart Cooking MVP with focus on cost optimization, user experience, scalability, and production-ready DevOps practices.</p>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/ai_dlc/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="AI DLC" />
+        <span>AI DLC</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/ai_dlc/requirements/" class="flex align-center">
+        <span>Requirements</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="Requirements" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#architecture">Architecture</a>
+      <ul>
+        <li><a href="#high-level-architecture">High-Level Architecture</a></li>
+        <li><a href="#technology-stack">Technology Stack</a></li>
+      </ul>
+    </li>
+    <li><a href="#components-and-interfaces">Components and Interfaces</a>
+      <ul>
+        <li><a href="#1-ai-suggestion-engine-core-component">1. AI Suggestion Engine (Core Component)</a></li>
+        <li><a href="#2-auto-approval-system">2. Auto-Approval System</a></li>
+        <li><a href="#3-ingredient-validation-system">3. Ingredient Validation System</a></li>
+        <li><a href="#4-cooking-history-tracker">4. Cooking History Tracker</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-models">Data Models</a>
+      <ul>
+        <li><a href="#dynamodb-single-table-design">DynamoDB Single-Table Design</a></li>
+        <li><a href="#global-secondary-indexes-gsi">Global Secondary Indexes (GSI)</a></li>
+      </ul>
+    </li>
+    <li><a href="#error-handling">Error Handling</a>
+      <ul>
+        <li><a href="#error-classification">Error Classification</a></li>
+        <li><a href="#error-recovery-strategies">Error Recovery Strategies</a></li>
+      </ul>
+    </li>
+    <li><a href="#testing-strategy">Testing Strategy</a>
+      <ul>
+        <li><a href="#unit-testing">Unit Testing</a></li>
+        <li><a href="#integration-testing">Integration Testing</a></li>
+        <li><a href="#performance-testing">Performance Testing</a></li>
+        <li><a href="#security-testing">Security Testing</a></li>
+      </ul>
+    </li>
+    <li><a href="#deployment-architecture">Deployment Architecture</a>
+      <ul>
+        <li><a href="#infrastructure-as-code">Infrastructure as Code</a></li>
+        <li><a href="#cicd-pipeline">CI/CD Pipeline</a></li>
+        <li><a href="#environment-configuration">Environment Configuration</a></li>
+      </ul>
+    </li>
+    <li><a href="#monitoring-and-observability">Monitoring and Observability</a>
+      <ul>
+        <li><a href="#cloudwatch-metrics">CloudWatch Metrics</a></li>
+        <li><a href="#x-ray-tracing">X-Ray Tracing</a></li>
+        <li><a href="#structured-logging">Structured Logging</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-considerations">Security Considerations</a>
+      <ul>
+        <li><a href="#data-privacy">Data Privacy</a></li>
+        <li><a href="#authentication--authorization">Authentication &amp; Authorization</a></li>
+        <li><a href="#input-validation">Input Validation</a></li>
+      </ul>
+    </li>
+    <li><a href="#devops--deployment">DevOps &amp; Deployment</a>
+      <ul>
+        <li><a href="#infrastructure-as-code-iac">Infrastructure as Code (IaC)</a></li>
+        <li><a href="#cicd-pipeline-1">CI/CD Pipeline</a></li>
+        <li><a href="#monitoring--logging">Monitoring &amp; Logging</a></li>
+        <li><a href="#security-best-practices">Security Best Practices</a></li>
+      </ul>
+    </li>
+    <li><a href="#cost-analysis--optimization">Cost Analysis &amp; Optimization</a>
+      <ul>
+        <li><a href="#monthly-cost-breakdown-1000-users">Monthly Cost Breakdown (1,000 users)</a></li>
+        <li><a href="#cost-optimization-strategies">Cost Optimization Strategies</a></li>
+        <li><a href="#budget-alarms">Budget Alarms</a></li>
+        <li><a href="#cost-tracking-metrics">Cost Tracking Metrics</a></li>
+      </ul>
+    </li>
+    <li><a href="#scalability-strategy">Scalability Strategy</a>
+      <ul>
+        <li><a href="#horizontal-scaling">Horizontal Scaling</a></li>
+        <li><a href="#vertical-scaling">Vertical Scaling</a></li>
+        <li><a href="#caching-strategy">Caching Strategy</a></li>
+        <li><a href="#performance-targets">Performance Targets</a></li>
+      </ul>
+    </li>
+    <li><a href="#backend-implementation-details">Backend Implementation Details</a>
+      <ul>
+        <li><a href="#lambda-functions-11-total">Lambda Functions (11 total)</a></li>
+        <li><a href="#shared-utilities">Shared Utilities</a></li>
+      </ul>
+    </li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

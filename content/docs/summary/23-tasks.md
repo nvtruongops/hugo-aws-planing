@@ -577,29 +577,190 @@ Sprint Breakdown:
 
 ---
 
+##    Additional Tasks: Build, Deployment & Production Launch
+
+### TASK-037: Frontend Build Configuration
+- **Story Points**: 3
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Configure Next.js static export and build pipeline
+- **Acceptance Criteria**:
+  - ✅ Next.js static export configured (`output: 'export'`)
+  - ✅ Build script generates static files in `/out` directory
+  - ✅ Environment variables for dev/staging/prod
+  - ✅ Build optimizations (minification, compression)
+  - ✅ Local static export testing verified
+- **Requirements**: 8.2, 9.1
+
+### TASK-038: S3 Static Hosting Setup
+- **Story Points**: 2
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Configure S3 bucket for static website hosting
+- **Acceptance Criteria**:
+  - ✅ S3 bucket with public read access
+  - ✅ Static website hosting enabled
+  - ✅ Bucket policy for public GetObject
+  - ✅ CORS configuration for API calls
+  - ✅ Bucket versioning enabled
+- **Requirements**: 8.2, 9.1
+
+### TASK-039: CloudFront CDN Configuration
+- **Story Points**: 4
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Set up CloudFront distribution with custom domain
+- **Acceptance Criteria**:
+  - ✅ CloudFront distribution with S3 origin
+  - ✅ Custom domain via Route 53
+  - ✅ SSL/TLS certificate from ACM (us-east-1)
+  - ✅ Cache behaviors configured
+  - ✅ Custom error pages (404 → index.html)
+  - ✅ Compression enabled (gzip, brotli)
+- **Requirements**: 8.2, 8.4
+
+### TASK-040: CI/CD Pipeline with GitHub Actions
+- **Story Points**: 5
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Implement automated deployment pipeline
+- **Acceptance Criteria**:
+  - ✅ GitHub Actions workflow created (`.github/workflows/deploy.yml`)
+  - ✅ Build job (dependencies → tests → build)
+  - ✅ Deploy job (S3 upload with AWS credentials)
+  - ✅ CloudFront cache invalidation
+  - ✅ Deployment notifications (Slack/email)
+  - ✅ Multi-environment workflows (dev/staging/prod)
+- **Requirements**: 8.2, 9.1
+
+### TASK-041: Backend Lambda Deployment Automation
+- **Story Points**: 4
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Automate Lambda function deployment via CDK
+- **Acceptance Criteria**:
+  - ✅ CDK deployment scripts for all Lambdas
+  - ✅ Lambda layers for shared dependencies
+  - ✅ Automated build and packaging (zip/container)
+  - ✅ Blue-green deployment strategy
+  - ✅ Lambda versioning and aliases (dev/staging/prod)
+  - ✅ CloudFormation stack automation via GitHub Actions
+- **Requirements**: 8.2, 9.1
+
+### TASK-042: Deployment Health Checks
+- **Story Points**: 3
+- **Priority**: P1 (Important)
+- **Description**: Configure post-deployment verification
+- **Acceptance Criteria**:
+  - ✅ Smoke tests for critical API endpoints
+  - ✅ Health check API: GET /health (DB, Bedrock, S3)
+  - ✅ Post-deployment verification scripts
+  - ✅ Rollback triggers on health check failures
+  - ✅ Deployment status reporting dashboard
+- **Requirements**: 9.1, 7.2
+
+### TASK-043: Deployment Alerts & Monitoring
+- **Story Points**: 2
+- **Priority**: P1 (Important)
+- **Description**: Set up deployment notifications and alerts
+- **Acceptance Criteria**:
+  - ✅ SNS topics for deployment events
+  - ✅ CloudWatch alarms for deployment errors
+  - ✅ Slack/email notifications
+  - ✅ Deployment metrics tracking
+  - ✅ Automated rollback notifications
+- **Requirements**: 9.1, 7.2
+
+### TASK-044: Deployment Documentation
+- **Story Points**: 2
+- **Priority**: P2 (Nice to Have)
+- **Description**: Create deployment runbooks and documentation
+- **Acceptance Criteria**:
+  - ✅ Manual deployment steps documented
+  - ✅ Rollback runbook for emergencies
+  - ✅ Troubleshooting guide for common issues
+  - ✅ Environment-specific configurations documented
+  - ✅ Deployment checklist for major releases
+- **Requirements**: 9.1
+
+### TASK-045: Production Environment Setup
+- **Story Points**: 5
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Deploy production infrastructure
+- **Acceptance Criteria**:
+  - ✅ CDK deployment to production AWS account
+  - ✅ Production DynamoDB with point-in-time recovery
+  - ✅ Production Cognito with MFA options
+  - ✅ AWS WAF rules for API Gateway and CloudFront
+  - ✅ Production SSL certificates and custom domain
+- **Requirements**: 8.2, 8.4, 9.1
+
+### TASK-046: Production Deployment Dry Run
+- **Story Points**: 4
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Execute complete staging deployment and testing
+- **Acceptance Criteria**:
+  - ✅ Full deployment to staging environment
+  - ✅ End-to-end testing in staging (all flows)
+  - ✅ Monitoring dashboards verified
+  - ✅ Rollback procedure tested
+  - ✅ Issues documented with mitigation plan
+- **Requirements**: 9.1, All core requirements
+
+### TASK-047: Production Go-Live
+- **Story Points**: 3
+- **Priority**: P0 (Launch Blocker)
+- **Description**: Final production deployment and launch
+- **Acceptance Criteria**:
+  - ✅ Production deployment during low-traffic window
+  - ✅ CloudWatch metrics monitored during deployment
+  - ✅ All services verified (API, Lambda, DynamoDB, Cognito)
+  - ✅ Critical user flows tested (registration, login, AI, rating)
+  - ✅ Production monitoring alerts enabled
+  - ✅ Go-live announcement to users/stakeholders
+- **Requirements**: 8.2, 9.1, All requirements
+
+---
+
 ##    Task Summary
 
 ### By Priority
-- **P0 (Must Have)**: 85 points (71%)
-- **P1 (Should Have)**: 30 points (25%)
-- **P2 (Nice to Have)**: 6 points (4%)
+- **P0 (Must Have)**: 115 points (78%) - includes deployment tasks
+- **P1 (Should Have)**: 25 points (17%)
+- **P2 (Nice to Have)**: 8 points (5%)
 
 ### By Category
-- **Backend/API**: 60 points (50%)
-- **Frontend/UI**: 45 points (37.5%)
-- **Infrastructure**: 15 points (12.5%)
+- **Backend/API**: 60 points (41%)
+- **Frontend/UI**: 45 points (30%)
+- **Infrastructure**: 15 points (10%)
+- **Deployment & DevOps**: 28 points (19%)
+
+### Total Story Points: 148 points across 47 tasks
+
+### Timeline (Updated)
+- **Sprint 1-2**: Foundation & Core Backend (40 points)
+- **Sprint 3-4**: AI Engine & Frontend Core (40 points)
+- **Sprint 5-6**: Social Features & Polish (40 points)
+- **Sprint 7**: Deployment & Production Launch (28 points)
+
+**Updated Total Duration**: 14 weeks (7 sprints)
 
 ### Risk Mitigation
-- **High Risk Tasks**: TASK-008 (Bedrock), TASK-010 (AI Mix), TASK-012 (Auto-approval)
-- **Dependencies**: Database → Auth → API → Frontend
+- **High Risk Tasks**:
+  - TASK-008 (Bedrock AI Integration)
+  - TASK-010 (Flexible DB/AI Mix)
+  - TASK-012 (Auto-approval System)
+  - TASK-040 (CI/CD Pipeline)
+  - TASK-045 (Production Setup)
+- **Dependencies**:
+  - Database → Auth → API → Frontend → Social → Deployment
 - **Buffer Time**: 20% built into estimates
 
 ### Success Metrics
 - ✅ All P0 tasks completed
 - ✅ Core user journey working end-to-end
 - ✅ Auto-approval system functional
+- ✅ Social features deployed (friends, posts, notifications)
+- ✅ CI/CD pipeline operational
+- ✅ Production environment stable
 - ✅ Cost under $160/month
 - ✅ API response time < 500ms
+- ✅ Deployment success rate > 95%
 
 ## Related Documents
 

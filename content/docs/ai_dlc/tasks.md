@@ -1,3 +1,10 @@
+---
+title: "Tasks"
+menu:
+  ai_dlc:
+    parent: ai_dlc
+    weight: 3
+---
 # Implementation Plan
 
 - [ ] 1. Set up project infrastructure and authentication
@@ -230,3 +237,293 @@
     - Implement caching strategies for frequently accessed data
     - Optimize DynamoDB queries and indexes for better performance
     - _Requirements: 7.1, 9.2_
+
+- [ ] 12. Implement privacy and access control system
+  - [ ] 12.1 Build privacy settings management
+    - Create GET /user/privacy endpoint to retrieve current privacy settings
+    - Implement PUT /user/privacy endpoint for updating privacy preferences
+    - Define privacy levels: public, friends, private for different data types
+    - Store settings: profile_visibility, email_visibility, date_of_birth_visibility, recipes_visibility, ingredients_visibility
+    - _Requirements: FR-SF-01_
+
+  - [ ] 12.2 Implement privacy filtering middleware
+    - Create middleware to filter data based on user privacy settings
+    - Implement friend-based access control logic
+    - Apply privacy rules when retrieving user profiles, recipes, and ingredients
+    - Add privacy check before exposing sensitive user information
+    - _Requirements: FR-SF-01, 8.1_
+
+  - [ ]* 12.3 Write unit tests for privacy system
+    - Test privacy settings CRUD operations and validation
+    - Test filtering logic for different privacy levels (public/friends/private)
+    - Test access control for friend vs non-friend scenarios
+    - _Requirements: FR-SF-01_
+
+- [ ] 13. Develop friends and social connection system
+  - [ ] 13.1 Create friendship management Lambda function
+    - Implement POST /friends/request endpoint to send friend requests
+    - Build PUT /friends/{id}/accept endpoint for accepting requests
+    - Create PUT /friends/{id}/reject endpoint for rejecting requests
+    - Add DELETE /friends/{id} endpoint to remove friendships
+    - Implement GET /friends endpoint with status filtering (pending/accepted)
+    - _Requirements: FR-SF-02_
+
+  - [ ] 13.2 Build bidirectional friendship data model
+    - Store friendship records with both user perspectives in DynamoDB
+    - Create GSI for reverse friendship lookup (who friended me)
+    - Track friendship status: pending, accepted, rejected, blocked
+    - Add timestamp tracking: requested_at, responded_at
+    - _Requirements: FR-SF-02, 6.1_
+
+  - [ ]* 13.3 Write unit tests for friendship system
+    - Test friend request creation and validation
+    - Test accept/reject/remove friendship workflows
+    - Test bidirectional friendship queries
+    - Test edge cases: duplicate requests, self-friending
+    - _Requirements: FR-SF-02_
+
+- [ ] 14. Build social posts and engagement system
+  - [ ] 14.1 Implement posts management Lambda function
+    - Create POST /posts endpoint for creating new posts with content, images, recipe_id
+    - Build GET /posts/{id} endpoint for retrieving post details
+    - Implement PUT /posts/{id} endpoint for updating own posts
+    - Add DELETE /posts/{id} endpoint for deleting own posts
+    - Include privacy-aware filtering based on user settings
+    - _Requirements: FR-SF-03_
+
+  - [ ] 14.2 Develop social feed system
+    - Implement GET /posts/feed endpoint for personalized friend feed
+    - Create feed query using GSI3 (FEED#PUBLIC and FEED#<user_id>)
+    - Build pagination for feed with limit and offset parameters
+    - Add sorting by created_at timestamp (newest first)
+    - Filter posts based on friendship and privacy settings
+    - _Requirements: FR-SF-03, 5.3_
+
+  - [ ] 14.3 Create comments system
+    - Implement POST /posts/{id}/comments endpoint for adding comments
+    - Build GET /posts/{id}/comments endpoint to retrieve all comments
+    - Add support for nested comments with parent_comment_id tracking
+    - Increment post.comments_count when new comment is added
+    - Store comments in DynamoDB with SK pattern: COMMENT#<timestamp>#<id>
+    - _Requirements: FR-SF-03_
+
+  - [ ] 14.4 Build reactions and likes system
+    - Create POST /reactions endpoint for adding reactions (like, love, wow)
+    - Implement DELETE /reactions/{id} endpoint for removing reactions
+    - Track reaction type and target (post or comment)
+    - Increment/decrement likes_count on target entity
+    - Use DynamoDB pattern: PK=POST#<id>, SK=REACTION#<user_id>
+    - _Requirements: FR-SF-03_
+
+  - [ ]* 14.5 Write unit tests for social features
+    - Test post CRUD operations and privacy filtering
+    - Test feed generation and friend-based filtering
+    - Test comment creation and nested comment structure
+    - Test reaction system and count updates
+    - _Requirements: FR-SF-03_
+
+- [ ] 15. Implement notifications system
+  - [ ] 15.1 Create notifications Lambda function
+    - Implement GET /notifications endpoint with unread_only filter
+    - Build PUT /notifications/{id}/read endpoint to mark as read
+    - Create PUT /notifications/read-all endpoint for bulk mark as read
+    - Use GSI1PK pattern: USER#<id>#UNREAD for efficient unread queries
+    - Add pagination support with limit and offset
+    - _Requirements: FR-SF-04_
+
+  - [ ] 15.2 Build notification trigger system
+    - Set up DynamoDB Streams to trigger notification creation
+    - Create notification for friend_request, friend_accept events
+    - Trigger notification for comment, like, mention on posts
+    - Send notification for recipe_approved (auto-approval system)
+    - Store notification type, actor_id, target_type, target_id, content
+    - _Requirements: FR-SF-04_
+
+  - [ ] 15.3 Implement notification cleanup with TTL
+    - Configure DynamoDB TTL to auto-delete notifications after 30 days
+    - Add ttl attribute: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60)
+    - Update GSI1PK when notification is read (remove from UNREAD index)
+    - Archive important notifications before deletion
+    - _Requirements: FR-SF-04, 7.1_
+
+  - [ ]* 15.4 Write unit tests for notifications
+    - Test notification creation from different event types
+    - Test unread filtering and read status updates
+    - Test TTL configuration and cleanup logic
+    - Test notification delivery to correct users
+    - _Requirements: FR-SF-04_
+
+- [ ] 16. Build social features frontend interface
+  - [ ] 16.1 Create friends management UI
+    - Build friends list page with status tabs (all/pending/accepted)
+    - Implement friend request cards with accept/reject buttons
+    - Add friend search functionality with user autocomplete
+    - Create "Add Friend" button on user profile pages
+    - Display friend count and mutual friends
+    - _Requirements: FR-SF-02_
+
+  - [ ] 16.2 Develop social feed interface
+    - Create main feed page displaying friends' posts in reverse chronological order
+    - Build post card component with user info, content, images, recipe link
+    - Implement create post form with text input and image upload
+    - Add recipe attachment selector to link posts with recipes
+    - Display like count, comment count, and user's reaction status
+    - _Requirements: FR-SF-03_
+
+  - [ ] 16.3 Build comments and reactions UI
+    - Create comment list component with nested comment display
+    - Implement comment input form with real-time submission
+    - Add reaction buttons (like, love, wow) with visual feedback
+    - Show reaction animation on click and update counts immediately
+    - Support @mentions in comments with user autocomplete
+    - _Requirements: FR-SF-03_
+
+  - [ ] 16.4 Create notifications interface
+    - Build notification dropdown in header with unread badge count
+    - Display notification list with icon, actor, action, and timestamp
+    - Implement click to navigate to notification target (post, recipe, profile)
+    - Add "Mark all as read" functionality
+    - Auto-refresh notification count periodically
+    - _Requirements: FR-SF-04_
+
+  - [ ] 16.5 Implement privacy settings UI
+    - Create privacy settings page with toggle controls for each data type
+    - Add privacy level selector: public, friends, private for profile, recipes, ingredients
+    - Display current visibility status for each setting
+    - Implement save functionality with success/error notifications
+    - Show privacy hints and explanations for each setting
+    - _Requirements: FR-SF-01_
+
+- [ ] 17. Integrate social features with existing functionality
+  - [ ] 17.1 Enhance user profile with social elements
+    - Add friend count and mutual friends display on profile page
+    - Show "Add Friend" or "Friends" status button
+    - Display user's public posts on their profile page
+    - Implement privacy filtering for profile data based on friendship status
+    - _Requirements: FR-SF-01, FR-SF-02, 1.3_
+
+  - [ ] 17.2 Connect recipes with social sharing
+    - Add "Share to Feed" button on recipe detail pages
+    - Pre-fill post creation form with recipe information and image
+    - Display post count on recipe pages showing social engagement
+    - Show friends who have cooked this recipe
+    - _Requirements: FR-SF-03, 5.1_
+
+  - [ ] 17.3 Link cooking history with social posts
+    - Add "Share" button on completed cooking sessions
+    - Auto-suggest posting when rating is >= 4 stars
+    - Include personal notes and rating in shared posts
+    - Display cooking history on user's social profile
+    - _Requirements: FR-SF-03, 4.1, 4.2_
+
+- [ ] 18. Perform social features testing and optimization
+  - [ ] 18.1 Execute social integration testing
+    - Test complete friend request workflow: send → accept → friendship established
+    - Validate privacy filtering: verify friends vs non-friends access control
+    - Test post creation → comment → reaction → notification flow
+    - Verify feed generation with mixed public and friends-only posts
+    - Test notification delivery for all event types
+    - _Requirements: FR-SF-01 to FR-SF-04_
+
+  - [ ] 18.2 Optimize social queries and performance
+    - Analyze and optimize feed query performance with GSI3
+    - Implement caching for frequently accessed friend lists
+    - Add pagination for posts, comments, and notifications
+    - Optimize notification queries using sparse index (UNREAD filter)
+    - Monitor and reduce DynamoDB read/write costs for social features
+    - _Requirements: 7.1, 9.2_
+
+- [ ] 19. Configure build and deployment pipelines
+  - [ ] 19.1 Set up frontend build process
+    - Configure Next.js static export with `output: 'export'` in next.config.js
+    - Set up build script: `npm run build` to generate static files in `/out` directory
+    - Configure environment variables for different stages (dev, staging, prod)
+    - Optimize build output: enable minification, compression, and tree shaking
+    - Test static export locally to verify all pages render correctly
+    - _Requirements: 8.2, 9.1_
+
+  - [ ] 19.2 Configure S3 bucket for static hosting
+    - Create S3 bucket with public read access for static website hosting
+    - Enable static website hosting with index.html and error.html configuration
+    - Configure bucket policy to allow public GetObject for website files
+    - Set up bucket CORS configuration for API calls
+    - Enable bucket versioning for rollback capability
+    - _Requirements: 8.2, 9.1_
+
+  - [ ] 19.3 Set up CloudFront distribution
+    - Create CloudFront distribution with S3 bucket as origin
+    - Configure custom domain with Route 53 DNS records
+    - Request and attach SSL/TLS certificate from ACM (us-east-1)
+    - Set up cache behaviors: cache static assets, no-cache for HTML
+    - Configure custom error pages (404 → index.html for SPA routing)
+    - Enable compression (gzip, brotli) for better performance
+    - _Requirements: 8.2, 8.4_
+
+  - [ ] 19.4 Implement CI/CD with GitHub Actions
+    - Create GitHub Actions workflow file: `.github/workflows/deploy.yml`
+    - Configure build job: install dependencies → run tests → build static export
+    - Set up deploy job: upload build artifacts to S3 with AWS credentials
+    - Implement CloudFront cache invalidation after deployment
+    - Add deployment notifications (success/failure) to Slack or email
+    - Configure different workflows for dev, staging, and production branches
+    - _Requirements: 8.2, 9.1_
+
+  - [ ] 19.5 Set up backend Lambda deployment automation
+    - Create CDK deployment script for all Lambda functions
+    - Configure Lambda layers for shared dependencies (AWS SDK, utilities)
+    - Set up automated build and packaging for Lambda code (zip/container)
+    - Implement blue-green deployment strategy for zero-downtime updates
+    - Configure Lambda versioning and aliases (dev, staging, prod)
+    - Add CloudFormation stack update automation via GitHub Actions
+    - _Requirements: 8.2, 9.1_
+
+- [ ] 20. Implement monitoring and deployment verification
+  - [ ] 20.1 Configure deployment health checks
+    - Create smoke tests to verify critical API endpoints after deployment
+    - Implement automated health check API: GET /health (check DB, Bedrock, S3)
+    - Set up post-deployment verification script to test core user flows
+    - Configure rollback triggers if health checks fail
+    - Add deployment status reporting to monitoring dashboard
+    - _Requirements: 9.1, 7.2_
+
+  - [ ] 20.2 Set up deployment alerts and notifications
+    - Configure SNS topics for deployment events (started, success, failed)
+    - Create CloudWatch alarms for deployment-related errors
+    - Set up Slack/email notifications for deployment status
+    - Implement deployment metrics tracking (frequency, duration, success rate)
+    - Add automated rollback notifications to team communication channels
+    - _Requirements: 9.1, 7.2_
+
+  - [ ] 20.3 Create deployment documentation and runbooks
+    - Document manual deployment steps as backup procedure
+    - Create rollback runbook for emergency situations
+    - Write troubleshooting guide for common deployment issues
+    - Document environment-specific configurations and secrets
+    - Create deployment checklist for major releases
+    - _Requirements: 9.1_
+
+- [ ] 21. Production readiness and launch preparation
+  - [ ] 21.1 Perform production environment setup
+    - Deploy all infrastructure to production AWS account using CDK
+    - Configure production-grade DynamoDB with point-in-time recovery
+    - Set up production Cognito User Pool with MFA options
+    - Enable AWS WAF rules for production API Gateway and CloudFront
+    - Configure production SSL certificates and custom domain
+    - _Requirements: 8.2, 8.4, 9.1_
+
+  - [ ] 21.2 Execute production deployment dry run
+    - Perform complete deployment to staging environment
+    - Run full end-to-end testing in staging (all user flows)
+    - Verify monitoring dashboards and alerts are working
+    - Test rollback procedure in staging environment
+    - Document any issues and create mitigation plan
+    - _Requirements: 9.1, All core requirements_
+
+  - [ ] 21.3 Final production deployment and go-live
+    - Execute production deployment during low-traffic window
+    - Monitor CloudWatch metrics during deployment (errors, latency)
+    - Verify all services are healthy: API Gateway, Lambda, DynamoDB, Cognito
+    - Test critical user flows: registration, login, AI suggestions, rating
+    - Enable production monitoring alerts and dashboards
+    - Announce go-live to users and stakeholders
+    - _Requirements: 8.2, 9.1, All requirements_

@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Giới Hạn Dự Án - Smart Cooking App#
+Budget Constraints#
+Development Budget#
+
+Initial Investment: $100 - 500
+
+Development time: 3 months
+Testing &amp; QA
+Initial infrastructure setup
+
+
+
+Operational Budget (Monthly)#
+
+
+MVP Phase (Month 1-3):
+
+Target: $135-160/month (1,000 users)
+Maximum: $200/month (hard limit)
+Buffer: 20% for unexpected costs
+
+
+
+Growth Phase (Month 4-12):
+
+Target: $150-400/month (scaling with users)
+Maximum: $500/month
+Cost per user: Must decrease as scale increases
+
+
+
+Cost Breakdown Limits#
+
+  
+      
+          Service
+          MVP Budget
+          Max Budget
+          Notes
+      
+  
+  
+      
+          AWS Amplify
+          $15
+          $20
+          Hosting &#43; CI/CD
+      
+      
+          CloudFront
+          $8
+          $15
+          CDN
+      
+      
+          API Gateway
+          $10
+          $20
+          REST API
+      
+      
+          Lambda
+          $25
+          $40
+          11 functions
+      
+      
+          Bedrock AI
+          $12-30
+          $50
+          Flexible mix strategy
+      
+      
+          DynamoDB
+          $45
+          $60
+          On-demand
+      
+      
+          S3
+          $10
+          $20
+          Images
+      
+      
+          CloudWatch
+          $12
+          $20
+          Logging
+      
+      
+          WAF
+          $6
+          $10
+          Security
+      
+      
+          Other
+          $2
+          $5
+          Secrets, misc
+      
+  
+
+Budget Alarms#
+
+Warning at: $140/month (MVP), $180/month (Growth)
+Critical at: $170/month (MVP), $450/month (Growth)
+Hard stop at: $200/month (MVP), $500/month (Growth)
+
+Time Constraints#
+Project Timeline#
+
+Total Duration: 3 months (MVP)
+Start Date: Week 1
+MVP Launch: Week 12
+Beta Period: Week 13-14
+
+Phase Breakdown#
+
+  
+      
+          Phase
+          Duration
+          Deadline
+          Deliverables
+      
+  
+  
+      
+          Planning &amp; Design
+          2 weeks
+          Week 2
+          Architecture, DB design, Cost analysis
+      
+      
+          Core Development
+          6 weeks
+          Week 8
+          Auth, Ingredients, AI Engine, Rating
+      
+      
+          Social Features
+          4 weeks
+          Week 12
+          Privacy, Friends, Posts, Notifications
+      
+      
+          Testing &amp; Launch
+          2 weeks
+          Week 14
+          Bug fixes, Beta release
+      
+  
+
+Critical Path Items#
+
+Week 3-4: DynamoDB schema &#43; Lambda infrastructure (BLOCKER)
+Week 5-6: AI suggestion engine &#43; Master ingredients (BLOCKER)
+Week 7-8: Rating system &#43; Auto-approval (BLOCKER)
+Week 9-10: Privacy &#43; Friend system
+Week 11-12: Posts &#43; Notifications
+
+Development Velocity#
+
+Sprint Length: 1 week
+Story Points: 20-25 per sprint (solo developer)
+Buffer: 20% for unexpected issues
+No Overtime: Sustainable pace, 40 hours/week
+
+Technology Constraints#
+AWS Service Limits#
+Lambda Constraints#
+
+Memory: 256MB-1024MB per function
+Timeout: 10-60 seconds (AI: 60s, others: 10-30s)
+Concurrent Executions: 1,000 default (can request increase)
+Package Size: 50MB compressed, 250MB uncompressed
+Environment Variables: 4KB total
+
+DynamoDB Constraints#
+
+Item Size: 400KB maximum
+Partition Key: 2048 bytes
+Sort Key: 1024 bytes
+GSI: 20 per table (using 3-4)
+Query Result: 1MB per query
+Batch Write: 25 items per batch
+
+API Gateway Constraints#
+
+Timeout: 29 seconds maximum
+Payload Size: 10MB request/response
+Rate Limit: 10,000 requests/second (default)
+Burst: 5,000 requests
+
+Cognito Constraints#
+
+User Attributes: 50 custom attributes max
+Free Tier: 50,000 MAU
+Token Expiration: 1 hour (access), 30 days (refresh)
+
+Bedrock AI Constraints#
+
+Model: Claude 3 Haiku (cost-effective) or Sonnet (quality)
+Input Token Limit: 200K tokens (Claude 3.5)
+Output Token Limit: 8K tokens recommended
+Rate Limit: 200 requests/minute (default)
+Timeout: 60 seconds per request
+
+S3 Constraints#
+
+Object Size: 5TB maximum
+PUT Rate: 3,500 requests/second per prefix
+GET Rate: 5,500 requests/second per prefix
+Free Tier: 5GB storage (12 months)
+
+Technology Stack Fixed Choices#
+
+Backend Runtime: Node.js 20 (LTS) - FIXED
+Database: DynamoDB (no RDS/PostgreSQL for MVP)
+AI Provider: Amazon Bedrock (no OpenAI, no self-hosted)
+Frontend: Next.js (React-based)
+Hosting: AWS Amplify (no EC2, no custom servers)
+CDN: CloudFront (integrated with Amplify)
+Auth: Cognito (no custom auth, no Auth0)
+
+Third-Party Dependencies#
+
+Minimal External APIs: Avoid external dependencies
+No Payment Gateway in MVP: Defer to Phase 3
+No Email Service: Use Cognito built-in email
+No SMS Service: Defer to Phase 3
+
+Resource Constraints#
+Team Size#
+
+Solo Developer: 1 full-stack developer
+No Designer: Use free UI libraries (Tailwind, shadcn/ui)
+No QA Team: Self-testing &#43; beta users
+No DevOps: Serverless = minimal ops
+
+Skills &amp; Expertise#
+
+Required Skills:
+
+JavaScript/TypeScript/Node.js
+React/Node.js
+AWS services (Lambda, DynamoDB, Cognito)
+Serverless architecture
+AI/ML: Basic understanding (learning curve)
+DynamoDB single-table design (learning curve)
+
+
+
+Learning Curve Budget#
+
+Amazon Bedrock: 1 week to learn API
+DynamoDB Single-Table Design: 1 week to master
+AWS X-Ray Tracing: 2-3 days
+Total: ~2.5 weeks learning time (included in 3-month timeline)
+
+Security Constraints#
+Compliance Requirements#
+
+
+GDPR-Ready: EU users data protection">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/02-constraints/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="02 - Constraints">
+  <meta property="og:description" content="Giới Hạn Dự Án - Smart Cooking App#Budget Constraints#Development Budget#Initial Investment: $100 - 500 Development time: 3 months Testing &amp; QA Initial infrastructure setup Operational Budget (Monthly)#MVP Phase (Month 1-3):
+Target: $135-160/month (1,000 users) Maximum: $200/month (hard limit) Buffer: 20% for unexpected costs Growth Phase (Month 4-12):
+Target: $150-400/month (scaling with users) Maximum: $500/month Cost per user: Must decrease as scale increases Cost Breakdown Limits#Service MVP Budget Max Budget Notes AWS Amplify $15 $20 Hosting &#43; CI/CD CloudFront $8 $15 CDN API Gateway $10 $20 REST API Lambda $25 $40 11 functions Bedrock AI $12-30 $50 Flexible mix strategy DynamoDB $45 $60 On-demand S3 $10 $20 Images CloudWatch $12 $20 Logging WAF $6 $10 Security Other $2 $5 Secrets, misc Budget Alarms#Warning at: $140/month (MVP), $180/month (Growth) Critical at: $170/month (MVP), $450/month (Growth) Hard stop at: $200/month (MVP), $500/month (Growth) Time Constraints#Project Timeline#Total Duration: 3 months (MVP) Start Date: Week 1 MVP Launch: Week 12 Beta Period: Week 13-14 Phase Breakdown#Phase Duration Deadline Deliverables Planning &amp; Design 2 weeks Week 2 Architecture, DB design, Cost analysis Core Development 6 weeks Week 8 Auth, Ingredients, AI Engine, Rating Social Features 4 weeks Week 12 Privacy, Friends, Posts, Notifications Testing &amp; Launch 2 weeks Week 14 Bug fixes, Beta release Critical Path Items#Week 3-4: DynamoDB schema &#43; Lambda infrastructure (BLOCKER) Week 5-6: AI suggestion engine &#43; Master ingredients (BLOCKER) Week 7-8: Rating system &#43; Auto-approval (BLOCKER) Week 9-10: Privacy &#43; Friend system Week 11-12: Posts &#43; Notifications Development Velocity#Sprint Length: 1 week Story Points: 20-25 per sprint (solo developer) Buffer: 20% for unexpected issues No Overtime: Sustainable pace, 40 hours/week Technology Constraints#AWS Service Limits#Lambda Constraints#Memory: 256MB-1024MB per function Timeout: 10-60 seconds (AI: 60s, others: 10-30s) Concurrent Executions: 1,000 default (can request increase) Package Size: 50MB compressed, 250MB uncompressed Environment Variables: 4KB total DynamoDB Constraints#Item Size: 400KB maximum Partition Key: 2048 bytes Sort Key: 1024 bytes GSI: 20 per table (using 3-4) Query Result: 1MB per query Batch Write: 25 items per batch API Gateway Constraints#Timeout: 29 seconds maximum Payload Size: 10MB request/response Rate Limit: 10,000 requests/second (default) Burst: 5,000 requests Cognito Constraints#User Attributes: 50 custom attributes max Free Tier: 50,000 MAU Token Expiration: 1 hour (access), 30 days (refresh) Bedrock AI Constraints#Model: Claude 3 Haiku (cost-effective) or Sonnet (quality) Input Token Limit: 200K tokens (Claude 3.5) Output Token Limit: 8K tokens recommended Rate Limit: 200 requests/minute (default) Timeout: 60 seconds per request S3 Constraints#Object Size: 5TB maximum PUT Rate: 3,500 requests/second per prefix GET Rate: 5,500 requests/second per prefix Free Tier: 5GB storage (12 months) Technology Stack Fixed Choices#Backend Runtime: Node.js 20 (LTS) - FIXED Database: DynamoDB (no RDS/PostgreSQL for MVP) AI Provider: Amazon Bedrock (no OpenAI, no self-hosted) Frontend: Next.js (React-based) Hosting: AWS Amplify (no EC2, no custom servers) CDN: CloudFront (integrated with Amplify) Auth: Cognito (no custom auth, no Auth0) Third-Party Dependencies#Minimal External APIs: Avoid external dependencies No Payment Gateway in MVP: Defer to Phase 3 No Email Service: Use Cognito built-in email No SMS Service: Defer to Phase 3 Resource Constraints#Team Size#Solo Developer: 1 full-stack developer No Designer: Use free UI libraries (Tailwind, shadcn/ui) No QA Team: Self-testing &#43; beta users No DevOps: Serverless = minimal ops Skills &amp; Expertise#Required Skills: JavaScript/TypeScript/Node.js React/Node.js AWS services (Lambda, DynamoDB, Cognito) Serverless architecture AI/ML: Basic understanding (learning curve) DynamoDB single-table design (learning curve) Learning Curve Budget#Amazon Bedrock: 1 week to learn API DynamoDB Single-Table Design: 1 week to master AWS X-Ray Tracing: 2-3 days Total: ~2.5 weeks learning time (included in 3-month timeline) Security Constraints#Compliance Requirements#GDPR-Ready: EU users data protection">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>02 - Constraints | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/summary/02-constraints/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle"  />
+    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
+      <a href="/docs/ai_dlc/" class="">
+        AI DLC</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/design/" class="">
+      Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/requirements/" class="">
+      Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/tasks/" class="">
+      Tasks</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/02-constraints/" class="active">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/21-frontend/" class="">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>02 - Constraints</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#budget-constraints">Budget Constraints</a>
+      <ul>
+        <li><a href="#development-budget">Development Budget</a></li>
+        <li><a href="#operational-budget-monthly">Operational Budget (Monthly)</a></li>
+        <li><a href="#cost-breakdown-limits">Cost Breakdown Limits</a></li>
+        <li><a href="#budget-alarms">Budget Alarms</a></li>
+      </ul>
+    </li>
+    <li><a href="#time-constraints">Time Constraints</a>
+      <ul>
+        <li><a href="#project-timeline">Project Timeline</a></li>
+        <li><a href="#phase-breakdown">Phase Breakdown</a></li>
+        <li><a href="#critical-path-items">Critical Path Items</a></li>
+        <li><a href="#development-velocity">Development Velocity</a></li>
+      </ul>
+    </li>
+    <li><a href="#technology-constraints">Technology Constraints</a>
+      <ul>
+        <li><a href="#aws-service-limits">AWS Service Limits</a></li>
+        <li><a href="#technology-stack-fixed-choices">Technology Stack Fixed Choices</a></li>
+        <li><a href="#third-party-dependencies">Third-Party Dependencies</a></li>
+      </ul>
+    </li>
+    <li><a href="#resource-constraints">Resource Constraints</a>
+      <ul>
+        <li><a href="#team-size">Team Size</a></li>
+        <li><a href="#skills--expertise">Skills &amp; Expertise</a></li>
+        <li><a href="#learning-curve-budget">Learning Curve Budget</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-constraints">Security Constraints</a>
+      <ul>
+        <li><a href="#compliance-requirements">Compliance Requirements</a></li>
+        <li><a href="#data-retention">Data Retention</a></li>
+        <li><a href="#security-standards">Security Standards</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-constraints">Data Constraints</a>
+      <ul>
+        <li><a href="#data-volume-limits-mvp">Data Volume Limits (MVP)</a></li>
+        <li><a href="#storage-limits">Storage Limits</a></li>
+        <li><a href="#data-quality-constraints">Data Quality Constraints</a></li>
+      </ul>
+    </li>
+    <li><a href="#geographic-constraints">Geographic Constraints</a>
+      <ul>
+        <li><a href="#target-region">Target Region</a></li>
+        <li><a href="#aws-region">AWS Region</a></li>
+        <li><a href="#latency-expectations">Latency Expectations</a></li>
+      </ul>
+    </li>
+    <li><a href="#operational-constraints">Operational Constraints</a>
+      <ul>
+        <li><a href="#monitoring--alerting">Monitoring &amp; Alerting</a></li>
+        <li><a href="#support--maintenance">Support &amp; Maintenance</a></li>
+        <li><a href="#backup--recovery">Backup &amp; Recovery</a></li>
+      </ul>
+    </li>
+    <li><a href="#platform-constraints">Platform Constraints</a>
+      <ul>
+        <li><a href="#mvp-platform-support">MVP Platform Support</a></li>
+        <li><a href="#browser-compatibility">Browser Compatibility</a></li>
+      </ul>
+    </li>
+    <li><a href="#scaling-constraints">Scaling Constraints</a>
+      <ul>
+        <li><a href="#mvp-scale-targets">MVP Scale Targets</a></li>
+        <li><a href="#scaling-strategy">Scaling Strategy</a></li>
+        <li><a href="#scaling-blockers">Scaling Blockers</a></li>
+      </ul>
+    </li>
+    <li><a href="#risk-constraints">Risk Constraints</a>
+      <ul>
+        <li><a href="#technical-risks">Technical Risks</a></li>
+        <li><a href="#business-risks">Business Risks</a></li>
+        <li><a href="#legal-risks">Legal Risks</a></li>
+      </ul>
+    </li>
+    <li><a href="#quality-constraints">Quality Constraints</a>
+      <ul>
+        <li><a href="#testing-requirements">Testing Requirements</a></li>
+        <li><a href="#code-quality">Code Quality</a></li>
+        <li><a href="#documentation">Documentation</a></li>
+      </ul>
+    </li>
+    <li><a href="#integration-constraints">Integration Constraints</a>
+      <ul>
+        <li><a href="#no-external-integrations-in-mvp">No External Integrations in MVP</a></li>
+        <li><a href="#future-integrations-post-mvp">Future Integrations (Post-MVP)</a></li>
+      </ul>
+    </li>
+    <li><a href="#summary-of-critical-constraints">Summary of Critical Constraints</a>
+      <ul>
+        <li><a href="#hard-constraints-cannot-change">Hard Constraints (Cannot Change)</a></li>
+        <li><a href="#soft-constraints-can-negotiate">Soft Constraints (Can Negotiate)</a></li>
+        <li><a href="#constraints-impact-matrix">Constraints Impact Matrix</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="giới-hạn-dự-án---smart-cooking-app">Giới Hạn Dự Án - Smart Cooking App<a class="anchor" href="#gi%e1%bb%9bi-h%e1%ba%a1n-d%e1%bb%b1-%c3%a1n---smart-cooking-app">#</a></h1>
+<h2 id="budget-constraints">Budget Constraints<a class="anchor" href="#budget-constraints">#</a></h2>
+<h3 id="development-budget">Development Budget<a class="anchor" href="#development-budget">#</a></h3>
+<ul>
+<li><strong>Initial Investment</strong>: $100 - 500
+<ul>
+<li>Development time: 3 months</li>
+<li>Testing &amp; QA</li>
+<li>Initial infrastructure setup</li>
+</ul>
+</li>
+</ul>
+<h3 id="operational-budget-monthly">Operational Budget (Monthly)<a class="anchor" href="#operational-budget-monthly">#</a></h3>
+<ul>
+<li>
+<p><strong>MVP Phase (Month 1-3)</strong>:</p>
+<ul>
+<li>Target: $135-160/month (1,000 users)</li>
+<li>Maximum: $200/month (hard limit)</li>
+<li>Buffer: 20% for unexpected costs</li>
+</ul>
+</li>
+<li>
+<p><strong>Growth Phase (Month 4-12)</strong>:</p>
+<ul>
+<li>Target: $150-400/month (scaling with users)</li>
+<li>Maximum: $500/month</li>
+<li>Cost per user: Must decrease as scale increases</li>
+</ul>
+</li>
+</ul>
+<h3 id="cost-breakdown-limits">Cost Breakdown Limits<a class="anchor" href="#cost-breakdown-limits">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>Service</th>
+          <th>MVP Budget</th>
+          <th>Max Budget</th>
+          <th>Notes</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>AWS Amplify</td>
+          <td>$15</td>
+          <td>$20</td>
+          <td>Hosting + CI/CD</td>
+      </tr>
+      <tr>
+          <td>CloudFront</td>
+          <td>$8</td>
+          <td>$15</td>
+          <td>CDN</td>
+      </tr>
+      <tr>
+          <td>API Gateway</td>
+          <td>$10</td>
+          <td>$20</td>
+          <td>REST API</td>
+      </tr>
+      <tr>
+          <td>Lambda</td>
+          <td>$25</td>
+          <td>$40</td>
+          <td>11 functions</td>
+      </tr>
+      <tr>
+          <td>Bedrock AI</td>
+          <td>$12-30</td>
+          <td>$50</td>
+          <td>Flexible mix strategy</td>
+      </tr>
+      <tr>
+          <td>DynamoDB</td>
+          <td>$45</td>
+          <td>$60</td>
+          <td>On-demand</td>
+      </tr>
+      <tr>
+          <td>S3</td>
+          <td>$10</td>
+          <td>$20</td>
+          <td>Images</td>
+      </tr>
+      <tr>
+          <td>CloudWatch</td>
+          <td>$12</td>
+          <td>$20</td>
+          <td>Logging</td>
+      </tr>
+      <tr>
+          <td>WAF</td>
+          <td>$6</td>
+          <td>$10</td>
+          <td>Security</td>
+      </tr>
+      <tr>
+          <td>Other</td>
+          <td>$2</td>
+          <td>$5</td>
+          <td>Secrets, misc</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="budget-alarms">Budget Alarms<a class="anchor" href="#budget-alarms">#</a></h3>
+<ul>
+<li>Warning at: $140/month (MVP), $180/month (Growth)</li>
+<li>Critical at: $170/month (MVP), $450/month (Growth)</li>
+<li>Hard stop at: $200/month (MVP), $500/month (Growth)</li>
+</ul>
+<h2 id="time-constraints">Time Constraints<a class="anchor" href="#time-constraints">#</a></h2>
+<h3 id="project-timeline">Project Timeline<a class="anchor" href="#project-timeline">#</a></h3>
+<ul>
+<li><strong>Total Duration</strong>: 3 months (MVP)</li>
+<li><strong>Start Date</strong>: Week 1</li>
+<li><strong>MVP Launch</strong>: Week 12</li>
+<li><strong>Beta Period</strong>: Week 13-14</li>
+</ul>
+<h3 id="phase-breakdown">Phase Breakdown<a class="anchor" href="#phase-breakdown">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>Phase</th>
+          <th>Duration</th>
+          <th>Deadline</th>
+          <th>Deliverables</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Planning &amp; Design</td>
+          <td>2 weeks</td>
+          <td>Week 2</td>
+          <td>Architecture, DB design, Cost analysis</td>
+      </tr>
+      <tr>
+          <td>Core Development</td>
+          <td>6 weeks</td>
+          <td>Week 8</td>
+          <td>Auth, Ingredients, AI Engine, Rating</td>
+      </tr>
+      <tr>
+          <td>Social Features</td>
+          <td>4 weeks</td>
+          <td>Week 12</td>
+          <td>Privacy, Friends, Posts, Notifications</td>
+      </tr>
+      <tr>
+          <td>Testing &amp; Launch</td>
+          <td>2 weeks</td>
+          <td>Week 14</td>
+          <td>Bug fixes, Beta release</td>
+      </tr>
+  </tbody>
+</table>
+<h3 id="critical-path-items">Critical Path Items<a class="anchor" href="#critical-path-items">#</a></h3>
+<ol>
+<li><strong>Week 3-4</strong>: DynamoDB schema + Lambda infrastructure (BLOCKER)</li>
+<li><strong>Week 5-6</strong>: AI suggestion engine + Master ingredients (BLOCKER)</li>
+<li><strong>Week 7-8</strong>: Rating system + Auto-approval (BLOCKER)</li>
+<li><strong>Week 9-10</strong>: Privacy + Friend system</li>
+<li><strong>Week 11-12</strong>: Posts + Notifications</li>
+</ol>
+<h3 id="development-velocity">Development Velocity<a class="anchor" href="#development-velocity">#</a></h3>
+<ul>
+<li><strong>Sprint Length</strong>: 1 week</li>
+<li><strong>Story Points</strong>: 20-25 per sprint (solo developer)</li>
+<li><strong>Buffer</strong>: 20% for unexpected issues</li>
+<li><strong>No Overtime</strong>: Sustainable pace, 40 hours/week</li>
+</ul>
+<h2 id="technology-constraints">Technology Constraints<a class="anchor" href="#technology-constraints">#</a></h2>
+<h3 id="aws-service-limits">AWS Service Limits<a class="anchor" href="#aws-service-limits">#</a></h3>
+<h4 id="lambda-constraints">Lambda Constraints<a class="anchor" href="#lambda-constraints">#</a></h4>
+<ul>
+<li><strong>Memory</strong>: 256MB-1024MB per function</li>
+<li><strong>Timeout</strong>: 10-60 seconds (AI: 60s, others: 10-30s)</li>
+<li><strong>Concurrent Executions</strong>: 1,000 default (can request increase)</li>
+<li><strong>Package Size</strong>: 50MB compressed, 250MB uncompressed</li>
+<li><strong>Environment Variables</strong>: 4KB total</li>
+</ul>
+<h4 id="dynamodb-constraints">DynamoDB Constraints<a class="anchor" href="#dynamodb-constraints">#</a></h4>
+<ul>
+<li><strong>Item Size</strong>: 400KB maximum</li>
+<li><strong>Partition Key</strong>: 2048 bytes</li>
+<li><strong>Sort Key</strong>: 1024 bytes</li>
+<li><strong>GSI</strong>: 20 per table (using 3-4)</li>
+<li><strong>Query Result</strong>: 1MB per query</li>
+<li><strong>Batch Write</strong>: 25 items per batch</li>
+</ul>
+<h4 id="api-gateway-constraints">API Gateway Constraints<a class="anchor" href="#api-gateway-constraints">#</a></h4>
+<ul>
+<li><strong>Timeout</strong>: 29 seconds maximum</li>
+<li><strong>Payload Size</strong>: 10MB request/response</li>
+<li><strong>Rate Limit</strong>: 10,000 requests/second (default)</li>
+<li><strong>Burst</strong>: 5,000 requests</li>
+</ul>
+<h4 id="cognito-constraints">Cognito Constraints<a class="anchor" href="#cognito-constraints">#</a></h4>
+<ul>
+<li><strong>User Attributes</strong>: 50 custom attributes max</li>
+<li><strong>Free Tier</strong>: 50,000 MAU</li>
+<li><strong>Token Expiration</strong>: 1 hour (access), 30 days (refresh)</li>
+</ul>
+<h4 id="bedrock-ai-constraints">Bedrock AI Constraints<a class="anchor" href="#bedrock-ai-constraints">#</a></h4>
+<ul>
+<li><strong>Model</strong>: Claude 3 Haiku (cost-effective) or Sonnet (quality)</li>
+<li><strong>Input Token Limit</strong>: 200K tokens (Claude 3.5)</li>
+<li><strong>Output Token Limit</strong>: 8K tokens recommended</li>
+<li><strong>Rate Limit</strong>: 200 requests/minute (default)</li>
+<li><strong>Timeout</strong>: 60 seconds per request</li>
+</ul>
+<h4 id="s3-constraints">S3 Constraints<a class="anchor" href="#s3-constraints">#</a></h4>
+<ul>
+<li><strong>Object Size</strong>: 5TB maximum</li>
+<li><strong>PUT Rate</strong>: 3,500 requests/second per prefix</li>
+<li><strong>GET Rate</strong>: 5,500 requests/second per prefix</li>
+<li><strong>Free Tier</strong>: 5GB storage (12 months)</li>
+</ul>
+<h3 id="technology-stack-fixed-choices">Technology Stack Fixed Choices<a class="anchor" href="#technology-stack-fixed-choices">#</a></h3>
+<ul>
+<li><strong>Backend Runtime</strong>: Node.js 20 (LTS) - FIXED</li>
+<li><strong>Database</strong>: DynamoDB (no RDS/PostgreSQL for MVP)</li>
+<li><strong>AI Provider</strong>: Amazon Bedrock (no OpenAI, no self-hosted)</li>
+<li><strong>Frontend</strong>: Next.js (React-based)</li>
+<li><strong>Hosting</strong>: AWS Amplify (no EC2, no custom servers)</li>
+<li><strong>CDN</strong>: CloudFront (integrated with Amplify)</li>
+<li><strong>Auth</strong>: Cognito (no custom auth, no Auth0)</li>
+</ul>
+<h3 id="third-party-dependencies">Third-Party Dependencies<a class="anchor" href="#third-party-dependencies">#</a></h3>
+<ul>
+<li><strong>Minimal External APIs</strong>: Avoid external dependencies</li>
+<li><strong>No Payment Gateway in MVP</strong>: Defer to Phase 3</li>
+<li><strong>No Email Service</strong>: Use Cognito built-in email</li>
+<li><strong>No SMS Service</strong>: Defer to Phase 3</li>
+</ul>
+<h2 id="resource-constraints">Resource Constraints<a class="anchor" href="#resource-constraints">#</a></h2>
+<h3 id="team-size">Team Size<a class="anchor" href="#team-size">#</a></h3>
+<ul>
+<li><strong>Solo Developer</strong>: 1 full-stack developer</li>
+<li><strong>No Designer</strong>: Use free UI libraries (Tailwind, shadcn/ui)</li>
+<li><strong>No QA Team</strong>: Self-testing + beta users</li>
+<li><strong>No DevOps</strong>: Serverless = minimal ops</li>
+</ul>
+<h3 id="skills--expertise">Skills &amp; Expertise<a class="anchor" href="#skills--expertise">#</a></h3>
+<ul>
+<li><strong>Required Skills</strong>:
+<ul>
+<li>JavaScript/TypeScript/Node.js</li>
+<li>React/Node.js</li>
+<li>AWS services (Lambda, DynamoDB, Cognito)</li>
+<li>Serverless architecture</li>
+<li>AI/ML: Basic understanding (learning curve)</li>
+<li>DynamoDB single-table design (learning curve)</li>
+</ul>
+</li>
+</ul>
+<h3 id="learning-curve-budget">Learning Curve Budget<a class="anchor" href="#learning-curve-budget">#</a></h3>
+<ul>
+<li><strong>Amazon Bedrock</strong>: 1 week to learn API</li>
+<li><strong>DynamoDB Single-Table Design</strong>: 1 week to master</li>
+<li><strong>AWS X-Ray Tracing</strong>: 2-3 days</li>
+<li><strong>Total</strong>: ~2.5 weeks learning time (included in 3-month timeline)</li>
+</ul>
+<h2 id="security-constraints">Security Constraints<a class="anchor" href="#security-constraints">#</a></h2>
+<h3 id="compliance-requirements">Compliance Requirements<a class="anchor" href="#compliance-requirements">#</a></h3>
+<ul>
+<li>
+<p><strong>GDPR-Ready</strong>: EU users data protection</p>
+<ul>
+<li>Right to access</li>
+<li>Right to deletion</li>
+<li>Data portability</li>
+<li>Consent management</li>
+</ul>
+</li>
+<li>
+<p><strong>Privacy Policy</strong>: Must have before launch</p>
+</li>
+<li>
+<p><strong>Terms of Service</strong>: Must have before launch</p>
+</li>
+<li>
+<p><strong>Cookie Policy</strong>: If using analytics</p>
+</li>
+</ul>
+<h3 id="data-retention">Data Retention<a class="anchor" href="#data-retention">#</a></h3>
+<ul>
+<li><strong>User Data</strong>: Keep until user deletes account</li>
+<li><strong>AI Suggestions</strong>: TTL 90 days (optional cleanup)</li>
+<li><strong>Cooking History</strong>: Keep for 1 year, then archive</li>
+<li><strong>Logs</strong>: CloudWatch retention 7 days (cost optimization)</li>
+</ul>
+<h3 id="security-standards">Security Standards<a class="anchor" href="#security-standards">#</a></h3>
+<ul>
+<li><strong>Password Policy</strong>: Enforced by Cognito
+<ul>
+<li>Min 8 characters</li>
+<li>1 uppercase, 1 lowercase, 1 number</li>
+<li>No common passwords</li>
+</ul>
+</li>
+<li><strong>MFA</strong>: Optional (not in MVP)</li>
+<li><strong>API Keys</strong>: Stored in AWS Secrets Manager</li>
+<li><strong>Encryption</strong>: All data encrypted at rest and in transit</li>
+</ul>
+<h2 id="data-constraints">Data Constraints<a class="anchor" href="#data-constraints">#</a></h2>
+<h3 id="data-volume-limits-mvp">Data Volume Limits (MVP)<a class="anchor" href="#data-volume-limits-mvp">#</a></h3>
+<ul>
+<li><strong>Users</strong>: 1,000 active users (target)</li>
+<li><strong>Recipes</strong>: 5,000 total recipes</li>
+<li><strong>Master Ingredients</strong>: 5,000 ingredients</li>
+<li><strong>AI Suggestions</strong>: 10,000 per month</li>
+<li><strong>Cooking History</strong>: 50,000 entries</li>
+<li><strong>Posts</strong>: 10,000 posts (Phase 2)</li>
+<li><strong>Comments</strong>: 30,000 comments (Phase 2)</li>
+</ul>
+<h3 id="storage-limits">Storage Limits<a class="anchor" href="#storage-limits">#</a></h3>
+<ul>
+<li><strong>DynamoDB</strong>: 25GB free tier, then $0.25/GB</li>
+<li><strong>S3</strong>: 5GB free tier (12 months), then $0.023/GB</li>
+<li><strong>User Avatars</strong>: Max 5MB per image</li>
+<li><strong>Recipe Images</strong>: Max 10MB per image</li>
+<li><strong>Post Images</strong>: Max 5MB per image (Phase 2)</li>
+</ul>
+<h3 id="data-quality-constraints">Data Quality Constraints<a class="anchor" href="#data-quality-constraints">#</a></h3>
+<ul>
+<li><strong>Master Ingredients</strong>: Manually curated (start with 500, grow to 5,000)</li>
+<li><strong>Invalid Ingredients</strong>: Auto-report system, admin review</li>
+<li><strong>Recipe Quality</strong>: Community-driven (rating &gt;= 4.0 for approval)</li>
+<li><strong>Duplicate Recipes</strong>: Fuzzy matching to prevent duplicates</li>
+</ul>
+<h2 id="geographic-constraints">Geographic Constraints<a class="anchor" href="#geographic-constraints">#</a></h2>
+<h3 id="target-region">Target Region<a class="anchor" href="#target-region">#</a></h3>
+<ul>
+<li><strong>Primary</strong>: Vietnam (Vietnamese users)</li>
+<li><strong>Secondary</strong>: Southeast Asia</li>
+<li><strong>Language</strong>: Vietnamese + English (MVP)</li>
+</ul>
+<h3 id="aws-region">AWS Region<a class="anchor" href="#aws-region">#</a></h3>
+<ul>
+<li><strong>Primary Region</strong>: us-east-1 (N. Virginia)
+<ul>
+<li>Reason: Lowest cost, most services available</li>
+<li>Bedrock available</li>
+<li>Amplify supported</li>
+</ul>
+</li>
+<li><strong>Secondary Region</strong>: None (MVP)</li>
+<li><strong>CloudFront</strong>: Global CDN (auto-distributed)</li>
+</ul>
+<h3 id="latency-expectations">Latency Expectations<a class="anchor" href="#latency-expectations">#</a></h3>
+<ul>
+<li><strong>Vietnam to us-east-1</strong>: ~200-250ms base latency</li>
+<li><strong>API Response</strong>: +100-500ms processing</li>
+<li><strong>Total</strong>: ~300-750ms acceptable for MVP</li>
+<li><strong>Optimization</strong>: CloudFront caching reduces latency for static assets</li>
+</ul>
+<h2 id="operational-constraints">Operational Constraints<a class="anchor" href="#operational-constraints">#</a></h2>
+<h3 id="monitoring--alerting">Monitoring &amp; Alerting<a class="anchor" href="#monitoring--alerting">#</a></h3>
+<ul>
+<li><strong>Free Tier Usage</strong>: Maximize AWS Free Tier</li>
+<li><strong>CloudWatch Alarms</strong>: Max 10 alarms (free tier)</li>
+<li><strong>Log Retention</strong>: 7 days (cost limit)</li>
+<li><strong>X-Ray Tracing</strong>: Sample 10% of requests (cost limit)</li>
+</ul>
+<h3 id="support--maintenance">Support &amp; Maintenance<a class="anchor" href="#support--maintenance">#</a></h3>
+<ul>
+<li><strong>No 24/7 Support</strong>: Best-effort during business hours</li>
+<li><strong>Response Time</strong>: 48 hours for non-critical issues</li>
+<li><strong>Downtime Window</strong>: Sunday 2-4 AM UTC (acceptable for maintenance)</li>
+</ul>
+<h3 id="backup--recovery">Backup &amp; Recovery<a class="anchor" href="#backup--recovery">#</a></h3>
+<ul>
+<li><strong>DynamoDB</strong>: Point-in-time recovery enabled (cost: ~$20/month)</li>
+<li><strong>RTO</strong> (Recovery Time Objective): 4 hours</li>
+<li><strong>RPO</strong> (Recovery Point Objective): 1 hour (PITR)</li>
+<li><strong>S3</strong>: Versioning enabled for critical buckets</li>
+</ul>
+<h2 id="platform-constraints">Platform Constraints<a class="anchor" href="#platform-constraints">#</a></h2>
+<h3 id="mvp-platform-support">MVP Platform Support<a class="anchor" href="#mvp-platform-support">#</a></h3>
+<ul>
+<li><strong>Web App</strong>: Priority 1
+<ul>
+<li>Desktop: Chrome, Firefox, Safari, Edge (latest 2 versions)</li>
+<li>Mobile Web: iOS Safari, Android Chrome</li>
+</ul>
+</li>
+</ul>
+<h3 id="browser-compatibility">Browser Compatibility<a class="anchor" href="#browser-compatibility">#</a></h3>
+<ul>
+<li><strong>Modern Browsers Only</strong>: ES6+ required</li>
+<li><strong>No IE11 Support</strong>: Not supporting legacy browsers</li>
+<li><strong>Mobile-First Design</strong>: Responsive from 320px width</li>
+</ul>
+<h2 id="scaling-constraints">Scaling Constraints<a class="anchor" href="#scaling-constraints">#</a></h2>
+<h3 id="mvp-scale-targets">MVP Scale Targets<a class="anchor" href="#mvp-scale-targets">#</a></h3>
+<ul>
+<li><strong>Concurrent Users</strong>: 100 (MVP), 1,000 (Month 6)</li>
+<li><strong>Requests/Second</strong>: 10 (MVP), 100 (Month 6)</li>
+<li><strong>Database Reads</strong>: 10K/day (MVP), 100K/day (Month 6)</li>
+<li><strong>AI Calls</strong>: 1K/month (MVP), 10K/month (Month 6)</li>
+</ul>
+<h3 id="scaling-strategy">Scaling Strategy<a class="anchor" href="#scaling-strategy">#</a></h3>
+<ul>
+<li><strong>Vertical Scaling</strong>: Increase Lambda memory (256MB → 1024MB)</li>
+<li><strong>Horizontal Scaling</strong>: Serverless auto-scales</li>
+<li><strong>Database Scaling</strong>: DynamoDB on-demand (auto-scales)</li>
+<li><strong>Cost Scaling</strong>: Must stay below $0.20/user/month (MVP)</li>
+</ul>
+<h3 id="scaling-blockers">Scaling Blockers<a class="anchor" href="#scaling-blockers">#</a></h3>
+<ul>
+<li><strong>AI Cost</strong>: Most expensive component (30-50% of total cost)</li>
+<li><strong>Mitigation</strong>: Flexible DB/AI mix, cache AI responses</li>
+<li><strong>Target</strong>: Reduce AI cost by 50% through DB coverage growth</li>
+</ul>
+<h2 id="risk-constraints">Risk Constraints<a class="anchor" href="#risk-constraints">#</a></h2>
+<h3 id="technical-risks">Technical Risks<a class="anchor" href="#technical-risks">#</a></h3>
+<ol>
+<li><strong>DynamoDB Single-Table Design Complexity</strong>: High learning curve
+<ul>
+<li>Mitigation: 1 week study period, consulting documentation</li>
+</ul>
+</li>
+<li><strong>Bedrock API Rate Limits</strong>: Could block AI suggestions
+<ul>
+<li>Mitigation: Implement queue system, retry logic</li>
+</ul>
+</li>
+<li><strong>Cold Start Latency</strong>: Lambda cold starts can be slow
+<ul>
+<li>Mitigation: Provisioned concurrency for critical functions</li>
+</ul>
+</li>
+</ol>
+<h3 id="business-risks">Business Risks<a class="anchor" href="#business-risks">#</a></h3>
+<ol>
+<li><strong>Low User Adoption</strong>: &lt; 500 users in 3 months
+<ul>
+<li>Mitigation: Beta testing, marketing strategy</li>
+</ul>
+</li>
+<li><strong>High Cost Overrun</strong>: &gt; $200/month
+<ul>
+<li>Mitigation: Budget alarms, cost monitoring dashboard</li>
+</ul>
+</li>
+<li><strong>AI Recipe Quality</strong>: Low approval rate (&lt; 30%)
+<ul>
+<li>Mitigation: Prompt engineering, A/B testing</li>
+</ul>
+</li>
+</ol>
+<h3 id="legal-risks">Legal Risks<a class="anchor" href="#legal-risks">#</a></h3>
+<ol>
+<li><strong>GDPR Non-Compliance</strong>: EU user data violations
+<ul>
+<li>Mitigation: Privacy policy, data deletion API, consent management</li>
+</ul>
+</li>
+<li><strong>User-Generated Content</strong>: Inappropriate content
+<ul>
+<li>Mitigation: Content moderation (Phase 2), reporting system</li>
+</ul>
+</li>
+</ol>
+<h2 id="quality-constraints">Quality Constraints<a class="anchor" href="#quality-constraints">#</a></h2>
+<h3 id="testing-requirements">Testing Requirements<a class="anchor" href="#testing-requirements">#</a></h3>
+<ul>
+<li><strong>Unit Tests</strong>: &gt;= 70% coverage for critical paths</li>
+<li><strong>Integration Tests</strong>: API endpoint testing</li>
+<li><strong>Manual Testing</strong>: Full user journey testing before launch</li>
+<li><strong>Performance Testing</strong>: Load testing with 100 concurrent users</li>
+<li><strong>Security Testing</strong>: OWASP top 10 vulnerabilities check</li>
+</ul>
+<h3 id="code-quality">Code Quality<a class="anchor" href="#code-quality">#</a></h3>
+<ul>
+<li><strong>ESLint</strong>: Enforce code standards</li>
+<li><strong>Prettier</strong>: Code formatting</li>
+<li><strong>TypeScript</strong>: Type safety (preferred, not required for MVP)</li>
+<li><strong>Code Reviews</strong>: Self-review + checklist</li>
+</ul>
+<h3 id="documentation">Documentation<a class="anchor" href="#documentation">#</a></h3>
+<ul>
+<li><strong>API Documentation</strong>: OpenAPI/Swagger spec</li>
+<li><strong>Architecture Diagrams</strong>: Mermaid diagrams in Markdown</li>
+<li><strong>Deployment Guide</strong>: Step-by-step AWS setup</li>
+<li><strong>User Guide</strong>: Basic usage instructions</li>
+</ul>
+<h2 id="integration-constraints">Integration Constraints<a class="anchor" href="#integration-constraints">#</a></h2>
+<h3 id="no-external-integrations-in-mvp">No External Integrations in MVP<a class="anchor" href="#no-external-integrations-in-mvp">#</a></h3>
+<ul>
+<li>No payment gateway (Stripe/PayPal) - Phase 3</li>
+<li>No email marketing (Mailchimp) - Phase 3</li>
+<li>No analytics (Google Analytics) - Use CloudWatch</li>
+<li>No social login (Google/Facebook) - Cognito only</li>
+<li>No third-party recipe APIs - Self-contained</li>
+</ul>
+<h3 id="future-integrations-post-mvp">Future Integrations (Post-MVP)<a class="anchor" href="#future-integrations-post-mvp">#</a></h3>
+<ul>
+<li>Stripe for payments</li>
+<li>SendGrid for transactional emails</li>
+<li>Mixpanel/Amplitude for analytics</li>
+<li>Firebase Cloud Messaging for push notifications</li>
+</ul>
+<h2 id="summary-of-critical-constraints">Summary of Critical Constraints<a class="anchor" href="#summary-of-critical-constraints">#</a></h2>
+<h3 id="hard-constraints-cannot-change">Hard Constraints (Cannot Change)<a class="anchor" href="#hard-constraints-cannot-change">#</a></h3>
+<ol>
+<li>Budget: $200/month maximum (MVP)</li>
+<li>Timeline: 3 months to MVP launch</li>
+<li>Team: Solo developer</li>
+<li>Technology: AWS serverless stack</li>
+<li>Region: us-east-1 (AWS limitations)</li>
+</ol>
+<h3 id="soft-constraints-can-negotiate">Soft Constraints (Can Negotiate)<a class="anchor" href="#soft-constraints-can-negotiate">#</a></h3>
+<ol>
+<li>User Target: 1,000 users (can be 500-1,500)</li>
+<li>Features: Social features can defer to Phase 2</li>
+<li>Performance: 500ms API can be 750ms if needed</li>
+<li>Test Coverage: 70% can be 50% for MVP</li>
+</ol>
+<h3 id="constraints-impact-matrix">Constraints Impact Matrix<a class="anchor" href="#constraints-impact-matrix">#</a></h3>
+<table>
+  <thead>
+      <tr>
+          <th>Constraint</th>
+          <th>Impact</th>
+          <th>Mitigation</th>
+          <th>Priority</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>Budget</td>
+          <td>HIGH</td>
+          <td>Cost alarms, flexible AI mix</td>
+          <td>P0</td>
+      </tr>
+      <tr>
+          <td>Timeline</td>
+          <td>HIGH</td>
+          <td>Agile sprints, MVP focus</td>
+          <td>P0</td>
+      </tr>
+      <tr>
+          <td>Solo Dev</td>
+          <td>MEDIUM</td>
+          <td>Serverless, managed services</td>
+          <td>P0</td>
+      </tr>
+      <tr>
+          <td>Learning Curve</td>
+          <td>MEDIUM</td>
+          <td>2.5 weeks learning budget</td>
+          <td>P1</td>
+      </tr>
+      <tr>
+          <td>AI Cost</td>
+          <td>HIGH</td>
+          <td>DB coverage growth strategy</td>
+          <td>P0</td>
+      </tr>
+      <tr>
+          <td>Scaling</td>
+          <td>LOW</td>
+          <td>Serverless auto-scaling</td>
+          <td>P2</td>
+      </tr>
+  </tbody>
+</table>
+<h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="00-overview.md">00 - Overview</a></li>
+<li><a href="01-requirements.md">01 - Requirements</a></li>
+<li><a href="30-cost-analysis.md">30 - Cost Analysis</a></li>
+<li><a href="31-scaling.md">31 - Scaling</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/01-requirements/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="01 - Requirements" />
+        <span>01 - Requirements</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/summary/10-architecture/" class="flex align-center">
+        <span>10 - Architecture</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="10 - Architecture" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#budget-constraints">Budget Constraints</a>
+      <ul>
+        <li><a href="#development-budget">Development Budget</a></li>
+        <li><a href="#operational-budget-monthly">Operational Budget (Monthly)</a></li>
+        <li><a href="#cost-breakdown-limits">Cost Breakdown Limits</a></li>
+        <li><a href="#budget-alarms">Budget Alarms</a></li>
+      </ul>
+    </li>
+    <li><a href="#time-constraints">Time Constraints</a>
+      <ul>
+        <li><a href="#project-timeline">Project Timeline</a></li>
+        <li><a href="#phase-breakdown">Phase Breakdown</a></li>
+        <li><a href="#critical-path-items">Critical Path Items</a></li>
+        <li><a href="#development-velocity">Development Velocity</a></li>
+      </ul>
+    </li>
+    <li><a href="#technology-constraints">Technology Constraints</a>
+      <ul>
+        <li><a href="#aws-service-limits">AWS Service Limits</a></li>
+        <li><a href="#technology-stack-fixed-choices">Technology Stack Fixed Choices</a></li>
+        <li><a href="#third-party-dependencies">Third-Party Dependencies</a></li>
+      </ul>
+    </li>
+    <li><a href="#resource-constraints">Resource Constraints</a>
+      <ul>
+        <li><a href="#team-size">Team Size</a></li>
+        <li><a href="#skills--expertise">Skills &amp; Expertise</a></li>
+        <li><a href="#learning-curve-budget">Learning Curve Budget</a></li>
+      </ul>
+    </li>
+    <li><a href="#security-constraints">Security Constraints</a>
+      <ul>
+        <li><a href="#compliance-requirements">Compliance Requirements</a></li>
+        <li><a href="#data-retention">Data Retention</a></li>
+        <li><a href="#security-standards">Security Standards</a></li>
+      </ul>
+    </li>
+    <li><a href="#data-constraints">Data Constraints</a>
+      <ul>
+        <li><a href="#data-volume-limits-mvp">Data Volume Limits (MVP)</a></li>
+        <li><a href="#storage-limits">Storage Limits</a></li>
+        <li><a href="#data-quality-constraints">Data Quality Constraints</a></li>
+      </ul>
+    </li>
+    <li><a href="#geographic-constraints">Geographic Constraints</a>
+      <ul>
+        <li><a href="#target-region">Target Region</a></li>
+        <li><a href="#aws-region">AWS Region</a></li>
+        <li><a href="#latency-expectations">Latency Expectations</a></li>
+      </ul>
+    </li>
+    <li><a href="#operational-constraints">Operational Constraints</a>
+      <ul>
+        <li><a href="#monitoring--alerting">Monitoring &amp; Alerting</a></li>
+        <li><a href="#support--maintenance">Support &amp; Maintenance</a></li>
+        <li><a href="#backup--recovery">Backup &amp; Recovery</a></li>
+      </ul>
+    </li>
+    <li><a href="#platform-constraints">Platform Constraints</a>
+      <ul>
+        <li><a href="#mvp-platform-support">MVP Platform Support</a></li>
+        <li><a href="#browser-compatibility">Browser Compatibility</a></li>
+      </ul>
+    </li>
+    <li><a href="#scaling-constraints">Scaling Constraints</a>
+      <ul>
+        <li><a href="#mvp-scale-targets">MVP Scale Targets</a></li>
+        <li><a href="#scaling-strategy">Scaling Strategy</a></li>
+        <li><a href="#scaling-blockers">Scaling Blockers</a></li>
+      </ul>
+    </li>
+    <li><a href="#risk-constraints">Risk Constraints</a>
+      <ul>
+        <li><a href="#technical-risks">Technical Risks</a></li>
+        <li><a href="#business-risks">Business Risks</a></li>
+        <li><a href="#legal-risks">Legal Risks</a></li>
+      </ul>
+    </li>
+    <li><a href="#quality-constraints">Quality Constraints</a>
+      <ul>
+        <li><a href="#testing-requirements">Testing Requirements</a></li>
+        <li><a href="#code-quality">Code Quality</a></li>
+        <li><a href="#documentation">Documentation</a></li>
+      </ul>
+    </li>
+    <li><a href="#integration-constraints">Integration Constraints</a>
+      <ul>
+        <li><a href="#no-external-integrations-in-mvp">No External Integrations in MVP</a></li>
+        <li><a href="#future-integrations-post-mvp">Future Integrations (Post-MVP)</a></li>
+      </ul>
+    </li>
+    <li><a href="#summary-of-critical-constraints">Summary of Critical Constraints</a>
+      <ul>
+        <li><a href="#hard-constraints-cannot-change">Hard Constraints (Cannot Change)</a></li>
+        <li><a href="#soft-constraints-can-negotiate">Soft Constraints (Can Negotiate)</a></li>
+        <li><a href="#constraints-impact-matrix">Constraints Impact Matrix</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

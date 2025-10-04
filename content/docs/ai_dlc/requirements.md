@@ -1,3 +1,10 @@
+---
+title: "Requirements"
+menu:
+  ai_dlc:
+    parent: ai_dlc
+    weight: 2
+---
 # Requirements Document - Smart Cooking MVP
 
 ## Introduction
@@ -116,3 +123,79 @@ Smart Cooking App là nền tảng ứng dụng nấu ăn thông minh sử dụn
 3. WHEN database coverage grows THEN the system SHALL automatically reduce AI generation costs by 30-70% through increased database usage
 4. WHEN system usage increases THEN serverless architecture SHALL auto-scale without manual intervention
 5. IF costs exceed budget thresholds THEN the system SHALL trigger alerts and implement cost-saving measures like caching and rate limiting
+
+## Social Features Requirements
+
+### FR-SF-01: Privacy & Access Control
+
+**User Story:** As a user, I want to control the visibility of my personal information, recipes, and cooking activities, so that I can share as much or as little as I'm comfortable with.
+
+#### Acceptance Criteria
+
+1. WHEN a user configures privacy settings THEN they SHALL be able to set visibility levels (public/friends/private) for profile, email, date of birth, recipes, ingredients, and preferences
+2. WHEN another user views my profile THEN the system SHALL filter displayed data based on my privacy settings and our friendship status
+3. WHEN privacy is set to "friends" THEN only users with accepted friendship SHALL see the protected data
+4. WHEN privacy is set to "private" THEN only the user themselves SHALL see their own data
+5. IF privacy settings are not configured THEN the system SHALL apply secure defaults (profile: public, personal data: private)
+
+### FR-SF-02: Friends & Social Connections
+
+**User Story:** As a user, I want to send and accept friend requests to connect with other home cooks, so that I can build my cooking community and share experiences with people I know.
+
+#### Acceptance Criteria
+
+1. WHEN a user sends a friend request THEN the system SHALL create a pending friendship record and notify the recipient
+2. WHEN a user receives a friend request THEN they SHALL be able to accept, reject, or ignore it
+3. WHEN a friendship is accepted THEN both users SHALL appear in each other's friends list with bidirectional access
+4. WHEN a user views their friends list THEN they SHALL see accepted friends with filtering options (all/pending/accepted)
+5. IF a user tries to send duplicate friend requests THEN the system SHALL prevent it and show existing request status
+
+### FR-SF-03: Social Feed & Posts
+
+**User Story:** As a user, I want to share my cooking experiences, view friends' cooking activities, and engage through comments and reactions, so that I can participate in a vibrant cooking community.
+
+#### Acceptance Criteria
+
+1. WHEN a user creates a post THEN they SHALL be able to add text content, images, and link to a recipe with privacy level selection (public/friends)
+2. WHEN a user views their feed THEN the system SHALL display posts from friends and public posts in reverse chronological order
+3. WHEN a user comments on a post THEN the system SHALL save the comment, increment comment count, and notify the post owner
+4. WHEN a user reacts to a post or comment THEN the system SHALL record the reaction (like, love, wow), update counts, and notify the owner
+5. IF a user deletes their post THEN the system SHALL remove the post and all associated comments and reactions
+
+### FR-SF-04: Notifications
+
+**User Story:** As a user, I want to receive timely notifications about social interactions and important events, so that I can stay connected with my cooking community.
+
+#### Acceptance Criteria
+
+1. WHEN a user receives a friend request, comment, like, or mention THEN the system SHALL create a notification with appropriate content
+2. WHEN a recipe is auto-approved through ratings THEN the system SHALL notify the recipe creator
+3. WHEN a user views notifications THEN they SHALL see unread notifications highlighted with the ability to mark as read
+4. WHEN notifications are older than 30 days THEN the system SHALL automatically delete them using DynamoDB TTL
+5. IF a user clicks a notification THEN the system SHALL navigate to the relevant target (post, recipe, profile) and mark notification as read
+
+## Deployment & Infrastructure Requirements
+
+### Requirement 10: Build & Deployment Automation
+
+**User Story:** As a DevOps engineer, I want automated build and deployment pipelines for both frontend and backend, so that we can deploy updates quickly and reliably.
+
+#### Acceptance Criteria
+
+1. WHEN code is pushed to GitHub THEN the CI/CD pipeline SHALL automatically run tests, build, and deploy to the appropriate environment (dev/staging/prod based on branch)
+2. WHEN frontend builds complete THEN the system SHALL upload static files to S3, invalidate CloudFront cache, and verify deployment health
+3. WHEN backend Lambda functions are updated THEN the system SHALL package code, deploy via CDK, and run smoke tests
+4. WHEN deployment fails THEN the system SHALL send alerts, maintain previous version, and provide rollback capability
+5. IF health checks fail after deployment THEN the system SHALL automatically trigger rollback to previous stable version
+
+### Requirement 11: Production Readiness
+
+**User Story:** As a product owner, I want the production environment to be properly configured with monitoring, security, and scalability, so that the application is reliable and secure for end users.
+
+#### Acceptance Criteria
+
+1. WHEN the application is deployed to production THEN it SHALL use production-grade DynamoDB with point-in-time recovery and automated backups
+2. WHEN users access the application THEN it SHALL be served via custom domain with valid SSL certificate and CloudFront CDN
+3. WHEN the application is under attack THEN AWS WAF SHALL protect against common threats (SQL injection, XSS, rate limiting)
+4. WHEN issues occur in production THEN CloudWatch alarms SHALL trigger notifications to the team within 5 minutes
+5. IF the production deployment is updated THEN a full end-to-end test suite SHALL verify all critical user flows before go-live

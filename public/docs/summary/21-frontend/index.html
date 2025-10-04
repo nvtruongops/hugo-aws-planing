@@ -1,0 +1,2054 @@
+<!DOCTYPE html>
+<html lang="en-us" dir="ltr">
+<head>
+  <!--
+Made with Book Theme
+https://github.com/alex-shpak/hugo-book
+-->
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="Frontend Implementation - Smart Cooking App#
+Technology Stack#
+Framework: Node.js &#43; Express.js
+Template Engine: EJS
+Styling: Tailwind CSS &#43; Custom Components
+State Management: Client-side JavaScript
+Authentication: AWS Cognito SDK
+HTTP Client: Axios (client) &#43; AWS SDK (server)
+Deployment: AWS Amplify HostingProject Structure#
+smart-cooking-webapp/
+├── src/
+│   ├── routes/
+│   │   ├── index.js             # Landing page
+│   │   ├── auth.js              # Auth routes (login, register, verify)
+│   │   ├── dashboard.js         # Dashboard &amp; ingredients
+│   │   ├── recipes.js           # Recipe routes (detail, search, suggestions)
+│   │   ├── cooking.js           # Cooking history &amp; sessions
+│   │   ├── social.js            # Social feed, friends, profiles
+│   │   └── settings.js          # Profile &amp; privacy settings
+│   ├── views/
+│   │   ├── layouts/
+│   │   │   └── main.ejs         # Main layout template
+│   │   ├── auth/
+│   │   │   ├── login.ejs        # Login page
+│   │   │   ├── register.ejs     # Registration
+│   │   │   └── verify.ejs       # Email verification
+│   │   ├── dashboard/
+│   │   │   ├── index.ejs        # User dashboard
+│   │   │   └── ingredients.ejs  # Manage ingredients
+│   │   ├── recipes/
+│   │   │   ├── detail.ejs       # Recipe detail
+│   │   │   ├── search.ejs       # Recipe search
+│   │   │   └── suggestions.ejs  # AI suggestions
+│   │   ├── cooking/
+│   │   │   ├── history.ejs      # Cooking history
+│   │   │   └── session.ejs      # Cooking session
+│   │   ├── social/
+│   │   │   ├── feed.ejs         # Social feed
+│   │   │   ├── friends.ejs      # Friends list
+│   │   │   └── profile.ejs      # User profile
+│   │   └── settings/
+│   │       ├── profile.ejs      # Profile settings
+│   │       └── privacy.ejs      # Privacy settings
+│   ├── middleware/
+│   │   ├── auth.js              # Authentication middleware
+│   │   ├── validation.js        # Input validation
+│   │   └── errorHandler.js      # Error handling
+│   ├── services/
+│   │   ├── apiClient.js         # API client
+│   │   ├── authService.js       # Auth helpers
+│   │   └── utils.js             # Utilities
+│   └── public/
+│       ├── css/
+│       │   └── styles.css       # Global styles
+│       ├── js/
+│       │   ├── auth.js          # Auth frontend logic
+│       │   ├── recipes.js       # Recipe frontend logic
+│       │   └── ingredients.js   # Ingredients frontend logic
+│       └── images/
+├── app.js                       # Express app setup
+├── server.js                    # Server entry point
+└── package.json                 # DependenciesAuthentication Implementation#
+Auth Service (Node.js)#
+// src/services/authService.js
+const { CognitoIdentityProviderClient, InitiateAuthCommand, SignUpCommand } = require(&#39;@aws-sdk/client-cognito-identity-provider&#39;);
+const jwt = require(&#39;jsonwebtoken&#39;);
+
+class AuthService {
+  constructor() {
+    this.cognitoClient = new CognitoIdentityProviderClient({
+      region: process.env.AWS_REGION
+    });
+    this.clientId = process.env.COGNITO_CLIENT_ID;
+  }
+
+  async login(email, password) {
+    try {
+      const command = new InitiateAuthCommand({
+        AuthFlow: &#39;USER_PASSWORD_AUTH&#39;,
+        ClientId: this.clientId,
+        AuthParameters: {
+          USERNAME: email,
+          PASSWORD: password
+        }
+      });
+
+      const result = await this.cognitoClient.send(command);
+      
+      return {
+        accessToken: result.AuthenticationResult.AccessToken,
+        refreshToken: result.AuthenticationResult.RefreshToken,
+        idToken: result.AuthenticationResult.IdToken
+      };
+    } catch (error) {
+      console.error(&#39;Login error:&#39;, error);
+      throw new Error(&#39;Đăng nhập thất bại&#39;);
+    }
+  }
+
+  async register(userData) {
+    try {
+      const command = new SignUpCommand({
+        ClientId: this.clientId,
+        Username: userData.email,
+        Password: userData.password,
+        UserAttributes: [
+          { Name: &#39;email&#39;, Value: userData.email },
+          { Name: &#39;name&#39;, Value: userData.fullName },
+          { Name: &#39;custom:username&#39;, Value: userData.username }
+        ]
+      });
+
+      const result = await this.cognitoClient.send(command);
+      return result;
+    } catch (error) {
+      console.error(&#39;Registration error:&#39;, error);
+      throw new Error(&#39;Đăng ký thất bại&#39;);
+    }
+  }
+
+  verifyToken(token) {
+    try {
+      // Verify JWT token (simplified - in production use proper JWT verification)
+      const decoded = jwt.decode(token);
+      return decoded;
+    } catch (error) {
+      throw new Error(&#39;Token không hợp lệ&#39;);
+    }
+  }
+
+  extractUserFromToken(token) {
+    const decoded = this.verifyToken(token);
+    return {
+      id: decoded.sub,
+      email: decoded.email,
+      username: decoded[&#39;custom:username&#39;],
+      fullName: decoded.name,
+      role: decoded[&#39;custom:role&#39;] || &#39;user&#39;
+    };
+  }
+}
+
+module.exports = new AuthService();Auth Middleware#
+// src/middleware/auth.js
+const authService = require(&#39;../services/authService&#39;);
+
+const requireAuth = (req, res, next) =&gt; {
+  const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken;
+  
+  if (!token) {
+    return res.redirect(&#39;/auth/login&#39;);
+  }
+
+  try {
+    const user = authService.extractUserFromToken(token);
+    req.user = user;
+    res.locals.user = user;
+    next();
+  } catch (error) {
+    res.clearCookie(&#39;accessToken&#39;);
+    return res.redirect(&#39;/auth/login&#39;);
+  }
+};
+
+const optionalAuth = (req, res, next) =&gt; {
+  const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken;
+  
+  if (token) {
+    try {
+      const user = authService.extractUserFromToken(token);
+      req.user = user;
+      res.locals.user = user;
+    } catch (error) {
+      res.clearCookie(&#39;accessToken&#39;);
+    }
+  }
+  
+  next();
+};
+
+module.exports = { requireAuth, optionalAuth };Auth Routes#
+// src/routes/auth.js
+const express = require(&#39;express&#39;);
+const authService = require(&#39;../services/authService&#39;);
+const { body, validationResult } = require(&#39;express-validator&#39;);
+
+const router = express.Router();
+
+// Login page
+router.get(&#39;/login&#39;, (req, res) =&gt; {
+  if (req.cookies.accessToken) {
+    return res.redirect(&#39;/dashboard&#39;);
+  }
+  res.render(&#39;auth/login&#39;, { 
+    title: &#39;Đăng nhập&#39;,
+    error: req.query.error 
+  });
+});
+
+// Login handler
+router.post(&#39;/login&#39;, [
+  body(&#39;email&#39;).isEmail().withMessage(&#39;Email không hợp lệ&#39;),
+  body(&#39;password&#39;).isLength({ min: 8 }).withMessage(&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;)
+], async (req, res) =&gt; {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.render(&#39;auth/login&#39;, {
+      title: &#39;Đăng nhập&#39;,
+      error: errors.array()[0].msg,
+      email: req.body.email
+    });
+  }
+
+  try {
+    const { email, password } = req.body;
+    const tokens = await authService.login(email, password);
+    
+    // Set HTTP-only cookie
+    res.cookie(&#39;accessToken&#39;, tokens.accessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === &#39;production&#39;,
+      maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    });
+    
+    res.redirect(&#39;/dashboard&#39;);
+  } catch (error) {
+    res.render(&#39;auth/login&#39;, {
+      title: &#39;Đăng nhập&#39;,
+      error: error.message,
+      email: req.body.email
+    });
+  }
+});
+
+// Register page
+router.get(&#39;/register&#39;, (req, res) =&gt; {
+  if (req.cookies.accessToken) {
+    return res.redirect(&#39;/dashboard&#39;);
+  }
+  res.render(&#39;auth/register&#39;, { 
+    title: &#39;Đăng ký tài khoản&#39;,
+    error: req.query.error 
+  });
+});
+
+// Register handler
+router.post(&#39;/register&#39;, [
+  body(&#39;email&#39;).isEmail().withMessage(&#39;Email không hợp lệ&#39;),
+  body(&#39;password&#39;).isLength({ min: 8 }).withMessage(&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;),
+  body(&#39;fullName&#39;).notEmpty().withMessage(&#39;Họ tên không được để trống&#39;),
+  body(&#39;username&#39;).isLength({ min: 3 }).withMessage(&#39;Username phải có ít nhất 3 ký tự&#39;)
+], async (req, res) =&gt; {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.render(&#39;auth/register&#39;, {
+      title: &#39;Đăng ký tài khoản&#39;,
+      error: errors.array()[0].msg,
+      formData: req.body
+    });
+  }
+
+  try {
+    const userData = req.body;
+    await authService.register(userData);
+    
+    res.render(&#39;auth/verify&#39;, {
+      title: &#39;Xác thực email&#39;,
+      email: userData.email,
+      message: &#39;Vui lòng kiểm tra email để xác thực tài khoản&#39;
+    });
+  } catch (error) {
+    res.render(&#39;auth/register&#39;, {
+      title: &#39;Đăng ký tài khoản&#39;,
+      error: error.message,
+      formData: req.body
+    });
+  }
+});
+
+// Logout
+router.post(&#39;/logout&#39;, (req, res) =&gt; {
+  res.clearCookie(&#39;accessToken&#39;);
+  res.redirect(&#39;/&#39;);
+});
+
+module.exports = router;Core Components#
+AI Suggestion Card#
+// components/recipes/SuggestionCard.tsx
+&#39;use client&#39;;
+
+import { useState } from &#39;react&#39;;
+import { Card, CardContent, CardHeader, CardTitle } from &#39;@/components/ui/card&#39;;
+import { Button } from &#39;@/components/ui/button&#39;;
+import { Badge } from &#39;@/components/ui/badge&#39;;
+import { Clock, Users, Star, Sparkles } from &#39;lucide-react&#39;;
+import { Recipe } from &#39;@/types/recipe&#39;;
+
+interface SuggestionCardProps {
+  recipe: Recipe;
+  onStartCooking: (recipeId: string) =&gt; void;
+}
+
+export default function SuggestionCard({ recipe, onStartCooking }: SuggestionCardProps) {
+  const [isStarting, setIsStarting] = useState(false);
+
+  const handleStartCooking = async () =&gt; {
+    setIsStarting(true);
+    try {
+      await onStartCooking(recipe.recipe_id);
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  return (
+    &lt;Card className=&#34;h-full&#34;&gt;
+      &lt;CardHeader&gt;
+        &lt;div className=&#34;flex items-start justify-between&#34;&gt;
+          &lt;CardTitle className=&#34;text-lg&#34;&gt;{recipe.name}&lt;/CardTitle&gt;
+          &lt;div className=&#34;flex gap-1&#34;&gt;
+            {recipe.source === &#39;ai&#39; &amp;&amp; (
+              &lt;Badge variant=&#34;secondary&#34; className=&#34;flex items-center gap-1&#34;&gt;
+                &lt;Sparkles className=&#34;h-3 w-3&#34; /&gt;
+                AI
+              &lt;/Badge&gt;
+            )}
+            {recipe.is_new &amp;&amp; (
+              &lt;Badge variant=&#34;outline&#34;&gt;Mới&lt;/Badge&gt;
+            )}
+          &lt;/div&gt;
+        &lt;/div&gt;
+      &lt;/CardHeader&gt;
+
+      &lt;CardContent className=&#34;space-y-4&#34;&gt;
+        &lt;div className=&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;&gt;
+          &lt;div className=&#34;flex items-center gap-1&#34;&gt;
+            &lt;Clock className=&#34;h-4 w-4&#34; /&gt;
+            {recipe.prep_time_minutes &#43; recipe.cook_time_minutes} phút
+          &lt;/div&gt;
+          &lt;div className=&#34;flex items-center gap-1&#34;&gt;
+            &lt;Users className=&#34;h-4 w-4&#34; /&gt;
+            {recipe.servings} người
+          &lt;/div&gt;
+          {recipe.average_rating &amp;&amp; (
+            &lt;div className=&#34;flex items-center gap-1&#34;&gt;
+              &lt;Star className=&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34; /&gt;
+              {recipe.average_rating}
+            &lt;/div&gt;
+          )}
+        &lt;/div&gt;
+
+        &lt;div className=&#34;space-y-2&#34;&gt;
+          &lt;h4 className=&#34;font-medium&#34;&gt;Nguyên liệu:&lt;/h4&gt;
+          &lt;div className=&#34;flex flex-wrap gap-1&#34;&gt;
+            {recipe.ingredients?.slice(0, 3).map((ing, index) =&gt; (
+              &lt;Badge key={index} variant=&#34;outline&#34; className=&#34;text-xs&#34;&gt;
+                {ing.ingredient_name}
+              &lt;/Badge&gt;
+            ))}
+            {recipe.ingredients?.length &gt; 3 &amp;&amp; (
+              &lt;Badge variant=&#34;outline&#34; className=&#34;text-xs&#34;&gt;
+                &#43;{recipe.ingredients.length - 3} khác
+              &lt;/Badge&gt;
+            )}
+          &lt;/div&gt;
+        &lt;/div&gt;
+
+        &lt;div className=&#34;space-y-2&#34;&gt;
+          &lt;h4 className=&#34;font-medium&#34;&gt;Phương pháp:&lt;/h4&gt;
+          &lt;Badge variant=&#34;secondary&#34;&gt;{recipe.cooking_method}&lt;/Badge&gt;
+        &lt;/div&gt;
+
+        {recipe.source === &#39;ai&#39; &amp;&amp; (
+          &lt;div className=&#34;text-sm text-muted-foreground bg-blue-50 p-2 rounded&#34;&gt;
+               Món mới từ AI - Hãy thử và đánh giá để giúp cộng đồng!
+          &lt;/div&gt;
+        )}
+
+        &lt;Button 
+          onClick={handleStartCooking} 
+          className=&#34;w-full&#34;
+          disabled={isStarting}
+        &gt;
+          {isStarting ? &#39;Đang bắt đầu...&#39; : &#39;Bắt đầu nấu&#39;}
+        &lt;/Button&gt;
+      &lt;/CardContent&gt;
+    &lt;/Card&gt;
+  );
+}Ingredient Input Component#
+// components/ingredients/IngredientInput.tsx
+&#39;use client&#39;;
+
+import { useState } from &#39;react&#39;;
+import { useForm } from &#39;react-hook-form&#39;;
+import { Button } from &#39;@/components/ui/button&#39;;
+import { Input } from &#39;@/components/ui/input&#39;;
+import { Alert, AlertDescription } from &#39;@/components/ui/alert&#39;;
+import { Badge } from &#39;@/components/ui/badge&#39;;
+import { X, Plus, AlertTriangle } from &#39;lucide-react&#39;;
+import { useIngredientStore } from &#39;@/lib/stores/ingredientStore&#39;;
+
+export default function IngredientInput() {
+  const [inputValue, setInputValue] = useState(&#39;&#39;);
+  const [validationResult, setValidationResult] = useState&lt;any&gt;(null);
+  const { addIngredient, validateIngredients } = useIngredientStore();
+
+  const handleValidate = async () =&gt; {
+    if (!inputValue.trim()) return;
+
+    try {
+      const result = await validateIngredients([inputValue.trim()]);
+      setValidationResult(result);
+    } catch (error) {
+      console.error(&#39;Validation error:&#39;, error);
+    }
+  };
+
+  const handleAdd = async (ingredientName: string) =&gt; {
+    try {
+      await addIngredient(ingredientName);
+      setInputValue(&#39;&#39;);
+      setValidationResult(null);
+    } catch (error) {
+      console.error(&#39;Add ingredient error:&#39;, error);
+    }
+  };
+
+  const handleAcceptCorrection = (corrected: string) =&gt; {
+    handleAdd(corrected);
+  };
+
+  return (
+    &lt;div className=&#34;space-y-4&#34;&gt;
+      &lt;div className=&#34;flex gap-2&#34;&gt;
+        &lt;Input
+          placeholder=&#34;Nhập tên nguyên liệu...&#34;
+          value={inputValue}
+          onChange={(e) =&gt; setInputValue(e.target.value)}
+          onKeyPress={(e) =&gt; e.key === &#39;Enter&#39; &amp;&amp; handleValidate()}
+        /&gt;
+        &lt;Button onClick={handleValidate} disabled={!inputValue.trim()}&gt;
+          &lt;Plus className=&#34;h-4 w-4&#34; /&gt;
+        &lt;/Button&gt;
+      &lt;/div&gt;
+
+      {validationResult &amp;&amp; (
+        &lt;div className=&#34;space-y-3&#34;&gt;
+          {/* Valid ingredients */}
+          {validationResult.valid?.map((ingredient: string, index: number) =&gt; (
+            &lt;Alert key={index} className=&#34;border-green-200 bg-green-50&#34;&gt;
+              &lt;AlertDescription className=&#34;flex items-center justify-between&#34;&gt;
+                &lt;span&gt;✅ &#34;{ingredient}&#34; hợp lệ&lt;/span&gt;
+                &lt;Button size=&#34;sm&#34; onClick={() =&gt; handleAdd(ingredient)}&gt;
+                  Thêm
+                &lt;/Button&gt;
+              &lt;/AlertDescription&gt;
+            &lt;/Alert&gt;
+          ))}
+
+          {/* Corrected ingredients */}
+          {validationResult.corrected?.map((item: any, index: number) =&gt; (
+            &lt;Alert key={index} className=&#34;border-yellow-200 bg-yellow-50&#34;&gt;
+              &lt;AlertTriangle className=&#34;h-4 w-4&#34; /&gt;
+              &lt;AlertDescription className=&#34;flex items-center justify-between&#34;&gt;
+                &lt;div&gt;
+                  &lt;p&gt;Bạn có muốn dùng &#34;{item.matched}&#34; thay vì &#34;{item.original}&#34;?&lt;/p&gt;
+                  &lt;p className=&#34;text-xs text-muted-foreground&#34;&gt;
+                    Độ chính xác: {Math.round(item.confidence * 100)}%
+                  &lt;/p&gt;
+                &lt;/div&gt;
+                &lt;div className=&#34;flex gap-2&#34;&gt;
+                  &lt;Button 
+                    size=&#34;sm&#34; 
+                    variant=&#34;outline&#34;
+                    onClick={() =&gt; setValidationResult(null)}
+                  &gt;
+                    Bỏ qua
+                  &lt;/Button&gt;
+                  &lt;Button 
+                    size=&#34;sm&#34; 
+                    onClick={() =&gt; handleAcceptCorrection(item.matched)}
+                  &gt;
+                    Chấp nhận
+                  &lt;/Button&gt;
+                &lt;/div&gt;
+              &lt;/AlertDescription&gt;
+            &lt;/Alert&gt;
+          ))}
+
+          {/* Invalid ingredients with suggestions */}
+          {validationResult.suggestions?.map((item: any, index: number) =&gt; (
+            &lt;Alert key={index} variant=&#34;destructive&#34;&gt;
+              &lt;X className=&#34;h-4 w-4&#34; /&gt;
+              &lt;AlertDescription&gt;
+                &lt;p&gt;❌ Không tìm thấy &#34;{item.original}&#34;&lt;/p&gt;
+                {item.similar?.length &gt; 0 &amp;&amp; (
+                  &lt;div className=&#34;mt-2&#34;&gt;
+                    &lt;p className=&#34;text-xs&#34;&gt;Có thể bạn muốn:&lt;/p&gt;
+                    &lt;div className=&#34;flex flex-wrap gap-1 mt-1&#34;&gt;
+                      {item.similar.slice(0, 5).map((suggestion: string, i: number) =&gt; (
+                        &lt;Badge 
+                          key={i} 
+                          variant=&#34;outline&#34; 
+                          className=&#34;cursor-pointer hover:bg-gray-100&#34;
+                          onClick={() =&gt; handleAdd(suggestion)}
+                        &gt;
+                          {suggestion}
+                        &lt;/Badge&gt;
+                      ))}
+                    &lt;/div&gt;
+                  &lt;/div&gt;
+                )}
+              &lt;/AlertDescription&gt;
+            &lt;/Alert&gt;
+          ))}
+        &lt;/div&gt;
+      )}
+    &lt;/div&gt;
+  );
+}Cooking History Card#
+// components/cooking/HistoryCard.tsx
+&#39;use client&#39;;
+
+import { useState } from &#39;react&#39;;
+import { Card, CardContent, CardHeader, CardTitle } from &#39;@/components/ui/card&#39;;
+import { Button } from &#39;@/components/ui/button&#39;;
+import { Badge } from &#39;@/components/ui/badge&#39;;
+import { Star, Heart, Clock, Calendar } from &#39;lucide-react&#39;;
+import { CookingHistory } from &#39;@/types/recipe&#39;;
+import RatingModal from &#39;./RatingModal&#39;;
+
+interface HistoryCardProps {
+  history: CookingHistory;
+  onToggleFavorite: (historyId: string, isFavorite: boolean) =&gt; void;
+  onRate: (historyId: string, rating: number, comment?: string) =&gt; void;
+}
+
+export default function HistoryCard({ history, onToggleFavorite, onRate }: HistoryCardProps) {
+  const [showRatingModal, setShowRatingModal] = useState(false);
+
+  const formatDate = (dateString: string) =&gt; {
+    return new Date(dateString).toLocaleDateString(&#39;vi-VN&#39;);
+  };
+
+  const getStatusBadge = (status: string) =&gt; {
+    const variants = {
+      &#39;completed&#39;: &#39;default&#39;,
+      &#39;cooking&#39;: &#39;secondary&#39;,
+      &#39;planned&#39;: &#39;outline&#39;
+    } as const;
+
+    const labels = {
+      &#39;completed&#39;: &#39;Hoàn thành&#39;,
+      &#39;cooking&#39;: &#39;Đang nấu&#39;,
+      &#39;planned&#39;: &#39;Dự định&#39;
+    };
+
+    return (
+      &lt;Badge variant={variants[status as keyof typeof variants]}&gt;
+        {labels[status as keyof typeof labels]}
+      &lt;/Badge&gt;
+    );
+  };
+
+  return (
+    &lt;&gt;
+      &lt;Card&gt;
+        &lt;CardHeader&gt;
+          &lt;div className=&#34;flex items-start justify-between&#34;&gt;
+            &lt;CardTitle className=&#34;text-lg&#34;&gt;{history.recipe_name}&lt;/CardTitle&gt;
+            &lt;div className=&#34;flex items-center gap-2&#34;&gt;
+              {getStatusBadge(history.status)}
+              &lt;Button
+                variant=&#34;ghost&#34;
+                size=&#34;sm&#34;
+                onClick={() =&gt; onToggleFavorite(history.history_id, !history.is_favorite)}
+              &gt;
+                &lt;Heart 
+                  className={`h-4 w-4 ${history.is_favorite ? &#39;fill-red-500 text-red-500&#39; : &#39;&#39;}`} 
+                /&gt;
+              &lt;/Button&gt;
+            &lt;/div&gt;
+          &lt;/div&gt;
+        &lt;/CardHeader&gt;
+
+        &lt;CardContent className=&#34;space-y-3&#34;&gt;
+          &lt;div className=&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;&gt;
+            &lt;div className=&#34;flex items-center gap-1&#34;&gt;
+              &lt;Calendar className=&#34;h-4 w-4&#34; /&gt;
+              {formatDate(history.cook_date || history.created_at)}
+            &lt;/div&gt;
+            {history.personal_rating &amp;&amp; (
+              &lt;div className=&#34;flex items-center gap-1&#34;&gt;
+                &lt;Star className=&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34; /&gt;
+                {history.personal_rating}/5
+              &lt;/div&gt;
+            )}
+          &lt;/div&gt;
+
+          {history.personal_notes &amp;&amp; (
+            &lt;div className=&#34;text-sm bg-gray-50 p-2 rounded&#34;&gt;
+              &lt;p className=&#34;font-medium&#34;&gt;Ghi chú:&lt;/p&gt;
+              &lt;p&gt;{history.personal_notes}&lt;/p&gt;
+            &lt;/div&gt;
+          )}
+
+          &lt;div className=&#34;flex gap-2&#34;&gt;
+            {history.status === &#39;completed&#39; &amp;&amp; !history.personal_rating &amp;&amp; (
+              &lt;Button 
+                size=&#34;sm&#34; 
+                onClick={() =&gt; setShowRatingModal(true)}
+              &gt;
+                Đánh giá món ăn
+              &lt;/Button&gt;
+            )}
+            
+            &lt;Button variant=&#34;outline&#34; size=&#34;sm&#34;&gt;
+              Xem công thức
+            &lt;/Button&gt;
+          &lt;/div&gt;
+        &lt;/CardContent&gt;
+      &lt;/Card&gt;
+
+      &lt;RatingModal
+        isOpen={showRatingModal}
+        onClose={() =&gt; setShowRatingModal(false)}
+        recipeName={history.recipe_name}
+        onSubmit={(rating, comment) =&gt; {
+          onRate(history.history_id, rating, comment);
+          setShowRatingModal(false);
+        }}
+      /&gt;
+    &lt;/&gt;
+  );
+}State Management#
+Recipe Store#
+// lib/stores/recipeStore.ts
+import { create } from &#39;zustand&#39;;
+import { api } from &#39;@/lib/api&#39;;
+import { Recipe, AISuggestion } from &#39;@/types/recipe&#39;;
+
+interface RecipeState {
+  suggestions: Recipe[];
+  isLoadingSuggestions: boolean;
+  getSuggestions: (ingredients: string[], count?: number) =&gt; Promise&lt;void&gt;;
+  startCooking: (recipeId: string, suggestionId?: string) =&gt; Promise&lt;string&gt;;
+  completeCooking: (historyId: string) =&gt; Promise&lt;void&gt;;
+  rateRecipe: (recipeId: string, rating: number, comment?: string, historyId?: string) =&gt; Promise&lt;any&gt;;
+}
+
+export const useRecipeStore = create&lt;RecipeState&gt;((set, get) =&gt; ({
+  suggestions: [],
+  isLoadingSuggestions: false,
+
+  getSuggestions: async (ingredients: string[], count = 1) =&gt; {
+    set({ isLoadingSuggestions: true });
+    
+    try {
+      const response = await api.post(&#39;/ai/suggest&#39;, {
+        ingredients,
+        recipe_count: count
+      });
+
+      set({ 
+        suggestions: response.data.suggestions,
+        isLoadingSuggestions: false 
+      });
+    } catch (error) {
+      console.error(&#39;Get suggestions error:&#39;, error);
+      set({ isLoadingSuggestions: false });
+      throw error;
+    }
+  },
+
+  startCooking: async (recipeId: string, suggestionId?: string) =&gt; {
+    const response = await api.post(&#39;/cooking/start&#39;, {
+      recipe_id: recipeId,
+      suggestion_id: suggestionId
+    });
+
+    return response.data.history_id;
+  },
+
+  completeCooking: async (historyId: string) =&gt; {
+    await api.put(`/cooking/${historyId}/complete`);
+  },
+
+  rateRecipe: async (recipeId: string, rating: number, comment?: string, historyId?: string) =&gt; {
+    const response = await api.post(`/recipes/${recipeId}/rate`, {
+      rating,
+      comment,
+      history_id: historyId
+    });
+
+    return response.data;
+  }
+}));Related Documents#
+
+10 - Architecture
+20 - Backend
+22 - DevOps
+40 - Auth
+">
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
+<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/21-frontend/">
+  <meta property="og:site_name" content="Together">
+  <meta property="og:title" content="21 - Frontend Implementation">
+  <meta property="og:description" content="Frontend Implementation - Smart Cooking App#Technology Stack#Framework: Node.js &#43; Express.js Template Engine: EJS Styling: Tailwind CSS &#43; Custom Components State Management: Client-side JavaScript Authentication: AWS Cognito SDK HTTP Client: Axios (client) &#43; AWS SDK (server) Deployment: AWS Amplify HostingProject Structure#smart-cooking-webapp/ ├── src/ │ ├── routes/ │ │ ├── index.js # Landing page │ │ ├── auth.js # Auth routes (login, register, verify) │ │ ├── dashboard.js # Dashboard &amp; ingredients │ │ ├── recipes.js # Recipe routes (detail, search, suggestions) │ │ ├── cooking.js # Cooking history &amp; sessions │ │ ├── social.js # Social feed, friends, profiles │ │ └── settings.js # Profile &amp; privacy settings │ ├── views/ │ │ ├── layouts/ │ │ │ └── main.ejs # Main layout template │ │ ├── auth/ │ │ │ ├── login.ejs # Login page │ │ │ ├── register.ejs # Registration │ │ │ └── verify.ejs # Email verification │ │ ├── dashboard/ │ │ │ ├── index.ejs # User dashboard │ │ │ └── ingredients.ejs # Manage ingredients │ │ ├── recipes/ │ │ │ ├── detail.ejs # Recipe detail │ │ │ ├── search.ejs # Recipe search │ │ │ └── suggestions.ejs # AI suggestions │ │ ├── cooking/ │ │ │ ├── history.ejs # Cooking history │ │ │ └── session.ejs # Cooking session │ │ ├── social/ │ │ │ ├── feed.ejs # Social feed │ │ │ ├── friends.ejs # Friends list │ │ │ └── profile.ejs # User profile │ │ └── settings/ │ │ ├── profile.ejs # Profile settings │ │ └── privacy.ejs # Privacy settings │ ├── middleware/ │ │ ├── auth.js # Authentication middleware │ │ ├── validation.js # Input validation │ │ └── errorHandler.js # Error handling │ ├── services/ │ │ ├── apiClient.js # API client │ │ ├── authService.js # Auth helpers │ │ └── utils.js # Utilities │ └── public/ │ ├── css/ │ │ └── styles.css # Global styles │ ├── js/ │ │ ├── auth.js # Auth frontend logic │ │ ├── recipes.js # Recipe frontend logic │ │ └── ingredients.js # Ingredients frontend logic │ └── images/ ├── app.js # Express app setup ├── server.js # Server entry point └── package.json # DependenciesAuthentication Implementation#Auth Service (Node.js)#// src/services/authService.js const { CognitoIdentityProviderClient, InitiateAuthCommand, SignUpCommand } = require(&#39;@aws-sdk/client-cognito-identity-provider&#39;); const jwt = require(&#39;jsonwebtoken&#39;); class AuthService { constructor() { this.cognitoClient = new CognitoIdentityProviderClient({ region: process.env.AWS_REGION }); this.clientId = process.env.COGNITO_CLIENT_ID; } async login(email, password) { try { const command = new InitiateAuthCommand({ AuthFlow: &#39;USER_PASSWORD_AUTH&#39;, ClientId: this.clientId, AuthParameters: { USERNAME: email, PASSWORD: password } }); const result = await this.cognitoClient.send(command); return { accessToken: result.AuthenticationResult.AccessToken, refreshToken: result.AuthenticationResult.RefreshToken, idToken: result.AuthenticationResult.IdToken }; } catch (error) { console.error(&#39;Login error:&#39;, error); throw new Error(&#39;Đăng nhập thất bại&#39;); } } async register(userData) { try { const command = new SignUpCommand({ ClientId: this.clientId, Username: userData.email, Password: userData.password, UserAttributes: [ { Name: &#39;email&#39;, Value: userData.email }, { Name: &#39;name&#39;, Value: userData.fullName }, { Name: &#39;custom:username&#39;, Value: userData.username } ] }); const result = await this.cognitoClient.send(command); return result; } catch (error) { console.error(&#39;Registration error:&#39;, error); throw new Error(&#39;Đăng ký thất bại&#39;); } } verifyToken(token) { try { // Verify JWT token (simplified - in production use proper JWT verification) const decoded = jwt.decode(token); return decoded; } catch (error) { throw new Error(&#39;Token không hợp lệ&#39;); } } extractUserFromToken(token) { const decoded = this.verifyToken(token); return { id: decoded.sub, email: decoded.email, username: decoded[&#39;custom:username&#39;], fullName: decoded.name, role: decoded[&#39;custom:role&#39;] || &#39;user&#39; }; } } module.exports = new AuthService();Auth Middleware#// src/middleware/auth.js const authService = require(&#39;../services/authService&#39;); const requireAuth = (req, res, next) =&gt; { const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken; if (!token) { return res.redirect(&#39;/auth/login&#39;); } try { const user = authService.extractUserFromToken(token); req.user = user; res.locals.user = user; next(); } catch (error) { res.clearCookie(&#39;accessToken&#39;); return res.redirect(&#39;/auth/login&#39;); } }; const optionalAuth = (req, res, next) =&gt; { const token = req.headers.authorization?.replace(&#39;Bearer &#39;, &#39;&#39;) || req.cookies.accessToken; if (token) { try { const user = authService.extractUserFromToken(token); req.user = user; res.locals.user = user; } catch (error) { res.clearCookie(&#39;accessToken&#39;); } } next(); }; module.exports = { requireAuth, optionalAuth };Auth Routes#// src/routes/auth.js const express = require(&#39;express&#39;); const authService = require(&#39;../services/authService&#39;); const { body, validationResult } = require(&#39;express-validator&#39;); const router = express.Router(); // Login page router.get(&#39;/login&#39;, (req, res) =&gt; { if (req.cookies.accessToken) { return res.redirect(&#39;/dashboard&#39;); } res.render(&#39;auth/login&#39;, { title: &#39;Đăng nhập&#39;, error: req.query.error }); }); // Login handler router.post(&#39;/login&#39;, [ body(&#39;email&#39;).isEmail().withMessage(&#39;Email không hợp lệ&#39;), body(&#39;password&#39;).isLength({ min: 8 }).withMessage(&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;) ], async (req, res) =&gt; { const errors = validationResult(req); if (!errors.isEmpty()) { return res.render(&#39;auth/login&#39;, { title: &#39;Đăng nhập&#39;, error: errors.array()[0].msg, email: req.body.email }); } try { const { email, password } = req.body; const tokens = await authService.login(email, password); // Set HTTP-only cookie res.cookie(&#39;accessToken&#39;, tokens.accessToken, { httpOnly: true, secure: process.env.NODE_ENV === &#39;production&#39;, maxAge: 24 * 60 * 60 * 1000 // 24 hours }); res.redirect(&#39;/dashboard&#39;); } catch (error) { res.render(&#39;auth/login&#39;, { title: &#39;Đăng nhập&#39;, error: error.message, email: req.body.email }); } }); // Register page router.get(&#39;/register&#39;, (req, res) =&gt; { if (req.cookies.accessToken) { return res.redirect(&#39;/dashboard&#39;); } res.render(&#39;auth/register&#39;, { title: &#39;Đăng ký tài khoản&#39;, error: req.query.error }); }); // Register handler router.post(&#39;/register&#39;, [ body(&#39;email&#39;).isEmail().withMessage(&#39;Email không hợp lệ&#39;), body(&#39;password&#39;).isLength({ min: 8 }).withMessage(&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;), body(&#39;fullName&#39;).notEmpty().withMessage(&#39;Họ tên không được để trống&#39;), body(&#39;username&#39;).isLength({ min: 3 }).withMessage(&#39;Username phải có ít nhất 3 ký tự&#39;) ], async (req, res) =&gt; { const errors = validationResult(req); if (!errors.isEmpty()) { return res.render(&#39;auth/register&#39;, { title: &#39;Đăng ký tài khoản&#39;, error: errors.array()[0].msg, formData: req.body }); } try { const userData = req.body; await authService.register(userData); res.render(&#39;auth/verify&#39;, { title: &#39;Xác thực email&#39;, email: userData.email, message: &#39;Vui lòng kiểm tra email để xác thực tài khoản&#39; }); } catch (error) { res.render(&#39;auth/register&#39;, { title: &#39;Đăng ký tài khoản&#39;, error: error.message, formData: req.body }); } }); // Logout router.post(&#39;/logout&#39;, (req, res) =&gt; { res.clearCookie(&#39;accessToken&#39;); res.redirect(&#39;/&#39;); }); module.exports = router;Core Components#AI Suggestion Card#// components/recipes/SuggestionCard.tsx &#39;use client&#39;; import { useState } from &#39;react&#39;; import { Card, CardContent, CardHeader, CardTitle } from &#39;@/components/ui/card&#39;; import { Button } from &#39;@/components/ui/button&#39;; import { Badge } from &#39;@/components/ui/badge&#39;; import { Clock, Users, Star, Sparkles } from &#39;lucide-react&#39;; import { Recipe } from &#39;@/types/recipe&#39;; interface SuggestionCardProps { recipe: Recipe; onStartCooking: (recipeId: string) =&gt; void; } export default function SuggestionCard({ recipe, onStartCooking }: SuggestionCardProps) { const [isStarting, setIsStarting] = useState(false); const handleStartCooking = async () =&gt; { setIsStarting(true); try { await onStartCooking(recipe.recipe_id); } finally { setIsStarting(false); } }; return ( &lt;Card className=&#34;h-full&#34;&gt; &lt;CardHeader&gt; &lt;div className=&#34;flex items-start justify-between&#34;&gt; &lt;CardTitle className=&#34;text-lg&#34;&gt;{recipe.name}&lt;/CardTitle&gt; &lt;div className=&#34;flex gap-1&#34;&gt; {recipe.source === &#39;ai&#39; &amp;&amp; ( &lt;Badge variant=&#34;secondary&#34; className=&#34;flex items-center gap-1&#34;&gt; &lt;Sparkles className=&#34;h-3 w-3&#34; /&gt; AI &lt;/Badge&gt; )} {recipe.is_new &amp;&amp; ( &lt;Badge variant=&#34;outline&#34;&gt;Mới&lt;/Badge&gt; )} &lt;/div&gt; &lt;/div&gt; &lt;/CardHeader&gt; &lt;CardContent className=&#34;space-y-4&#34;&gt; &lt;div className=&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;&gt; &lt;div className=&#34;flex items-center gap-1&#34;&gt; &lt;Clock className=&#34;h-4 w-4&#34; /&gt; {recipe.prep_time_minutes &#43; recipe.cook_time_minutes} phút &lt;/div&gt; &lt;div className=&#34;flex items-center gap-1&#34;&gt; &lt;Users className=&#34;h-4 w-4&#34; /&gt; {recipe.servings} người &lt;/div&gt; {recipe.average_rating &amp;&amp; ( &lt;div className=&#34;flex items-center gap-1&#34;&gt; &lt;Star className=&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34; /&gt; {recipe.average_rating} &lt;/div&gt; )} &lt;/div&gt; &lt;div className=&#34;space-y-2&#34;&gt; &lt;h4 className=&#34;font-medium&#34;&gt;Nguyên liệu:&lt;/h4&gt; &lt;div className=&#34;flex flex-wrap gap-1&#34;&gt; {recipe.ingredients?.slice(0, 3).map((ing, index) =&gt; ( &lt;Badge key={index} variant=&#34;outline&#34; className=&#34;text-xs&#34;&gt; {ing.ingredient_name} &lt;/Badge&gt; ))} {recipe.ingredients?.length &gt; 3 &amp;&amp; ( &lt;Badge variant=&#34;outline&#34; className=&#34;text-xs&#34;&gt; &#43;{recipe.ingredients.length - 3} khác &lt;/Badge&gt; )} &lt;/div&gt; &lt;/div&gt; &lt;div className=&#34;space-y-2&#34;&gt; &lt;h4 className=&#34;font-medium&#34;&gt;Phương pháp:&lt;/h4&gt; &lt;Badge variant=&#34;secondary&#34;&gt;{recipe.cooking_method}&lt;/Badge&gt; &lt;/div&gt; {recipe.source === &#39;ai&#39; &amp;&amp; ( &lt;div className=&#34;text-sm text-muted-foreground bg-blue-50 p-2 rounded&#34;&gt; Món mới từ AI - Hãy thử và đánh giá để giúp cộng đồng! &lt;/div&gt; )} &lt;Button onClick={handleStartCooking} className=&#34;w-full&#34; disabled={isStarting} &gt; {isStarting ? &#39;Đang bắt đầu...&#39; : &#39;Bắt đầu nấu&#39;} &lt;/Button&gt; &lt;/CardContent&gt; &lt;/Card&gt; ); }Ingredient Input Component#// components/ingredients/IngredientInput.tsx &#39;use client&#39;; import { useState } from &#39;react&#39;; import { useForm } from &#39;react-hook-form&#39;; import { Button } from &#39;@/components/ui/button&#39;; import { Input } from &#39;@/components/ui/input&#39;; import { Alert, AlertDescription } from &#39;@/components/ui/alert&#39;; import { Badge } from &#39;@/components/ui/badge&#39;; import { X, Plus, AlertTriangle } from &#39;lucide-react&#39;; import { useIngredientStore } from &#39;@/lib/stores/ingredientStore&#39;; export default function IngredientInput() { const [inputValue, setInputValue] = useState(&#39;&#39;); const [validationResult, setValidationResult] = useState&lt;any&gt;(null); const { addIngredient, validateIngredients } = useIngredientStore(); const handleValidate = async () =&gt; { if (!inputValue.trim()) return; try { const result = await validateIngredients([inputValue.trim()]); setValidationResult(result); } catch (error) { console.error(&#39;Validation error:&#39;, error); } }; const handleAdd = async (ingredientName: string) =&gt; { try { await addIngredient(ingredientName); setInputValue(&#39;&#39;); setValidationResult(null); } catch (error) { console.error(&#39;Add ingredient error:&#39;, error); } }; const handleAcceptCorrection = (corrected: string) =&gt; { handleAdd(corrected); }; return ( &lt;div className=&#34;space-y-4&#34;&gt; &lt;div className=&#34;flex gap-2&#34;&gt; &lt;Input placeholder=&#34;Nhập tên nguyên liệu...&#34; value={inputValue} onChange={(e) =&gt; setInputValue(e.target.value)} onKeyPress={(e) =&gt; e.key === &#39;Enter&#39; &amp;&amp; handleValidate()} /&gt; &lt;Button onClick={handleValidate} disabled={!inputValue.trim()}&gt; &lt;Plus className=&#34;h-4 w-4&#34; /&gt; &lt;/Button&gt; &lt;/div&gt; {validationResult &amp;&amp; ( &lt;div className=&#34;space-y-3&#34;&gt; {/* Valid ingredients */} {validationResult.valid?.map((ingredient: string, index: number) =&gt; ( &lt;Alert key={index} className=&#34;border-green-200 bg-green-50&#34;&gt; &lt;AlertDescription className=&#34;flex items-center justify-between&#34;&gt; &lt;span&gt;✅ &#34;{ingredient}&#34; hợp lệ&lt;/span&gt; &lt;Button size=&#34;sm&#34; onClick={() =&gt; handleAdd(ingredient)}&gt; Thêm &lt;/Button&gt; &lt;/AlertDescription&gt; &lt;/Alert&gt; ))} {/* Corrected ingredients */} {validationResult.corrected?.map((item: any, index: number) =&gt; ( &lt;Alert key={index} className=&#34;border-yellow-200 bg-yellow-50&#34;&gt; &lt;AlertTriangle className=&#34;h-4 w-4&#34; /&gt; &lt;AlertDescription className=&#34;flex items-center justify-between&#34;&gt; &lt;div&gt; &lt;p&gt;Bạn có muốn dùng &#34;{item.matched}&#34; thay vì &#34;{item.original}&#34;?&lt;/p&gt; &lt;p className=&#34;text-xs text-muted-foreground&#34;&gt; Độ chính xác: {Math.round(item.confidence * 100)}% &lt;/p&gt; &lt;/div&gt; &lt;div className=&#34;flex gap-2&#34;&gt; &lt;Button size=&#34;sm&#34; variant=&#34;outline&#34; onClick={() =&gt; setValidationResult(null)} &gt; Bỏ qua &lt;/Button&gt; &lt;Button size=&#34;sm&#34; onClick={() =&gt; handleAcceptCorrection(item.matched)} &gt; Chấp nhận &lt;/Button&gt; &lt;/div&gt; &lt;/AlertDescription&gt; &lt;/Alert&gt; ))} {/* Invalid ingredients with suggestions */} {validationResult.suggestions?.map((item: any, index: number) =&gt; ( &lt;Alert key={index} variant=&#34;destructive&#34;&gt; &lt;X className=&#34;h-4 w-4&#34; /&gt; &lt;AlertDescription&gt; &lt;p&gt;❌ Không tìm thấy &#34;{item.original}&#34;&lt;/p&gt; {item.similar?.length &gt; 0 &amp;&amp; ( &lt;div className=&#34;mt-2&#34;&gt; &lt;p className=&#34;text-xs&#34;&gt;Có thể bạn muốn:&lt;/p&gt; &lt;div className=&#34;flex flex-wrap gap-1 mt-1&#34;&gt; {item.similar.slice(0, 5).map((suggestion: string, i: number) =&gt; ( &lt;Badge key={i} variant=&#34;outline&#34; className=&#34;cursor-pointer hover:bg-gray-100&#34; onClick={() =&gt; handleAdd(suggestion)} &gt; {suggestion} &lt;/Badge&gt; ))} &lt;/div&gt; &lt;/div&gt; )} &lt;/AlertDescription&gt; &lt;/Alert&gt; ))} &lt;/div&gt; )} &lt;/div&gt; ); }Cooking History Card#// components/cooking/HistoryCard.tsx &#39;use client&#39;; import { useState } from &#39;react&#39;; import { Card, CardContent, CardHeader, CardTitle } from &#39;@/components/ui/card&#39;; import { Button } from &#39;@/components/ui/button&#39;; import { Badge } from &#39;@/components/ui/badge&#39;; import { Star, Heart, Clock, Calendar } from &#39;lucide-react&#39;; import { CookingHistory } from &#39;@/types/recipe&#39;; import RatingModal from &#39;./RatingModal&#39;; interface HistoryCardProps { history: CookingHistory; onToggleFavorite: (historyId: string, isFavorite: boolean) =&gt; void; onRate: (historyId: string, rating: number, comment?: string) =&gt; void; } export default function HistoryCard({ history, onToggleFavorite, onRate }: HistoryCardProps) { const [showRatingModal, setShowRatingModal] = useState(false); const formatDate = (dateString: string) =&gt; { return new Date(dateString).toLocaleDateString(&#39;vi-VN&#39;); }; const getStatusBadge = (status: string) =&gt; { const variants = { &#39;completed&#39;: &#39;default&#39;, &#39;cooking&#39;: &#39;secondary&#39;, &#39;planned&#39;: &#39;outline&#39; } as const; const labels = { &#39;completed&#39;: &#39;Hoàn thành&#39;, &#39;cooking&#39;: &#39;Đang nấu&#39;, &#39;planned&#39;: &#39;Dự định&#39; }; return ( &lt;Badge variant={variants[status as keyof typeof variants]}&gt; {labels[status as keyof typeof labels]} &lt;/Badge&gt; ); }; return ( &lt;&gt; &lt;Card&gt; &lt;CardHeader&gt; &lt;div className=&#34;flex items-start justify-between&#34;&gt; &lt;CardTitle className=&#34;text-lg&#34;&gt;{history.recipe_name}&lt;/CardTitle&gt; &lt;div className=&#34;flex items-center gap-2&#34;&gt; {getStatusBadge(history.status)} &lt;Button variant=&#34;ghost&#34; size=&#34;sm&#34; onClick={() =&gt; onToggleFavorite(history.history_id, !history.is_favorite)} &gt; &lt;Heart className={`h-4 w-4 ${history.is_favorite ? &#39;fill-red-500 text-red-500&#39; : &#39;&#39;}`} /&gt; &lt;/Button&gt; &lt;/div&gt; &lt;/div&gt; &lt;/CardHeader&gt; &lt;CardContent className=&#34;space-y-3&#34;&gt; &lt;div className=&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;&gt; &lt;div className=&#34;flex items-center gap-1&#34;&gt; &lt;Calendar className=&#34;h-4 w-4&#34; /&gt; {formatDate(history.cook_date || history.created_at)} &lt;/div&gt; {history.personal_rating &amp;&amp; ( &lt;div className=&#34;flex items-center gap-1&#34;&gt; &lt;Star className=&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34; /&gt; {history.personal_rating}/5 &lt;/div&gt; )} &lt;/div&gt; {history.personal_notes &amp;&amp; ( &lt;div className=&#34;text-sm bg-gray-50 p-2 rounded&#34;&gt; &lt;p className=&#34;font-medium&#34;&gt;Ghi chú:&lt;/p&gt; &lt;p&gt;{history.personal_notes}&lt;/p&gt; &lt;/div&gt; )} &lt;div className=&#34;flex gap-2&#34;&gt; {history.status === &#39;completed&#39; &amp;&amp; !history.personal_rating &amp;&amp; ( &lt;Button size=&#34;sm&#34; onClick={() =&gt; setShowRatingModal(true)} &gt; Đánh giá món ăn &lt;/Button&gt; )} &lt;Button variant=&#34;outline&#34; size=&#34;sm&#34;&gt; Xem công thức &lt;/Button&gt; &lt;/div&gt; &lt;/CardContent&gt; &lt;/Card&gt; &lt;RatingModal isOpen={showRatingModal} onClose={() =&gt; setShowRatingModal(false)} recipeName={history.recipe_name} onSubmit={(rating, comment) =&gt; { onRate(history.history_id, rating, comment); setShowRatingModal(false); }} /&gt; &lt;/&gt; ); }State Management#Recipe Store#// lib/stores/recipeStore.ts import { create } from &#39;zustand&#39;; import { api } from &#39;@/lib/api&#39;; import { Recipe, AISuggestion } from &#39;@/types/recipe&#39;; interface RecipeState { suggestions: Recipe[]; isLoadingSuggestions: boolean; getSuggestions: (ingredients: string[], count?: number) =&gt; Promise&lt;void&gt;; startCooking: (recipeId: string, suggestionId?: string) =&gt; Promise&lt;string&gt;; completeCooking: (historyId: string) =&gt; Promise&lt;void&gt;; rateRecipe: (recipeId: string, rating: number, comment?: string, historyId?: string) =&gt; Promise&lt;any&gt;; } export const useRecipeStore = create&lt;RecipeState&gt;((set, get) =&gt; ({ suggestions: [], isLoadingSuggestions: false, getSuggestions: async (ingredients: string[], count = 1) =&gt; { set({ isLoadingSuggestions: true }); try { const response = await api.post(&#39;/ai/suggest&#39;, { ingredients, recipe_count: count }); set({ suggestions: response.data.suggestions, isLoadingSuggestions: false }); } catch (error) { console.error(&#39;Get suggestions error:&#39;, error); set({ isLoadingSuggestions: false }); throw error; } }, startCooking: async (recipeId: string, suggestionId?: string) =&gt; { const response = await api.post(&#39;/cooking/start&#39;, { recipe_id: recipeId, suggestion_id: suggestionId }); return response.data.history_id; }, completeCooking: async (historyId: string) =&gt; { await api.put(`/cooking/${historyId}/complete`); }, rateRecipe: async (recipeId: string, rating: number, comment?: string, historyId?: string) =&gt; { const response = await api.post(`/recipes/${recipeId}/rate`, { rating, comment, history_id: historyId }); return response.data; } }));Related Documents#10 - Architecture 20 - Backend 22 - DevOps 40 - Auth">
+  <meta property="og:locale" content="en_us">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="docs">
+<title>21 - Frontend Implementation | Together</title>
+<link rel="icon" href="/favicon.png" >
+<link rel="manifest" href="/manifest.json">
+<link rel="canonical" href="https://example.org/docs/summary/21-frontend/">
+<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
+
+
+  <script defer src="/fuse.min.js"></script>
+  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
+
+  
+</head>
+<body dir="ltr" class="book-kind-page book-type-docs">
+  <input type="checkbox" class="hidden toggle" id="menu-control" />
+  <input type="checkbox" class="hidden toggle" id="toc-control" />
+  <main class="container flex">
+    
+<aside class="book-menu">
+  <div class="book-menu-content">
+    
+  <nav>
+<h2 class="book-brand">
+  <a class="flex align-center" href="/"><span>Together</span>
+  </a>
+</h2>
+
+
+<div class="book-search hidden">
+  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
+  <div class="book-search-spinner hidden"></div>
+  <ul id="book-search-results"></ul>
+</div>
+<script>document.querySelector(".book-search").classList.remove("hidden")</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle"  />
+    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
+      <a href="/docs/ai_dlc/" class="">
+        AI DLC</a>
+      <img src="/icons/chevron-right.svg" class="book-icon" />
+    </label>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/design/" class="">
+      Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/requirements/" class="">
+      Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/ai_dlc/tasks/" class="">
+      Tasks</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/" class="">
+      Summary</a>
+  
+
+          
+  <ul>
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/00-overview/" class="">
+      00 - Project Overview</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/01-requirements/" class="">
+      01 - Requirements</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/02-constraints/" class="">
+      02 - Constraints</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/10-architecture/" class="">
+      10 - Architecture</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/11-database/" class="">
+      11 - Database Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/12-api-spec/" class="">
+      12 - API Specification</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/13-security/" class="">
+      13 - Security</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/14-ai-agent/" class="">
+      14 - AI Agent Design</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/20-backend/" class="">
+      20 - Backend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/21-frontend/" class="active">
+      21 - Frontend Implementation</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/22-devops/" class="">
+      22 - DevOps &amp; Deployment</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/23-tasks/" class="">
+      23 - Implementation Tasks</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/30-cost-analysis/" class="">
+      30 - Cost Analysis</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/31-scaling/" class="">
+      31 - Scaling Strategy</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/32-monitoring/" class="">
+      32 - Monitoring &amp; Observability</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/40-auth/" class="">
+      40 - Authentication &amp; Authorization</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/41-privacy/" class="">
+      41 - Privacy &amp; Data Protection</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/42-compliance/" class="">
+      42 - Compliance &amp; Governance</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-glossary/" class="">
+      99 - Glossary</a>
+  
+
+        </li>
+      
+    
+      
+        <li>
+          
+  
+  
+
+  
+    <a href="/docs/summary/99-references/" class="">
+      99 - References</a>
+  
+
+        </li>
+      
+    
+  </ul>
+
+        </li>
+      
+    
+  </ul>
+
+
+
+
+
+
+
+
+
+
+
+
+
+</nav>
+
+
+
+
+  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
+
+
+
+  </div>
+</aside>
+ 
+
+    <div class="book-page">
+      <header class="book-header hidden">
+        
+  <div class="flex align-center justify-between">
+  <label for="menu-control">
+    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
+  </label>
+
+  <h3>21 - Frontend Implementation</h3>
+
+  <label for="toc-control">
+    
+    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
+    
+  </label>
+</div>
+
+
+  
+  <aside class="hidden clearfix">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#technology-stack">Technology Stack</a></li>
+    <li><a href="#project-structure">Project Structure</a></li>
+    <li><a href="#authentication-implementation">Authentication Implementation</a>
+      <ul>
+        <li><a href="#auth-service-nodejs">Auth Service (Node.js)</a></li>
+        <li><a href="#auth-middleware">Auth Middleware</a></li>
+        <li><a href="#auth-routes">Auth Routes</a></li>
+      </ul>
+    </li>
+    <li><a href="#core-components">Core Components</a>
+      <ul>
+        <li><a href="#ai-suggestion-card">AI Suggestion Card</a></li>
+        <li><a href="#ingredient-input-component">Ingredient Input Component</a></li>
+        <li><a href="#cooking-history-card">Cooking History Card</a></li>
+      </ul>
+    </li>
+    <li><a href="#state-management">State Management</a>
+      <ul>
+        <li><a href="#recipe-store">Recipe Store</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </aside>
+  
+ 
+      </header>
+
+      
+      
+  <article class="markdown book-article"><h1 id="frontend-implementation---smart-cooking-app">Frontend Implementation - Smart Cooking App<a class="anchor" href="#frontend-implementation---smart-cooking-app">#</a></h1>
+<h2 id="technology-stack">Technology Stack<a class="anchor" href="#technology-stack">#</a></h2>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Framework</span>: <span style="color:#ae81ff">Node.js + Express.js</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Template Engine</span>: <span style="color:#ae81ff">EJS</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Styling</span>: <span style="color:#ae81ff">Tailwind CSS + Custom Components</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">State Management</span>: <span style="color:#ae81ff">Client-side JavaScript</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Authentication</span>: <span style="color:#ae81ff">AWS Cognito SDK</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">HTTP Client</span>: <span style="color:#ae81ff">Axios (client) + AWS SDK (server)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">Deployment</span>: <span style="color:#ae81ff">AWS Amplify Hosting</span></span></span></code></pre></div><h2 id="project-structure">Project Structure<a class="anchor" href="#project-structure">#</a></h2>
+<pre tabindex="0"><code>smart-cooking-webapp/
+├── src/
+│   ├── routes/
+│   │   ├── index.js             # Landing page
+│   │   ├── auth.js              # Auth routes (login, register, verify)
+│   │   ├── dashboard.js         # Dashboard &amp; ingredients
+│   │   ├── recipes.js           # Recipe routes (detail, search, suggestions)
+│   │   ├── cooking.js           # Cooking history &amp; sessions
+│   │   ├── social.js            # Social feed, friends, profiles
+│   │   └── settings.js          # Profile &amp; privacy settings
+│   ├── views/
+│   │   ├── layouts/
+│   │   │   └── main.ejs         # Main layout template
+│   │   ├── auth/
+│   │   │   ├── login.ejs        # Login page
+│   │   │   ├── register.ejs     # Registration
+│   │   │   └── verify.ejs       # Email verification
+│   │   ├── dashboard/
+│   │   │   ├── index.ejs        # User dashboard
+│   │   │   └── ingredients.ejs  # Manage ingredients
+│   │   ├── recipes/
+│   │   │   ├── detail.ejs       # Recipe detail
+│   │   │   ├── search.ejs       # Recipe search
+│   │   │   └── suggestions.ejs  # AI suggestions
+│   │   ├── cooking/
+│   │   │   ├── history.ejs      # Cooking history
+│   │   │   └── session.ejs      # Cooking session
+│   │   ├── social/
+│   │   │   ├── feed.ejs         # Social feed
+│   │   │   ├── friends.ejs      # Friends list
+│   │   │   └── profile.ejs      # User profile
+│   │   └── settings/
+│   │       ├── profile.ejs      # Profile settings
+│   │       └── privacy.ejs      # Privacy settings
+│   ├── middleware/
+│   │   ├── auth.js              # Authentication middleware
+│   │   ├── validation.js        # Input validation
+│   │   └── errorHandler.js      # Error handling
+│   ├── services/
+│   │   ├── apiClient.js         # API client
+│   │   ├── authService.js       # Auth helpers
+│   │   └── utils.js             # Utilities
+│   └── public/
+│       ├── css/
+│       │   └── styles.css       # Global styles
+│       ├── js/
+│       │   ├── auth.js          # Auth frontend logic
+│       │   ├── recipes.js       # Recipe frontend logic
+│       │   └── ingredients.js   # Ingredients frontend logic
+│       └── images/
+├── app.js                       # Express app setup
+├── server.js                    # Server entry point
+└── package.json                 # Dependencies</code></pre><h2 id="authentication-implementation">Authentication Implementation<a class="anchor" href="#authentication-implementation">#</a></h2>
+<h3 id="auth-service-nodejs">Auth Service (Node.js)<a class="anchor" href="#auth-service-nodejs">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/services/authService.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">CognitoIdentityProviderClient</span>, <span style="color:#a6e22e">InitiateAuthCommand</span>, <span style="color:#a6e22e">SignUpCommand</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;@aws-sdk/client-cognito-identity-provider&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">jwt</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;jsonwebtoken&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">AuthService</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">constructor</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">cognitoClient</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">CognitoIdentityProviderClient</span>({
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">region</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">AWS_REGION</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">clientId</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">COGNITO_CLIENT_ID</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">login</span>(<span style="color:#a6e22e">email</span>, <span style="color:#a6e22e">password</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">command</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">InitiateAuthCommand</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">AuthFlow</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;USER_PASSWORD_AUTH&#39;</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ClientId</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">clientId</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">AuthParameters</span><span style="color:#f92672">:</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">USERNAME</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">PASSWORD</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">password</span>
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">cognitoClient</span>.<span style="color:#a6e22e">send</span>(<span style="color:#a6e22e">command</span>);
+</span></span><span style="display:flex;"><span>      
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">accessToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">AuthenticationResult</span>.<span style="color:#a6e22e">AccessToken</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">refreshToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">AuthenticationResult</span>.<span style="color:#a6e22e">RefreshToken</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">idToken</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">result</span>.<span style="color:#a6e22e">AuthenticationResult</span>.<span style="color:#a6e22e">IdToken</span>
+</span></span><span style="display:flex;"><span>      };
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Login error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Đăng nhập thất bại&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">async</span> <span style="color:#a6e22e">register</span>(<span style="color:#a6e22e">userData</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">command</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">SignUpCommand</span>({
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ClientId</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">clientId</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">Username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">Password</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">password</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">UserAttributes</span><span style="color:#f92672">:</span> [
+</span></span><span style="display:flex;"><span>          { <span style="color:#a6e22e">Name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;email&#39;</span>, <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">email</span> },
+</span></span><span style="display:flex;"><span>          { <span style="color:#a6e22e">Name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;name&#39;</span>, <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">fullName</span> },
+</span></span><span style="display:flex;"><span>          { <span style="color:#a6e22e">Name</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;custom:username&#39;</span>, <span style="color:#a6e22e">Value</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">username</span> }
+</span></span><span style="display:flex;"><span>        ]
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">cognitoClient</span>.<span style="color:#a6e22e">send</span>(<span style="color:#a6e22e">command</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">result</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Registration error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Đăng ký thất bại&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">verifyToken</span>(<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#75715e">// Verify JWT token (simplified - in production use proper JWT verification)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">decoded</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">jwt</span>.<span style="color:#a6e22e">decode</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">decoded</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#66d9ef">new</span> Error(<span style="color:#e6db74">&#39;Token không hợp lệ&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">extractUserFromToken</span>(<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">decoded</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">this</span>.<span style="color:#a6e22e">verifyToken</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">id</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">decoded</span>.<span style="color:#a6e22e">sub</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">decoded</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">username</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">decoded</span>[<span style="color:#e6db74">&#39;custom:username&#39;</span>],
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">fullName</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">decoded</span>.<span style="color:#a6e22e">name</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">role</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">decoded</span>[<span style="color:#e6db74">&#39;custom:role&#39;</span>] <span style="color:#f92672">||</span> <span style="color:#e6db74">&#39;user&#39;</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">new</span> <span style="color:#a6e22e">AuthService</span>();</span></span></code></pre></div><h3 id="auth-middleware">Auth Middleware<a class="anchor" href="#auth-middleware">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/middleware/auth.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authService</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../services/authService&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">requireAuth</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">headers</span>.<span style="color:#a6e22e">authorization</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">&#39;Bearer &#39;</span>, <span style="color:#e6db74">&#39;&#39;</span>) <span style="color:#f92672">||</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/auth/login&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">extractUserFromToken</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">locals</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">clearCookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/auth/login&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">optionalAuth</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>, <span style="color:#a6e22e">next</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">token</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">headers</span>.<span style="color:#a6e22e">authorization</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">replace</span>(<span style="color:#e6db74">&#39;Bearer &#39;</span>, <span style="color:#e6db74">&#39;&#39;</span>) <span style="color:#f92672">||</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>;
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">token</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">extractUserFromToken</span>(<span style="color:#a6e22e">token</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">locals</span>.<span style="color:#a6e22e">user</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">user</span>;
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">clearCookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">next</span>();
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> { <span style="color:#a6e22e">requireAuth</span>, <span style="color:#a6e22e">optionalAuth</span> };</span></span></code></pre></div><h3 id="auth-routes">Auth Routes<a class="anchor" href="#auth-routes">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-javascript" data-lang="javascript"><span style="display:flex;"><span><span style="color:#75715e">// src/routes/auth.js
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">express</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;express&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">authService</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;../services/authService&#39;</span>);
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">body</span>, <span style="color:#a6e22e">validationResult</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">require</span>(<span style="color:#e6db74">&#39;express-validator&#39;</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">const</span> <span style="color:#a6e22e">router</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">express</span>.<span style="color:#a6e22e">Router</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Login page
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">router</span>.<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/login&#39;</span>, (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/dashboard&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/login&#39;</span>, { 
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng nhập&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">query</span>.<span style="color:#a6e22e">error</span> 
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Login handler
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">router</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/login&#39;</span>, [
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;email&#39;</span>).<span style="color:#a6e22e">isEmail</span>().<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Email không hợp lệ&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;password&#39;</span>).<span style="color:#a6e22e">isLength</span>({ <span style="color:#a6e22e">min</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">8</span> }).<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;</span>)
+</span></span><span style="display:flex;"><span>], <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">errors</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">validationResult</span>(<span style="color:#a6e22e">req</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">errors</span>.<span style="color:#a6e22e">isEmpty</span>()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/login&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng nhập&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">errors</span>.<span style="color:#a6e22e">array</span>()[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">msg</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">email</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">email</span>, <span style="color:#a6e22e">password</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">tokens</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">login</span>(<span style="color:#a6e22e">email</span>, <span style="color:#a6e22e">password</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Set HTTP-only cookie
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">cookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>, <span style="color:#a6e22e">tokens</span>.<span style="color:#a6e22e">accessToken</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">httpOnly</span><span style="color:#f92672">:</span> <span style="color:#66d9ef">true</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">secure</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">process</span>.<span style="color:#a6e22e">env</span>.<span style="color:#a6e22e">NODE_ENV</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;production&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">maxAge</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">24</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">60</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">1000</span> <span style="color:#75715e">// 24 hours
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    });
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/dashboard&#39;</span>);
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/login&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng nhập&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>.<span style="color:#a6e22e">email</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Register page
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">router</span>.<span style="color:#a6e22e">get</span>(<span style="color:#e6db74">&#39;/register&#39;</span>, (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">cookies</span>.<span style="color:#a6e22e">accessToken</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/dashboard&#39;</span>);
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/register&#39;</span>, { 
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng ký tài khoản&#39;</span>,
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">query</span>.<span style="color:#a6e22e">error</span> 
+</span></span><span style="display:flex;"><span>  });
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Register handler
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">router</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/register&#39;</span>, [
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;email&#39;</span>).<span style="color:#a6e22e">isEmail</span>().<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Email không hợp lệ&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;password&#39;</span>).<span style="color:#a6e22e">isLength</span>({ <span style="color:#a6e22e">min</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">8</span> }).<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Mật khẩu phải có ít nhất 8 ký tự&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;fullName&#39;</span>).<span style="color:#a6e22e">notEmpty</span>().<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Họ tên không được để trống&#39;</span>),
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">body</span>(<span style="color:#e6db74">&#39;username&#39;</span>).<span style="color:#a6e22e">isLength</span>({ <span style="color:#a6e22e">min</span><span style="color:#f92672">:</span> <span style="color:#ae81ff">3</span> }).<span style="color:#a6e22e">withMessage</span>(<span style="color:#e6db74">&#39;Username phải có ít nhất 3 ký tự&#39;</span>)
+</span></span><span style="display:flex;"><span>], <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">errors</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">validationResult</span>(<span style="color:#a6e22e">req</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">errors</span>.<span style="color:#a6e22e">isEmpty</span>()) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/register&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng ký tài khoản&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">errors</span>.<span style="color:#a6e22e">array</span>()[<span style="color:#ae81ff">0</span>].<span style="color:#a6e22e">msg</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">formData</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">userData</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">authService</span>.<span style="color:#a6e22e">register</span>(<span style="color:#a6e22e">userData</span>);
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/verify&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Xác thực email&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">email</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">userData</span>.<span style="color:#a6e22e">email</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">message</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Vui lòng kiểm tra email để xác thực tài khoản&#39;</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">render</span>(<span style="color:#e6db74">&#39;auth/register&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">title</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đăng ký tài khoản&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">error</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">error</span>.<span style="color:#a6e22e">message</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">formData</span><span style="color:#f92672">:</span> <span style="color:#a6e22e">req</span>.<span style="color:#a6e22e">body</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Logout
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#a6e22e">router</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/logout&#39;</span>, (<span style="color:#a6e22e">req</span>, <span style="color:#a6e22e">res</span>) =&gt; {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">clearCookie</span>(<span style="color:#e6db74">&#39;accessToken&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">res</span>.<span style="color:#a6e22e">redirect</span>(<span style="color:#e6db74">&#39;/&#39;</span>);
+</span></span><span style="display:flex;"><span>});
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#a6e22e">module</span>.<span style="color:#a6e22e">exports</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">router</span>;</span></span></code></pre></div><h2 id="core-components">Core Components<a class="anchor" href="#core-components">#</a></h2>
+<h3 id="ai-suggestion-card">AI Suggestion Card<a class="anchor" href="#ai-suggestion-card">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// components/recipes/SuggestionCard.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#e6db74">&#39;use client&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">useState</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Card</span>, <span style="color:#a6e22e">CardContent</span>, <span style="color:#a6e22e">CardHeader</span>, <span style="color:#a6e22e">CardTitle</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/card&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Button</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/button&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Badge</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/badge&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Clock</span>, <span style="color:#a6e22e">Users</span>, <span style="color:#a6e22e">Star</span>, <span style="color:#a6e22e">Sparkles</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;lucide-react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Recipe</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/types/recipe&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">SuggestionCardProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">recipe</span>: <span style="color:#66d9ef">Recipe</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">onStartCooking</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">recipeId</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">void</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">default</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">SuggestionCard</span>({ <span style="color:#a6e22e">recipe</span>, <span style="color:#a6e22e">onStartCooking</span> }<span style="color:#f92672">:</span> <span style="color:#a6e22e">SuggestionCardProps</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">isStarting</span>, <span style="color:#a6e22e">setIsStarting</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">useState</span>(<span style="color:#66d9ef">false</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">handleStartCooking</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">setIsStarting</span>(<span style="color:#66d9ef">true</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">onStartCooking</span>(<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">recipe_id</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">finally</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">setIsStarting</span>(<span style="color:#66d9ef">false</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> (
+</span></span><span style="display:flex;"><span>    &lt;<span style="color:#f92672">Card</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-full&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">CardHeader</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-start justify-between&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">CardTitle</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-lg&#34;</span>&gt;{<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">name</span>}&lt;/<span style="color:#f92672">CardTitle</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">source</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;ai&#39;</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;secondary&#34;</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">Sparkles</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-3 w-3&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">AI</span>
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>            )}
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">is_new</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span>&gt;<span style="color:#a6e22e">Mới</span>&lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>            )}
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;/<span style="color:#f92672">CardHeader</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">CardContent</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-4&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Clock</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">prep_time_minutes</span> <span style="color:#f92672">+</span> <span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cook_time_minutes</span>} <span style="color:#a6e22e">phút</span>
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Users</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">servings</span>} <span style="color:#a6e22e">người</span>
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">average_rating</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Star</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>              {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">average_rating</span>}
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>          )}
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">h4</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;font-medium&#34;</span>&gt;<span style="color:#a6e22e">Nguyên</span> <span style="color:#a6e22e">liệu</span><span style="color:#f92672">:</span>&lt;/<span style="color:#f92672">h4</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex flex-wrap gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">ingredients</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">3</span>).<span style="color:#a6e22e">map</span>((<span style="color:#a6e22e">ing</span>, <span style="color:#a6e22e">index</span>) <span style="color:#f92672">=&gt;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">key</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">index</span>} <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-xs&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                {<span style="color:#a6e22e">ing</span>.<span style="color:#a6e22e">ingredient_name</span>}
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>            ))}
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">ingredients</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">3</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-xs&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                <span style="color:#f92672">+</span>{<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">ingredients</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">-</span> <span style="color:#ae81ff">3</span>} <span style="color:#a6e22e">khác</span>
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>            )}
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">h4</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;font-medium&#34;</span>&gt;<span style="color:#a6e22e">Phương</span> <span style="color:#a6e22e">pháp</span><span style="color:#f92672">:</span>&lt;/<span style="color:#f92672">h4</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;secondary&#34;</span>&gt;{<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">cooking_method</span>}&lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        {<span style="color:#a6e22e">recipe</span>.<span style="color:#a6e22e">source</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;ai&#39;</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-sm text-muted-foreground bg-blue-50 p-2 rounded&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>               <span style="color:#a6e22e">Món</span> <span style="color:#a6e22e">mới</span> <span style="color:#a6e22e">từ</span> <span style="color:#a6e22e">AI</span> <span style="color:#f92672">-</span> <span style="color:#a6e22e">Hãy</span> <span style="color:#a6e22e">thử</span> <span style="color:#a6e22e">và</span> <span style="color:#960050;background-color:#1e0010">đá</span><span style="color:#a6e22e">nh</span> <span style="color:#a6e22e">giá</span> <span style="color:#960050;background-color:#1e0010">để</span> <span style="color:#a6e22e">giúp</span> <span style="color:#a6e22e">cộng</span> <span style="color:#960050;background-color:#1e0010">đồ</span><span style="color:#a6e22e">ng</span><span style="color:#f92672">!</span>
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>        )}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">Button</span> 
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">handleStartCooking</span>} 
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;w-full&#34;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">disabled</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">isStarting</span>}
+</span></span><span style="display:flex;"><span>        &gt;
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">isStarting</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;Đang bắt đầu...&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Bắt đầu nấu&#39;</span>}
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;/<span style="color:#f92672">CardContent</span>&gt;
+</span></span><span style="display:flex;"><span>    &lt;/<span style="color:#f92672">Card</span>&gt;
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="ingredient-input-component">Ingredient Input Component<a class="anchor" href="#ingredient-input-component">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// components/ingredients/IngredientInput.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#e6db74">&#39;use client&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">useState</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">useForm</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;react-hook-form&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Button</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/button&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Input</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/input&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Alert</span>, <span style="color:#a6e22e">AlertDescription</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/alert&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Badge</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/badge&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">X</span>, <span style="color:#a6e22e">Plus</span>, <span style="color:#a6e22e">AlertTriangle</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;lucide-react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">useIngredientStore</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/lib/stores/ingredientStore&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">default</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">IngredientInput() {</span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">inputValue</span>, <span style="color:#a6e22e">setInputValue</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">useState</span>(<span style="color:#e6db74">&#39;&#39;</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">validationResult</span>, <span style="color:#a6e22e">setValidationResult</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">useState</span>&lt;<span style="color:#f92672">any</span>&gt;(<span style="color:#66d9ef">null</span>);
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> { <span style="color:#a6e22e">addIngredient</span>, <span style="color:#a6e22e">validateIngredients</span> } <span style="color:#f92672">=</span> <span style="color:#a6e22e">useIngredientStore</span>();
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">handleValidate</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> () <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">if</span> (<span style="color:#f92672">!</span><span style="color:#a6e22e">inputValue</span>.<span style="color:#a6e22e">trim</span>()) <span style="color:#66d9ef">return</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">result</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">validateIngredients</span>([<span style="color:#a6e22e">inputValue</span>.<span style="color:#a6e22e">trim</span>()]);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">setValidationResult</span>(<span style="color:#a6e22e">result</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Validation error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">handleAdd</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">ingredientName</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">addIngredient</span>(<span style="color:#a6e22e">ingredientName</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">setInputValue</span>(<span style="color:#e6db74">&#39;&#39;</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">setValidationResult</span>(<span style="color:#66d9ef">null</span>);
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Add ingredient error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">handleAcceptCorrection</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">corrected</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">handleAdd</span>(<span style="color:#a6e22e">corrected</span>);
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> (
+</span></span><span style="display:flex;"><span>    &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-4&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex gap-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">Input</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">placeholder</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;Nhập tên nguyên liệu...&#34;</span>
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">value</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">inputValue</span>}
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">onChange</span><span style="color:#f92672">=</span>{(<span style="color:#a6e22e">e</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">setInputValue</span>(<span style="color:#a6e22e">e</span>.<span style="color:#a6e22e">target</span>.<span style="color:#a6e22e">value</span>)}
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">onKeyPress</span><span style="color:#f92672">=</span>{(<span style="color:#a6e22e">e</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">e</span>.<span style="color:#a6e22e">key</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;Enter&#39;</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#a6e22e">handleValidate</span>()}
+</span></span><span style="display:flex;"><span>        /&gt;
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">Button</span> <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">handleValidate</span>} <span style="color:#a6e22e">disabled</span><span style="color:#f92672">=</span>{<span style="color:#f92672">!</span><span style="color:#a6e22e">inputValue</span>.<span style="color:#a6e22e">trim</span>()}&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">Plus</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      {<span style="color:#a6e22e">validationResult</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-3&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          {<span style="color:#75715e">/* Valid ingredients */</span>}
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">validationResult</span>.<span style="color:#a6e22e">valid</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">map</span>((<span style="color:#a6e22e">ingredient</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">index</span>: <span style="color:#66d9ef">number</span>) <span style="color:#f92672">=&gt;</span> (
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Alert</span> <span style="color:#a6e22e">key</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">index</span>} <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;border-green-200 bg-green-50&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">AlertDescription</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center justify-between&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">span</span>&gt;<span style="color:#960050;background-color:#1e0010">✅</span> <span style="color:#e6db74">&#34;{ingredient}&#34;</span> <span style="color:#a6e22e">hợp</span> <span style="color:#a6e22e">lệ</span>&lt;/<span style="color:#f92672">span</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">Button</span> <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span> <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">handleAdd</span>(<span style="color:#a6e22e">ingredient</span>)}&gt;
+</span></span><span style="display:flex;"><span>                  <span style="color:#a6e22e">Thêm</span>
+</span></span><span style="display:flex;"><span>                &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">AlertDescription</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">Alert</span>&gt;
+</span></span><span style="display:flex;"><span>          ))}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>          {<span style="color:#75715e">/* Corrected ingredients */</span>}
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">validationResult</span>.<span style="color:#a6e22e">corrected</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">map</span>((<span style="color:#a6e22e">item</span>: <span style="color:#66d9ef">any</span>, <span style="color:#a6e22e">index</span>: <span style="color:#66d9ef">number</span>) <span style="color:#f92672">=&gt;</span> (
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Alert</span> <span style="color:#a6e22e">key</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">index</span>} <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;border-yellow-200 bg-yellow-50&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">AlertTriangle</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">AlertDescription</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center justify-between&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>                  &lt;<span style="color:#f92672">p</span>&gt;<span style="color:#a6e22e">Bạn</span> <span style="color:#a6e22e">có</span> <span style="color:#a6e22e">muốn</span> <span style="color:#a6e22e">dùng</span> <span style="color:#e6db74">&#34;{item.matched}&#34;</span> <span style="color:#a6e22e">thay</span> <span style="color:#a6e22e">vì</span> <span style="color:#e6db74">&#34;{item.original}&#34;</span><span style="color:#f92672">?</span>&lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>                  &lt;<span style="color:#f92672">p</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-xs text-muted-foreground&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                    <span style="color:#960050;background-color:#1e0010">Độ</span> <span style="color:#a6e22e">chính</span> <span style="color:#a6e22e">xác</span><span style="color:#f92672">:</span> {Math.<span style="color:#a6e22e">round</span>(<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">confidence</span> <span style="color:#f92672">*</span> <span style="color:#ae81ff">100</span>)}<span style="color:#f92672">%</span>
+</span></span><span style="display:flex;"><span>                  &lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex gap-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                  &lt;<span style="color:#f92672">Button</span> 
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span> 
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span>
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">setValidationResult</span>(<span style="color:#66d9ef">null</span>)}
+</span></span><span style="display:flex;"><span>                  &gt;
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">Bỏ</span> <span style="color:#a6e22e">qua</span>
+</span></span><span style="display:flex;"><span>                  &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>                  &lt;<span style="color:#f92672">Button</span> 
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span> 
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">handleAcceptCorrection</span>(<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">matched</span>)}
+</span></span><span style="display:flex;"><span>                  &gt;
+</span></span><span style="display:flex;"><span>                    <span style="color:#a6e22e">Chấp</span> <span style="color:#a6e22e">nhận</span>
+</span></span><span style="display:flex;"><span>                  &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">AlertDescription</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">Alert</span>&gt;
+</span></span><span style="display:flex;"><span>          ))}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>          {<span style="color:#75715e">/* Invalid ingredients with suggestions */</span>}
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">validationResult</span>.<span style="color:#a6e22e">suggestions</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">map</span>((<span style="color:#a6e22e">item</span>: <span style="color:#66d9ef">any</span>, <span style="color:#a6e22e">index</span>: <span style="color:#66d9ef">number</span>) <span style="color:#f92672">=&gt;</span> (
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Alert</span> <span style="color:#a6e22e">key</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">index</span>} <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;destructive&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">X</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">AlertDescription</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">p</span>&gt;<span style="color:#960050;background-color:#1e0010">❌</span> <span style="color:#a6e22e">Không</span> <span style="color:#a6e22e">tìm</span> <span style="color:#a6e22e">thấy</span> <span style="color:#e6db74">&#34;{item.original}&#34;</span>&lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>                {<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">similar</span><span style="color:#f92672">?</span>.<span style="color:#a6e22e">length</span> <span style="color:#f92672">&gt;</span> <span style="color:#ae81ff">0</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>                  &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;mt-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                    &lt;<span style="color:#f92672">p</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-xs&#34;</span>&gt;<span style="color:#a6e22e">Có</span> <span style="color:#a6e22e">thể</span> <span style="color:#a6e22e">bạn</span> <span style="color:#a6e22e">muốn</span><span style="color:#f92672">:</span>&lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>                    &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex flex-wrap gap-1 mt-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                      {<span style="color:#a6e22e">item</span>.<span style="color:#a6e22e">similar</span>.<span style="color:#a6e22e">slice</span>(<span style="color:#ae81ff">0</span>, <span style="color:#ae81ff">5</span>).<span style="color:#a6e22e">map</span>((<span style="color:#a6e22e">suggestion</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">i</span>: <span style="color:#66d9ef">number</span>) <span style="color:#f92672">=&gt;</span> (
+</span></span><span style="display:flex;"><span>                        &lt;<span style="color:#f92672">Badge</span> 
+</span></span><span style="display:flex;"><span>                          <span style="color:#a6e22e">key</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">i</span>} 
+</span></span><span style="display:flex;"><span>                          <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span> 
+</span></span><span style="display:flex;"><span>                          <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;cursor-pointer hover:bg-gray-100&#34;</span>
+</span></span><span style="display:flex;"><span>                          <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">handleAdd</span>(<span style="color:#a6e22e">suggestion</span>)}
+</span></span><span style="display:flex;"><span>                        &gt;
+</span></span><span style="display:flex;"><span>                          {<span style="color:#a6e22e">suggestion</span>}
+</span></span><span style="display:flex;"><span>                        &lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>                      ))}
+</span></span><span style="display:flex;"><span>                    &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>                  &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>                )}
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">AlertDescription</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">Alert</span>&gt;
+</span></span><span style="display:flex;"><span>          ))}
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>      )}
+</span></span><span style="display:flex;"><span>    &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h3 id="cooking-history-card">Cooking History Card<a class="anchor" href="#cooking-history-card">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// components/cooking/HistoryCard.tsx
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#e6db74">&#39;use client&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">useState</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Card</span>, <span style="color:#a6e22e">CardContent</span>, <span style="color:#a6e22e">CardHeader</span>, <span style="color:#a6e22e">CardTitle</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/card&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Button</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/button&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Badge</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/components/ui/badge&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Star</span>, <span style="color:#a6e22e">Heart</span>, <span style="color:#a6e22e">Clock</span>, <span style="color:#a6e22e">Calendar</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;lucide-react&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">CookingHistory</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/types/recipe&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> <span style="color:#a6e22e">RatingModal</span> <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;./RatingModal&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">HistoryCardProps</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">history</span>: <span style="color:#66d9ef">CookingHistory</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">onToggleFavorite</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">historyId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">isFavorite</span>: <span style="color:#66d9ef">boolean</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">void</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">onRate</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">historyId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">rating</span>: <span style="color:#66d9ef">number</span>, <span style="color:#a6e22e">comment?</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#66d9ef">void</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">default</span> <span style="color:#66d9ef">function</span> <span style="color:#a6e22e">HistoryCard</span>({ <span style="color:#a6e22e">history</span>, <span style="color:#a6e22e">onToggleFavorite</span>, <span style="color:#a6e22e">onRate</span> }<span style="color:#f92672">:</span> <span style="color:#a6e22e">HistoryCardProps</span>) {
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> [<span style="color:#a6e22e">showRatingModal</span>, <span style="color:#a6e22e">setShowRatingModal</span>] <span style="color:#f92672">=</span> <span style="color:#a6e22e">useState</span>(<span style="color:#66d9ef">false</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">formatDate</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">dateString</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#66d9ef">new</span> Date(<span style="color:#a6e22e">dateString</span>).<span style="color:#a6e22e">toLocaleDateString</span>(<span style="color:#e6db74">&#39;vi-VN&#39;</span>);
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">getStatusBadge</span> <span style="color:#f92672">=</span> (<span style="color:#a6e22e">status</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">variants</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;completed&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;default&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;cooking&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;secondary&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;planned&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;outline&#39;</span>
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">const</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">labels</span> <span style="color:#f92672">=</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;completed&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Hoàn thành&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;cooking&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Đang nấu&#39;</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#e6db74">&#39;planned&#39;</span><span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;Dự định&#39;</span>
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> (
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">Badge</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">variants</span>[<span style="color:#a6e22e">status</span> <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">keyof</span> <span style="color:#66d9ef">typeof</span> <span style="color:#a6e22e">variants</span>]}&gt;
+</span></span><span style="display:flex;"><span>        {<span style="color:#a6e22e">labels</span>[<span style="color:#a6e22e">status</span> <span style="color:#66d9ef">as</span> <span style="color:#66d9ef">keyof</span> <span style="color:#66d9ef">typeof</span> <span style="color:#a6e22e">labels</span>]}
+</span></span><span style="display:flex;"><span>      &lt;/<span style="color:#f92672">Badge</span>&gt;
+</span></span><span style="display:flex;"><span>    );
+</span></span><span style="display:flex;"><span>  };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#66d9ef">return</span> (
+</span></span><span style="display:flex;"><span>    &lt;&gt;
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">Card</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">CardHeader</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-start justify-between&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">CardTitle</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-lg&#34;</span>&gt;{<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">recipe_name</span>}&lt;/<span style="color:#f92672">CardTitle</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              {<span style="color:#a6e22e">getStatusBadge</span>(<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">status</span>)}
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Button</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;ghost&#34;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span>
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">onToggleFavorite</span>(<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">history_id</span>, <span style="color:#f92672">!</span><span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">is_favorite</span>)}
+</span></span><span style="display:flex;"><span>              &gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">Heart</span> 
+</span></span><span style="display:flex;"><span>                  <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span>{<span style="color:#e6db74">`h-4 w-4 </span><span style="color:#e6db74">${</span><span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">is_favorite</span> <span style="color:#f92672">?</span> <span style="color:#e6db74">&#39;fill-red-500 text-red-500&#39;</span> <span style="color:#f92672">:</span> <span style="color:#e6db74">&#39;&#39;</span><span style="color:#e6db74">}</span><span style="color:#e6db74">`</span>} 
+</span></span><span style="display:flex;"><span>                /&gt;
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">CardHeader</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        &lt;<span style="color:#f92672">CardContent</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;space-y-3&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-4 text-sm text-muted-foreground&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Calendar</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>              {<span style="color:#a6e22e">formatDate</span>(<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">cook_date</span> <span style="color:#f92672">||</span> <span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">created_at</span>)}
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">personal_rating</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex items-center gap-1&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>                &lt;<span style="color:#f92672">Star</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;h-4 w-4 fill-yellow-400 text-yellow-400&#34;</span> /&gt;
+</span></span><span style="display:flex;"><span>                {<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">personal_rating</span>}<span style="color:#f92672">/</span><span style="color:#ae81ff">5</span>
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>            )}
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>          {<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">personal_notes</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;text-sm bg-gray-50 p-2 rounded&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">p</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;font-medium&#34;</span>&gt;<span style="color:#a6e22e">Ghi</span> <span style="color:#a6e22e">chú</span><span style="color:#f92672">:</span>&lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">p</span>&gt;{<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">personal_notes</span>}&lt;/<span style="color:#f92672">p</span>&gt;
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>          )}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>          &lt;<span style="color:#f92672">div</span> <span style="color:#a6e22e">className</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;flex gap-2&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>            {<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">status</span> <span style="color:#f92672">===</span> <span style="color:#e6db74">&#39;completed&#39;</span> <span style="color:#f92672">&amp;&amp;</span> <span style="color:#f92672">!</span><span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">personal_rating</span> <span style="color:#f92672">&amp;&amp;</span> (
+</span></span><span style="display:flex;"><span>              &lt;<span style="color:#f92672">Button</span> 
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span> 
+</span></span><span style="display:flex;"><span>                <span style="color:#a6e22e">onClick</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">setShowRatingModal</span>(<span style="color:#66d9ef">true</span>)}
+</span></span><span style="display:flex;"><span>              &gt;
+</span></span><span style="display:flex;"><span>                <span style="color:#960050;background-color:#1e0010">Đá</span><span style="color:#a6e22e">nh</span> <span style="color:#a6e22e">giá</span> <span style="color:#a6e22e">món</span> <span style="color:#960050;background-color:#1e0010">ă</span><span style="color:#a6e22e">n</span>
+</span></span><span style="display:flex;"><span>              &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>            )}
+</span></span><span style="display:flex;"><span>            
+</span></span><span style="display:flex;"><span>            &lt;<span style="color:#f92672">Button</span> <span style="color:#a6e22e">variant</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;outline&#34;</span> <span style="color:#a6e22e">size</span><span style="color:#f92672">=</span><span style="color:#e6db74">&#34;sm&#34;</span>&gt;
+</span></span><span style="display:flex;"><span>              <span style="color:#a6e22e">Xem</span> <span style="color:#a6e22e">công</span> <span style="color:#a6e22e">thức</span>
+</span></span><span style="display:flex;"><span>            &lt;/<span style="color:#f92672">Button</span>&gt;
+</span></span><span style="display:flex;"><span>          &lt;/<span style="color:#f92672">div</span>&gt;
+</span></span><span style="display:flex;"><span>        &lt;/<span style="color:#f92672">CardContent</span>&gt;
+</span></span><span style="display:flex;"><span>      &lt;/<span style="color:#f92672">Card</span>&gt;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      &lt;<span style="color:#f92672">RatingModal</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">isOpen</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">showRatingModal</span>}
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">onClose</span><span style="color:#f92672">=</span>{() <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">setShowRatingModal</span>(<span style="color:#66d9ef">false</span>)}
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">recipeName</span><span style="color:#f92672">=</span>{<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">recipe_name</span>}
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">onSubmit</span><span style="color:#f92672">=</span>{(<span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">onRate</span>(<span style="color:#a6e22e">history</span>.<span style="color:#a6e22e">history_id</span>, <span style="color:#a6e22e">rating</span>, <span style="color:#a6e22e">comment</span>);
+</span></span><span style="display:flex;"><span>          <span style="color:#a6e22e">setShowRatingModal</span>(<span style="color:#66d9ef">false</span>);
+</span></span><span style="display:flex;"><span>        }}
+</span></span><span style="display:flex;"><span>      /&gt;
+</span></span><span style="display:flex;"><span>    &lt;/&gt;
+</span></span><span style="display:flex;"><span>  );
+</span></span><span style="display:flex;"><span>}</span></span></code></pre></div><h2 id="state-management">State Management<a class="anchor" href="#state-management">#</a></h2>
+<h3 id="recipe-store">Recipe Store<a class="anchor" href="#recipe-store">#</a></h3>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-typescript" data-lang="typescript"><span style="display:flex;"><span><span style="color:#75715e">// lib/stores/recipeStore.ts
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">create</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;zustand&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">api</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/lib/api&#39;</span>;
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">import</span> { <span style="color:#a6e22e">Recipe</span>, <span style="color:#a6e22e">AISuggestion</span> } <span style="color:#66d9ef">from</span> <span style="color:#e6db74">&#39;@/types/recipe&#39;</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">interface</span> <span style="color:#a6e22e">RecipeState</span> {
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">suggestions</span>: <span style="color:#66d9ef">Recipe</span>[];
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">isLoadingSuggestions</span>: <span style="color:#66d9ef">boolean</span>;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getSuggestions</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">ingredients</span>: <span style="color:#66d9ef">string</span>[], <span style="color:#a6e22e">count?</span>: <span style="color:#66d9ef">number</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">Promise</span>&lt;<span style="color:#f92672">void</span>&gt;;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">startCooking</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">recipeId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">suggestionId?</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">Promise</span>&lt;<span style="color:#f92672">string</span>&gt;;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">completeCooking</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">historyId</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">Promise</span>&lt;<span style="color:#f92672">void</span>&gt;;
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">rateRecipe</span><span style="color:#f92672">:</span> (<span style="color:#a6e22e">recipeId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">rating</span>: <span style="color:#66d9ef">number</span>, <span style="color:#a6e22e">comment?</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">historyId?</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> <span style="color:#a6e22e">Promise</span>&lt;<span style="color:#f92672">any</span>&gt;;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">export</span> <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">useRecipeStore</span> <span style="color:#f92672">=</span> <span style="color:#a6e22e">create</span>&lt;<span style="color:#f92672">RecipeState</span>&gt;((<span style="color:#66d9ef">set</span>, <span style="color:#66d9ef">get</span>) <span style="color:#f92672">=&gt;</span> ({
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">suggestions</span><span style="color:#f92672">:</span> [],
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">isLoadingSuggestions</span>: <span style="color:#66d9ef">false</span>,
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">getSuggestions</span>: <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">ingredients</span>: <span style="color:#66d9ef">string</span>[], <span style="color:#a6e22e">count</span> <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">set</span>({ <span style="color:#a6e22e">isLoadingSuggestions</span>: <span style="color:#66d9ef">true</span> });
+</span></span><span style="display:flex;"><span>    
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">try</span> {
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">api</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/ai/suggest&#39;</span>, {
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">ingredients</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">recipe_count</span>: <span style="color:#66d9ef">count</span>
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">set</span>({ 
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">suggestions</span>: <span style="color:#66d9ef">response.data.suggestions</span>,
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">isLoadingSuggestions</span>: <span style="color:#66d9ef">false</span> 
+</span></span><span style="display:flex;"><span>      });
+</span></span><span style="display:flex;"><span>    } <span style="color:#66d9ef">catch</span> (<span style="color:#a6e22e">error</span>) {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">console</span>.<span style="color:#a6e22e">error</span>(<span style="color:#e6db74">&#39;Get suggestions error:&#39;</span>, <span style="color:#a6e22e">error</span>);
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">set</span>({ <span style="color:#a6e22e">isLoadingSuggestions</span>: <span style="color:#66d9ef">false</span> });
+</span></span><span style="display:flex;"><span>      <span style="color:#66d9ef">throw</span> <span style="color:#a6e22e">error</span>;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">startCooking</span>: <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">recipeId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">suggestionId?</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">api</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">&#39;/cooking/start&#39;</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">recipe_id</span>: <span style="color:#66d9ef">recipeId</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">suggestion_id</span>: <span style="color:#66d9ef">suggestionId</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">data</span>.<span style="color:#a6e22e">history_id</span>;
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">completeCooking</span>: <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">historyId</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">api</span>.<span style="color:#a6e22e">put</span>(<span style="color:#e6db74">`/cooking/</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">historyId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">/complete`</span>);
+</span></span><span style="display:flex;"><span>  },
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>  <span style="color:#a6e22e">rateRecipe</span>: <span style="color:#66d9ef">async</span> (<span style="color:#a6e22e">recipeId</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">rating</span>: <span style="color:#66d9ef">number</span>, <span style="color:#a6e22e">comment?</span>: <span style="color:#66d9ef">string</span>, <span style="color:#a6e22e">historyId?</span>: <span style="color:#66d9ef">string</span>) <span style="color:#f92672">=&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">const</span> <span style="color:#a6e22e">response</span> <span style="color:#f92672">=</span> <span style="color:#66d9ef">await</span> <span style="color:#a6e22e">api</span>.<span style="color:#a6e22e">post</span>(<span style="color:#e6db74">`/recipes/</span><span style="color:#e6db74">${</span><span style="color:#a6e22e">recipeId</span><span style="color:#e6db74">}</span><span style="color:#e6db74">/rate`</span>, {
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">rating</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">comment</span>,
+</span></span><span style="display:flex;"><span>      <span style="color:#a6e22e">history_id</span>: <span style="color:#66d9ef">historyId</span>
+</span></span><span style="display:flex;"><span>    });
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#a6e22e">response</span>.<span style="color:#a6e22e">data</span>;
+</span></span><span style="display:flex;"><span>  }
+</span></span><span style="display:flex;"><span>}));</span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
+<ul>
+<li><a href="10-architecture.md">10 - Architecture</a></li>
+<li><a href="20-backend.md">20 - Backend</a></li>
+<li><a href="22-devops.md">22 - DevOps</a></li>
+<li><a href="40-auth.md">40 - Auth</a></li>
+</ul>
+</article>
+ 
+      
+
+      <footer class="book-footer">
+        
+  <div class="flex flex-wrap justify-between">
+
+<div>
+
+</div>
+
+<div>
+
+</div>
+
+</div>
+
+
+
+
+
+  
+  
+  
+  <div class="flex flex-wrap justify-between">
+    <span>
+    
+      <a href="/docs/summary/20-backend/" class="flex align-center">
+        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="20 - Backend Implementation" />
+        <span>20 - Backend Implementation</span>
+      </a>
+    
+    </span>
+    <span>
+    
+      <a href="/docs/summary/22-devops/" class="flex align-center">
+        <span>22 - DevOps &amp; Deployment</span>
+        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="22 - DevOps &amp; Deployment" />
+      </a>
+    
+    </span>
+  </div>
+  
+
+
+
+
+  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
+
+
+ 
+        
+  
+  <div class="book-comments">
+
+</div>
+  
+ 
+        
+        
+
+ 
+      </footer>
+
+      <label for="menu-control" class="hidden book-menu-overlay"></label>
+    </div>
+
+    
+
+<aside class="book-toc">
+  <div class="book-toc-content">
+    
+  
+<nav id="TableOfContents">
+  <ul>
+    <li><a href="#technology-stack">Technology Stack</a></li>
+    <li><a href="#project-structure">Project Structure</a></li>
+    <li><a href="#authentication-implementation">Authentication Implementation</a>
+      <ul>
+        <li><a href="#auth-service-nodejs">Auth Service (Node.js)</a></li>
+        <li><a href="#auth-middleware">Auth Middleware</a></li>
+        <li><a href="#auth-routes">Auth Routes</a></li>
+      </ul>
+    </li>
+    <li><a href="#core-components">Core Components</a>
+      <ul>
+        <li><a href="#ai-suggestion-card">AI Suggestion Card</a></li>
+        <li><a href="#ingredient-input-component">Ingredient Input Component</a></li>
+        <li><a href="#cooking-history-card">Cooking History Card</a></li>
+      </ul>
+    </li>
+    <li><a href="#state-management">State Management</a>
+      <ul>
+        <li><a href="#recipe-store">Recipe Store</a></li>
+      </ul>
+    </li>
+    <li><a href="#related-documents">Related Documents</a></li>
+  </ul>
+</nav>
+
+
+
+  </div>
+</aside>
+
+ 
+  </main>
+
+  
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

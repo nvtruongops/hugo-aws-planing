@@ -1,0 +1,11 @@
+[[main]]
+  identifier = "ai_dlc"
+  name = "AI DLC"
+  url = "/docs/ai_dlc/"
+  weight = 1
+
+[[main]]
+  identifier = "summary"
+  name = "Summary"
+  url = "/docs/summary/"
+  weight = 2
