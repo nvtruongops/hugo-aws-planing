@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Designer on Together</title><link>https://example.org/docs/designer/</link><description>Recent content in Designer on Together</description><generator>Hugo</generator><language>en-us</language><atom:link href="https://example.org/docs/designer/index.xml" rel="self" type="application/rss+xml"/><item><title>Design Brief</title><link>https://example.org/docs/designer/design-brief/</link><pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate><guid>https://example.org/docs/designer/design-brief/</guid><description>&lt;h1 id="-smart-cooking---design-brief--specification"&gt;🎨 SMART COOKING - DESIGN BRIEF &amp;amp; SPECIFICATION&lt;a class="anchor" href="#-smart-cooking---design-brief--specification"&gt;#&lt;/a&gt;&lt;/h1&gt;
+&lt;h2 id="-mục-lục"&gt;📖 Mục lục&lt;a class="anchor" href="#-m%e1%bb%a5c-l%e1%bb%a5c"&gt;#&lt;/a&gt;&lt;/h2&gt;
+&lt;ol&gt;
+&lt;li&gt;&lt;a href="#t%e1%bb%95ng-quan-d%e1%bb%b1-%c3%a1n"&gt;Tổng quan dự án&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#ki%e1%ba%bfn-tr%c3%bac-h%e1%bb%87-th%e1%bb%91ng"&gt;Kiến trúc hệ thống&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#t%c3%adnh-n%c4%83ng-ch%c3%adnh"&gt;Tính năng chính&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#design-system"&gt;Design System&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#c%e1%ba%a5u-tr%c3%bac-trang-web"&gt;Cấu trúc trang web&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#user-flows"&gt;User Flows&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#wireframes--components"&gt;Wireframes &amp;amp; Components&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#responsive-design"&gt;Responsive Design&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#accessibility"&gt;Accessibility&lt;/a&gt;&lt;/li&gt;
+&lt;li&gt;&lt;a href="#brand-guidelines"&gt;Brand Guidelines&lt;/a&gt;&lt;/li&gt;
+&lt;/ol&gt;
+&lt;hr&gt;
+&lt;h2 id="-tổng-quan-dự-án"&gt;🎯 Tổng quan dự án&lt;a class="anchor" href="#-t%e1%bb%95ng-quan-d%e1%bb%b1-%c3%a1n"&gt;#&lt;/a&gt;&lt;/h2&gt;
+&lt;h3 id="giới-thiệu"&gt;Giới thiệu&lt;a class="anchor" href="#gi%e1%bb%9bi-thi%e1%bb%87u"&gt;#&lt;/a&gt;&lt;/h3&gt;
+&lt;p&gt;&lt;strong&gt;Smart Cooking&lt;/strong&gt; là ứng dụng nấu ăn thông minh sử dụng AI để gợi ý công thức dựa trên nguyên liệu có sẵn, giúp tối ưu hóa việc sử dụng nguyên liệu và giảm lãng phí thực phẩm.&lt;/p&gt;</description></item></channel></rss>

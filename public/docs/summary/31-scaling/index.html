@@ -1,20 +1,10 @@
-<!DOCTYPE html>
-<html lang="en-us" dir="ltr">
-<head>
-  <!--
-Made with Book Theme
-https://github.com/alex-shpak/hugo-book
--->
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Scaling Strategy - Smart Cooking App#
+<!doctype html><html lang=en-us dir=ltr><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Scaling Strategy - Smart Cooking App#
 Scaling Overview#
 Growth Trajectory#
 Phase 1 (MVP): 1,000 users (Month 1-3)
 Phase 2 (Growth): 10,000 users (Month 4-12)
 Phase 3 (Scale): 100,000 users (Year 2)
-Phase 4 (Enterprise): 1M&#43; users (Year 3&#43;)Scaling Principles#
+Phase 4 (Enterprise): 1M+ users (Year 3+)Scaling Principles#
 
 Serverless First: Auto-scaling without infrastructure management
 Cost-Aware Growth: Maintain unit economics at scale
@@ -27,13 +17,13 @@ API Gateway#
 
 Current: 1,000 requests/day
 Limit: 10,000 requests/second (default)
-Headroom: 99.9%&#43; available
+Headroom: 99.9%+ available
 
 Lambda Functions#
 
 Current: 100 invocations/day
 Limit: 1,000 concurrent executions (default)
-Headroom: 99%&#43; available
+Headroom: 99%+ available
 
 DynamoDB#
 
@@ -47,1015 +37,176 @@ Current: 100 requests/day
 Limit: 200 requests/minute (default)
 Daily Capacity: 288,000 requests/day
 
-Scaling Bottlenecks &amp; Solutions#
+Scaling Bottlenecks & Solutions#
 1. AI Generation Bottleneck#
-Problem: Bedrock rate limits at high scale">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/31-scaling/">
-  <meta property="og:site_name" content="Together">
-  <meta property="og:title" content="31 - Scaling Strategy">
-  <meta property="og:description" content="Scaling Strategy - Smart Cooking App#Scaling Overview#Growth Trajectory#Phase 1 (MVP): 1,000 users (Month 1-3) Phase 2 (Growth): 10,000 users (Month 4-12) Phase 3 (Scale): 100,000 users (Year 2) Phase 4 (Enterprise): 1M&#43; users (Year 3&#43;)Scaling Principles#Serverless First: Auto-scaling without infrastructure management Cost-Aware Growth: Maintain unit economics at scale Performance Consistency: Sub-500ms API response times Data Efficiency: Optimize for read-heavy workloads Capacity Planning#Current Capacity (MVP - 1,000 users)#API Gateway#Current: 1,000 requests/day Limit: 10,000 requests/second (default) Headroom: 99.9%&#43; available Lambda Functions#Current: 100 invocations/day Limit: 1,000 concurrent executions (default) Headroom: 99%&#43; available DynamoDB#Current: 1,000 read/write units per day Mode: On-demand (auto-scaling) Limit: 40,000 RCU/WCU per table (soft limit) Bedrock AI#Current: 100 requests/day Limit: 200 requests/minute (default) Daily Capacity: 288,000 requests/day Scaling Bottlenecks &amp; Solutions#1. AI Generation Bottleneck#Problem: Bedrock rate limits at high scale">
-  <meta property="og:locale" content="en_us">
-  <meta property="og:type" content="article">
-    <meta property="article:section" content="docs">
-<title>31 - Scaling Strategy | Together</title>
-<link rel="icon" href="/favicon.png" >
-<link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="https://example.org/docs/summary/31-scaling/">
-<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
-
-
-  <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
-
-  
-</head>
-<body dir="ltr" class="book-kind-page book-type-docs">
-  <input type="checkbox" class="hidden toggle" id="menu-control" />
-  <input type="checkbox" class="hidden toggle" id="toc-control" />
-  <main class="container flex">
-    
-<aside class="book-menu">
-  <div class="book-menu-content">
-    
-  <nav>
-<h2 class="book-brand">
-  <a class="flex align-center" href="/"><span>Together</span>
-  </a>
-</h2>
-
-
-<div class="book-search hidden">
-  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
-  <div class="book-search-spinner hidden"></div>
-  <ul id="book-search-results"></ul>
-</div>
-<script>document.querySelector(".book-search").classList.remove("hidden")</script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle"  />
-    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
-      <a href="/docs/ai_dlc/" class="">
-        AI DLC</a>
-      <img src="/icons/chevron-right.svg" class="book-icon" />
-    </label>
-  
-
-          
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/design/" class="">
-      Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/requirements/" class="">
-      Requirements</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/tasks/" class="">
-      Tasks</a>
-  
-
-        </li>
-      
-    
-  </ul>
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/" class="">
-      Summary</a>
-  
-
-          
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/00-overview/" class="">
-      00 - Project Overview</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/01-requirements/" class="">
-      01 - Requirements</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/02-constraints/" class="">
-      02 - Constraints</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/10-architecture/" class="">
-      10 - Architecture</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/11-database/" class="">
-      11 - Database Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/12-api-spec/" class="">
-      12 - API Specification</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/13-security/" class="">
-      13 - Security</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/14-ai-agent/" class="">
-      14 - AI Agent Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/20-backend/" class="">
-      20 - Backend Implementation</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/21-frontend/" class="">
-      21 - Frontend Implementation</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/22-devops/" class="">
-      22 - DevOps &amp; Deployment</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/23-tasks/" class="">
-      23 - Implementation Tasks</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/30-cost-analysis/" class="">
-      30 - Cost Analysis</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/31-scaling/" class="active">
-      31 - Scaling Strategy</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/32-monitoring/" class="">
-      32 - Monitoring &amp; Observability</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/40-auth/" class="">
-      40 - Authentication &amp; Authorization</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/41-privacy/" class="">
-      41 - Privacy &amp; Data Protection</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/42-compliance/" class="">
-      42 - Compliance &amp; Governance</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/99-glossary/" class="">
-      99 - Glossary</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/99-references/" class="">
-      99 - References</a>
-  
-
-        </li>
-      
-    
-  </ul>
-
-        </li>
-      
-    
-  </ul>
-
-
-
-
-
-
-
-
-
-
-
-
-
-</nav>
-
-
-
-
-  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
-
-
-
-  </div>
-</aside>
- 
-
-    <div class="book-page">
-      <header class="book-header hidden">
-        
-  <div class="flex align-center justify-between">
-  <label for="menu-control">
-    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
-  </label>
-
-  <h3>31 - Scaling Strategy</h3>
-
-  <label for="toc-control">
-    
-    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
-    
-  </label>
-</div>
-
-
-  
-  <aside class="hidden clearfix">
-    
-  
-<nav id="TableOfContents">
-  <ul>
-    <li><a href="#scaling-overview">Scaling Overview</a>
-      <ul>
-        <li><a href="#growth-trajectory">Growth Trajectory</a></li>
-        <li><a href="#scaling-principles">Scaling Principles</a></li>
-      </ul>
-    </li>
-    <li><a href="#capacity-planning">Capacity Planning</a>
-      <ul>
-        <li><a href="#current-capacity-mvp---1000-users">Current Capacity (MVP - 1,000 users)</a></li>
-        <li><a href="#scaling-bottlenecks--solutions">Scaling Bottlenecks &amp; Solutions</a></li>
-      </ul>
-    </li>
-    <li><a href="#auto-scaling-configuration">Auto-Scaling Configuration</a>
-      <ul>
-        <li><a href="#lambda-scaling">Lambda Scaling</a></li>
-        <li><a href="#dynamodb-scaling">DynamoDB Scaling</a></li>
-        <li><a href="#api-gateway-scaling">API Gateway Scaling</a></li>
-      </ul>
-    </li>
-    <li><a href="#performance-optimization">Performance Optimization</a>
-      <ul>
-        <li><a href="#database-query-optimization">Database Query Optimization</a></li>
-        <li><a href="#ai-response-optimization">AI Response Optimization</a></li>
-      </ul>
-    </li>
-    <li><a href="#-geographic-scaling">🌍 Geographic Scaling</a>
-      <ul>
-        <li><a href="#current-architecture">Current Architecture</a></li>
-        <li><a href="#multi-region-strategy-year-2">Multi-Region Strategy (Year 2)</a></li>
-      </ul>
-    </li>
-    <li><a href="#data-scaling-strategy">Data Scaling Strategy</a>
-      <ul>
-        <li><a href="#current-data-volume-1000-users">Current Data Volume (1,000 users)</a></li>
-        <li><a href="#projected-growth">Projected Growth</a></li>
-        <li><a href="#data-lifecycle-management">Data Lifecycle Management</a></li>
-      </ul>
-    </li>
-    <li><a href="#infrastructure-scaling">Infrastructure Scaling</a>
-      <ul>
-        <li><a href="#serverless-scaling-advantages">Serverless Scaling Advantages</a></li>
-        <li><a href="#monitoring--alerting-at-scale">Monitoring &amp; Alerting at Scale</a></li>
-      </ul>
-    </li>
-    <li><a href="#scaling-milestones">Scaling Milestones</a>
-      <ul>
-        <li><a href="#month-3-1000-users">Month 3 (1,000 users)</a></li>
-        <li><a href="#month-6-5000-users">Month 6 (5,000 users)</a></li>
-        <li><a href="#month-12-10000-users">Month 12 (10,000 users)</a></li>
-        <li><a href="#year-2-100000-users">Year 2 (100,000 users)</a></li>
-      </ul>
-    </li>
-    <li><a href="#migration-strategies">Migration Strategies</a>
-      <ul>
-        <li><a href="#dynamodb-on-demand--provisioned">DynamoDB On-Demand → Provisioned</a></li>
-        <li><a href="#single-region--multi-region">Single Region → Multi-Region</a></li>
-      </ul>
-    </li>
-    <li><a href="#related-documents">Related Documents</a></li>
-  </ul>
-</nav>
-
-
-
-  </aside>
-  
- 
-      </header>
-
-      
-      
-  <article class="markdown book-article"><h1 id="scaling-strategy---smart-cooking-app">Scaling Strategy - Smart Cooking App<a class="anchor" href="#scaling-strategy---smart-cooking-app">#</a></h1>
-<h2 id="scaling-overview">Scaling Overview<a class="anchor" href="#scaling-overview">#</a></h2>
-<h3 id="growth-trajectory">Growth Trajectory<a class="anchor" href="#growth-trajectory">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Phase 1 (MVP)</span>: <span style="color:#ae81ff">1</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">users (Month 1-3)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Phase 2 (Growth)</span>: <span style="color:#ae81ff">10</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">users (Month 4-12)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Phase 3 (Scale)</span>: <span style="color:#ae81ff">100</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">users (Year 2)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Phase 4 (Enterprise)</span>: <span style="color:#ae81ff">1M+ users (Year 3+)</span></span></span></code></pre></div><h3 id="scaling-principles">Scaling Principles<a class="anchor" href="#scaling-principles">#</a></h3>
-<ol>
-<li><strong>Serverless First</strong>: Auto-scaling without infrastructure management</li>
-<li><strong>Cost-Aware Growth</strong>: Maintain unit economics at scale</li>
-<li><strong>Performance Consistency</strong>: Sub-500ms API response times</li>
-<li><strong>Data Efficiency</strong>: Optimize for read-heavy workloads</li>
-</ol>
-<h2 id="capacity-planning">Capacity Planning<a class="anchor" href="#capacity-planning">#</a></h2>
-<h3 id="current-capacity-mvp---1000-users">Current Capacity (MVP - 1,000 users)<a class="anchor" href="#current-capacity-mvp---1000-users">#</a></h3>
-<h4 id="api-gateway">API Gateway<a class="anchor" href="#api-gateway">#</a></h4>
-<ul>
-<li><strong>Current</strong>: 1,000 requests/day</li>
-<li><strong>Limit</strong>: 10,000 requests/second (default)</li>
-<li><strong>Headroom</strong>: 99.9%+ available</li>
-</ul>
-<h4 id="lambda-functions">Lambda Functions<a class="anchor" href="#lambda-functions">#</a></h4>
-<ul>
-<li><strong>Current</strong>: 100 invocations/day</li>
-<li><strong>Limit</strong>: 1,000 concurrent executions (default)</li>
-<li><strong>Headroom</strong>: 99%+ available</li>
-</ul>
-<h4 id="dynamodb">DynamoDB<a class="anchor" href="#dynamodb">#</a></h4>
-<ul>
-<li><strong>Current</strong>: 1,000 read/write units per day</li>
-<li><strong>Mode</strong>: On-demand (auto-scaling)</li>
-<li><strong>Limit</strong>: 40,000 RCU/WCU per table (soft limit)</li>
-</ul>
-<h4 id="bedrock-ai">Bedrock AI<a class="anchor" href="#bedrock-ai">#</a></h4>
-<ul>
-<li><strong>Current</strong>: 100 requests/day</li>
-<li><strong>Limit</strong>: 200 requests/minute (default)</li>
-<li><strong>Daily Capacity</strong>: 288,000 requests/day</li>
-</ul>
-<h3 id="scaling-bottlenecks--solutions">Scaling Bottlenecks &amp; Solutions<a class="anchor" href="#scaling-bottlenecks--solutions">#</a></h3>
-<h4 id="1-ai-generation-bottleneck">1. AI Generation Bottleneck<a class="anchor" href="#1-ai-generation-bottleneck">#</a></h4>
-<p><strong>Problem</strong>: Bedrock rate limits at high scale</p>
-<pre tabindex="0"><code>Current: 200 requests/minute = 288K/day
-At 100K users: 1M AI requests/day needed</code></pre><p><strong>Solutions</strong>:</p>
-<ul>
-<li><strong>Flexible Mix Strategy</strong>: Reduce AI dependency from 100% → 20%</li>
-<li><strong>Request Increase</strong>: AWS support for higher limits</li>
-<li><strong>Caching Layer</strong>: Redis for popular recipe combinations</li>
-<li><strong>Batch Processing</strong>: Generate multiple recipes per request</li>
-</ul>
-<h4 id="2-dynamodb-hot-partitions">2. DynamoDB Hot Partitions<a class="anchor" href="#2-dynamodb-hot-partitions">#</a></h4>
-<p><strong>Problem</strong>: User-based partitioning can create hot spots</p>
-<p><strong>Solutions</strong>:</p>
-<ul>
-<li><strong>Composite Keys</strong>: Distribute load across partitions</li>
-<li><strong>GSI Design</strong>: Spread queries across multiple indexes</li>
-<li><strong>Write Sharding</strong>: Use random suffixes for high-write items</li>
-<li><strong>Read Replicas</strong>: Global Tables for read scaling</li>
-</ul>
-<h4 id="3-lambda-cold-starts">3. Lambda Cold Starts<a class="anchor" href="#3-lambda-cold-starts">#</a></h4>
-<p><strong>Problem</strong>: Increased latency during traffic spikes</p>
-<p><strong>Solutions</strong>:</p>
-<ul>
-<li><strong>Provisioned Concurrency</strong>: For critical functions</li>
-<li><strong>Connection Pooling</strong>: Reuse database connections</li>
-<li><strong>Smaller Packages</strong>: Reduce deployment size</li>
-<li><strong>Warm-up Schedules</strong>: Keep functions warm during peak hours</li>
-</ul>
-<h2 id="auto-scaling-configuration">Auto-Scaling Configuration<a class="anchor" href="#auto-scaling-configuration">#</a></h2>
-<h3 id="lambda-scaling">Lambda Scaling<a class="anchor" href="#lambda-scaling">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">AI Suggestion Function</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Reserved Concurrency</span>: <span style="color:#ae81ff">100</span> <span style="color:#ae81ff">(prevent runaway costs)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Provisioned Concurrency</span>: <span style="color:#ae81ff">10</span> <span style="color:#ae81ff">(reduce cold starts)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Memory</span>: <span style="color:#ae81ff">1024MB → 1536MB (if needed)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Timeout</span>: <span style="color:#ae81ff">60s (unchanged)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Other Functions</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Reserved Concurrency</span>: <span style="color:#ae81ff">50</span> <span style="color:#ae81ff">each</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Memory</span>: <span style="color:#ae81ff">256MB → 512MB (if needed)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Timeout</span>: <span style="color:#ae81ff">10s → 30s (if needed)</span></span></span></code></pre></div><h3 id="dynamodb-scaling">DynamoDB Scaling<a class="anchor" href="#dynamodb-scaling">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Current</span>: <span style="color:#66d9ef">On</span>-<span style="color:#ae81ff">Demand Mode</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Scale Trigger</span>: <span style="color:#ae81ff">Consistent high usage (&gt;80% utilization)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Migration Path</span>: <span style="color:#66d9ef">On</span>-<span style="color:#ae81ff">Demand → Provisioned with Auto-Scaling</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Provisioned Mode Settings</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Base Capacity</span>: <span style="color:#ae81ff">100</span> <span style="color:#ae81ff">RCU/WCU</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Max Capacity</span>: <span style="color:#ae81ff">4</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">RCU/WCU</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Target Utilization</span>: <span style="color:#ae81ff">70</span><span style="color:#ae81ff">%</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Scale Up</span>: <span style="color:#ae81ff">+100% when &gt;70% for 2 minutes</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Scale Down</span>: -<span style="color:#ae81ff">50</span><span style="color:#ae81ff">% when &lt;50% for 15 minutes</span></span></span></code></pre></div><h3 id="api-gateway-scaling">API Gateway Scaling<a class="anchor" href="#api-gateway-scaling">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Current Limits</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Rate</span>: <span style="color:#ae81ff">10</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">requests/second</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Burst</span>: <span style="color:#ae81ff">5</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">requests</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Scale Requirements</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">10K users</span>: <span style="color:#ae81ff">100</span> <span style="color:#ae81ff">requests/second average</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">100K users</span>: <span style="color:#ae81ff">1</span>,<span style="color:#ae81ff">000</span> <span style="color:#ae81ff">requests/second average</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#66d9ef">No</span> <span style="color:#ae81ff">action needed - well within limits</span></span></span></code></pre></div><h2 id="performance-optimization">Performance Optimization<a class="anchor" href="#performance-optimization">#</a></h2>
-<h3 id="database-query-optimization">Database Query Optimization<a class="anchor" href="#database-query-optimization">#</a></h3>
-<h4 id="current-performance">Current Performance<a class="anchor" href="#current-performance">#</a></h4>
-<pre tabindex="0"><code>Single Item Queries: &lt;50ms (p95)
+Problem: Bedrock rate limits at high scale"><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#343a40"><meta name=color-scheme content="light dark"><meta property="og:url" content="https://example.org/docs/summary/31-scaling/"><meta property="og:site_name" content="Together"><meta property="og:title" content="31 - Scaling Strategy"><meta property="og:description" content="Scaling Strategy - Smart Cooking App#Scaling Overview#Growth Trajectory#Phase 1 (MVP): 1,000 users (Month 1-3) Phase 2 (Growth): 10,000 users (Month 4-12) Phase 3 (Scale): 100,000 users (Year 2) Phase 4 (Enterprise): 1M+ users (Year 3+)Scaling Principles#Serverless First: Auto-scaling without infrastructure management Cost-Aware Growth: Maintain unit economics at scale Performance Consistency: Sub-500ms API response times Data Efficiency: Optimize for read-heavy workloads Capacity Planning#Current Capacity (MVP - 1,000 users)#API Gateway#Current: 1,000 requests/day Limit: 10,000 requests/second (default) Headroom: 99.9%+ available Lambda Functions#Current: 100 invocations/day Limit: 1,000 concurrent executions (default) Headroom: 99%+ available DynamoDB#Current: 1,000 read/write units per day Mode: On-demand (auto-scaling) Limit: 40,000 RCU/WCU per table (soft limit) Bedrock AI#Current: 100 requests/day Limit: 200 requests/minute (default) Daily Capacity: 288,000 requests/day Scaling Bottlenecks & Solutions#1. AI Generation Bottleneck#Problem: Bedrock rate limits at high scale"><meta property="og:locale" content="en_us"><meta property="og:type" content="article"><meta property="article:section" content="docs"><title>31 - Scaling Strategy | Together</title><link rel=icon href=/favicon.png><link rel=manifest href=/manifest.json><link rel=canonical href=https://example.org/docs/summary/31-scaling/><link rel=stylesheet href=/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin=anonymous><script defer src=/fuse.min.js></script><script defer src=/en.search.min.1cd97aa3612bbc3ad00379394cfef0c108972e1b03e7c0b4d0dbdd517abd5ac2.js integrity="sha256-HNl6o2ErvDrQA3k5TP7wwQiXLhsD58C00NvdUXq9WsI=" crossorigin=anonymous></script></head><body dir=ltr class="book-kind-page book-type-docs"><input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control><main class="container flex"><aside class=book-menu><div class=book-menu-content><nav><h2 class=book-brand><a class="flex align-center" href=/><span>Together</span></a></h2><div class="book-search hidden"><input type=text id=book-search-input placeholder=Search aria-label=Search maxlength=64 data-hotkeys=s/><div class="book-search-spinner hidden"></div><ul id=book-search-results></ul></div><script>document.querySelector(".book-search").classList.remove("hidden")</script><ul><li><input type=checkbox id=section-374b40140ba2f693faf52da732bc0005 class=toggle>
+<label for=section-374b40140ba2f693faf52da732bc0005 class=flex><a href=/docs/ai_dlc/>AI DLC</a>
+<img src=/icons/chevron-right.svg class=book-icon></label><ul><li><a href=/docs/ai_dlc/design/>Design</a></li><li><a href=/docs/ai_dlc/requirements/>Requirements</a></li><li><a href=/docs/ai_dlc/tasks/>Tasks</a></li></ul></li><li><input type=checkbox id=section-d471e36090b604ac7465a018ea0fadb1 class=toggle>
+<label for=section-d471e36090b604ac7465a018ea0fadb1 class=flex><a href=/docs/designer/>Designer</a>
+<img src=/icons/chevron-right.svg class=book-icon></label><ul><li><a href=/docs/designer/design-brief/>Design Brief</a></li></ul></li><li><a href=/docs/summary/>Summary</a><ul><li><a href=/docs/summary/00-overview/>00 - Project Overview</a></li><li><a href=/docs/summary/01-requirements/>01 - Requirements</a></li><li><a href=/docs/summary/02-constraints/>02 - Constraints</a></li><li><a href=/docs/summary/10-architecture/>10 - Architecture</a></li><li><a href=/docs/summary/11-database/>11 - Database Design</a></li><li><a href=/docs/summary/12-api-spec/>12 - API Specification</a></li><li><a href=/docs/summary/13-security/>13 - Security</a></li><li><a href=/docs/summary/14-ai-agent/>14 - AI Agent Design</a></li><li><a href=/docs/summary/20-backend/>20 - Backend Implementation</a></li><li><a href=/docs/summary/21-frontend/>21 - Frontend Implementation</a></li><li><a href=/docs/summary/22-devops/>22 - DevOps & Deployment</a></li><li><a href=/docs/summary/23-tasks/>23 - Implementation Tasks</a></li><li><a href=/docs/summary/30-cost-analysis/>30 - Cost Analysis</a></li><li><a href=/docs/summary/31-scaling/ class=active>31 - Scaling Strategy</a></li><li><a href=/docs/summary/32-monitoring/>32 - Monitoring & Observability</a></li><li><a href=/docs/summary/40-auth/>40 - Authentication & Authorization</a></li><li><a href=/docs/summary/41-privacy/>41 - Privacy & Data Protection</a></li><li><a href=/docs/summary/42-compliance/>42 - Compliance & Governance</a></li><li><a href=/docs/summary/99-glossary/>99 - Glossary</a></li><li><a href=/docs/summary/99-references/>99 - References</a></li></ul></li><li><a href=/docs/kiro/design/>Design</a></li><li><a href=/docs/kiro/requirements/>Requirements</a></li><li><a href=/docs/kiro/tasks/>Tasks</a></li></ul></nav><script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script></div></aside><div class=book-page><header class="book-header hidden"><div class="flex align-center justify-between"><label for=menu-control><img src=/icons/menu.svg class=book-icon alt=Menu></label><h3>31 - Scaling Strategy</h3><label for=toc-control><img src=/icons/toc.svg class=book-icon alt="Table of Contents"></label></div><aside class="hidden clearfix"><nav id=TableOfContents><ul><li><a href=#scaling-overview>Scaling Overview</a><ul><li><a href=#growth-trajectory>Growth Trajectory</a></li><li><a href=#scaling-principles>Scaling Principles</a></li></ul></li><li><a href=#capacity-planning>Capacity Planning</a><ul><li><a href=#current-capacity-mvp---1000-users>Current Capacity (MVP - 1,000 users)</a></li><li><a href=#scaling-bottlenecks--solutions>Scaling Bottlenecks & Solutions</a></li></ul></li><li><a href=#auto-scaling-configuration>Auto-Scaling Configuration</a><ul><li><a href=#lambda-scaling>Lambda Scaling</a></li><li><a href=#dynamodb-scaling>DynamoDB Scaling</a></li><li><a href=#api-gateway-scaling>API Gateway Scaling</a></li></ul></li><li><a href=#performance-optimization>Performance Optimization</a><ul><li><a href=#database-query-optimization>Database Query Optimization</a></li><li><a href=#ai-response-optimization>AI Response Optimization</a></li></ul></li><li><a href=#-geographic-scaling>🌍 Geographic Scaling</a><ul><li><a href=#current-architecture>Current Architecture</a></li><li><a href=#multi-region-strategy-year-2>Multi-Region Strategy (Year 2)</a></li></ul></li><li><a href=#data-scaling-strategy>Data Scaling Strategy</a><ul><li><a href=#current-data-volume-1000-users>Current Data Volume (1,000 users)</a></li><li><a href=#projected-growth>Projected Growth</a></li><li><a href=#data-lifecycle-management>Data Lifecycle Management</a></li></ul></li><li><a href=#infrastructure-scaling>Infrastructure Scaling</a><ul><li><a href=#serverless-scaling-advantages>Serverless Scaling Advantages</a></li><li><a href=#monitoring--alerting-at-scale>Monitoring & Alerting at Scale</a></li></ul></li><li><a href=#scaling-milestones>Scaling Milestones</a><ul><li><a href=#month-3-1000-users>Month 3 (1,000 users)</a></li><li><a href=#month-6-5000-users>Month 6 (5,000 users)</a></li><li><a href=#month-12-10000-users>Month 12 (10,000 users)</a></li><li><a href=#year-2-100000-users>Year 2 (100,000 users)</a></li></ul></li><li><a href=#migration-strategies>Migration Strategies</a><ul><li><a href=#dynamodb-on-demand--provisioned>DynamoDB On-Demand → Provisioned</a></li><li><a href=#single-region--multi-region>Single Region → Multi-Region</a></li></ul></li><li><a href=#related-documents>Related Documents</a></li></ul></nav></aside></header><article class="markdown book-article"><h1 id=scaling-strategy---smart-cooking-app>Scaling Strategy - Smart Cooking App<a class=anchor href=#scaling-strategy---smart-cooking-app>#</a></h1><h2 id=scaling-overview>Scaling Overview<a class=anchor href=#scaling-overview>#</a></h2><h3 id=growth-trajectory>Growth Trajectory<a class=anchor href=#growth-trajectory>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Phase 1 (MVP)</span>: <span style=color:#ae81ff>1</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>users (Month 1-3)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Phase 2 (Growth)</span>: <span style=color:#ae81ff>10</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>users (Month 4-12)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Phase 3 (Scale)</span>: <span style=color:#ae81ff>100</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>users (Year 2)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Phase 4 (Enterprise)</span>: <span style=color:#ae81ff>1M+ users (Year 3+)</span></span></span></code></pre></div><h3 id=scaling-principles>Scaling Principles<a class=anchor href=#scaling-principles>#</a></h3><ol><li><strong>Serverless First</strong>: Auto-scaling without infrastructure management</li><li><strong>Cost-Aware Growth</strong>: Maintain unit economics at scale</li><li><strong>Performance Consistency</strong>: Sub-500ms API response times</li><li><strong>Data Efficiency</strong>: Optimize for read-heavy workloads</li></ol><h2 id=capacity-planning>Capacity Planning<a class=anchor href=#capacity-planning>#</a></h2><h3 id=current-capacity-mvp---1000-users>Current Capacity (MVP - 1,000 users)<a class=anchor href=#current-capacity-mvp---1000-users>#</a></h3><h4 id=api-gateway>API Gateway<a class=anchor href=#api-gateway>#</a></h4><ul><li><strong>Current</strong>: 1,000 requests/day</li><li><strong>Limit</strong>: 10,000 requests/second (default)</li><li><strong>Headroom</strong>: 99.9%+ available</li></ul><h4 id=lambda-functions>Lambda Functions<a class=anchor href=#lambda-functions>#</a></h4><ul><li><strong>Current</strong>: 100 invocations/day</li><li><strong>Limit</strong>: 1,000 concurrent executions (default)</li><li><strong>Headroom</strong>: 99%+ available</li></ul><h4 id=dynamodb>DynamoDB<a class=anchor href=#dynamodb>#</a></h4><ul><li><strong>Current</strong>: 1,000 read/write units per day</li><li><strong>Mode</strong>: On-demand (auto-scaling)</li><li><strong>Limit</strong>: 40,000 RCU/WCU per table (soft limit)</li></ul><h4 id=bedrock-ai>Bedrock AI<a class=anchor href=#bedrock-ai>#</a></h4><ul><li><strong>Current</strong>: 100 requests/day</li><li><strong>Limit</strong>: 200 requests/minute (default)</li><li><strong>Daily Capacity</strong>: 288,000 requests/day</li></ul><h3 id=scaling-bottlenecks--solutions>Scaling Bottlenecks & Solutions<a class=anchor href=#scaling-bottlenecks--solutions>#</a></h3><h4 id=1-ai-generation-bottleneck>1. AI Generation Bottleneck<a class=anchor href=#1-ai-generation-bottleneck>#</a></h4><p><strong>Problem</strong>: Bedrock rate limits at high scale</p><pre tabindex=0><code>Current: 200 requests/minute = 288K/day
+At 100K users: 1M AI requests/day needed</code></pre><p><strong>Solutions</strong>:</p><ul><li><strong>Flexible Mix Strategy</strong>: Reduce AI dependency from 100% → 20%</li><li><strong>Request Increase</strong>: AWS support for higher limits</li><li><strong>Caching Layer</strong>: Redis for popular recipe combinations</li><li><strong>Batch Processing</strong>: Generate multiple recipes per request</li></ul><h4 id=2-dynamodb-hot-partitions>2. DynamoDB Hot Partitions<a class=anchor href=#2-dynamodb-hot-partitions>#</a></h4><p><strong>Problem</strong>: User-based partitioning can create hot spots</p><p><strong>Solutions</strong>:</p><ul><li><strong>Composite Keys</strong>: Distribute load across partitions</li><li><strong>GSI Design</strong>: Spread queries across multiple indexes</li><li><strong>Write Sharding</strong>: Use random suffixes for high-write items</li><li><strong>Read Replicas</strong>: Global Tables for read scaling</li></ul><h4 id=3-lambda-cold-starts>3. Lambda Cold Starts<a class=anchor href=#3-lambda-cold-starts>#</a></h4><p><strong>Problem</strong>: Increased latency during traffic spikes</p><p><strong>Solutions</strong>:</p><ul><li><strong>Provisioned Concurrency</strong>: For critical functions</li><li><strong>Connection Pooling</strong>: Reuse database connections</li><li><strong>Smaller Packages</strong>: Reduce deployment size</li><li><strong>Warm-up Schedules</strong>: Keep functions warm during peak hours</li></ul><h2 id=auto-scaling-configuration>Auto-Scaling Configuration<a class=anchor href=#auto-scaling-configuration>#</a></h2><h3 id=lambda-scaling>Lambda Scaling<a class=anchor href=#lambda-scaling>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>AI Suggestion Function</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Reserved Concurrency</span>: <span style=color:#ae81ff>100</span> <span style=color:#ae81ff>(prevent runaway costs)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Provisioned Concurrency</span>: <span style=color:#ae81ff>10</span> <span style=color:#ae81ff>(reduce cold starts)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Memory</span>: <span style=color:#ae81ff>1024MB → 1536MB (if needed)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Timeout</span>: <span style=color:#ae81ff>60s (unchanged)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Other Functions</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Reserved Concurrency</span>: <span style=color:#ae81ff>50</span> <span style=color:#ae81ff>each</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Memory</span>: <span style=color:#ae81ff>256MB → 512MB (if needed)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Timeout</span>: <span style=color:#ae81ff>10s → 30s (if needed)</span></span></span></code></pre></div><h3 id=dynamodb-scaling>DynamoDB Scaling<a class=anchor href=#dynamodb-scaling>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Current</span>: <span style=color:#66d9ef>On</span>-<span style=color:#ae81ff>Demand Mode</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Scale Trigger</span>: <span style=color:#ae81ff>Consistent high usage (&gt;80% utilization)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Migration Path</span>: <span style=color:#66d9ef>On</span>-<span style=color:#ae81ff>Demand → Provisioned with Auto-Scaling</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Provisioned Mode Settings</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Base Capacity</span>: <span style=color:#ae81ff>100</span> <span style=color:#ae81ff>RCU/WCU</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Max Capacity</span>: <span style=color:#ae81ff>4</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>RCU/WCU</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Target Utilization</span>: <span style=color:#ae81ff>70</span><span style=color:#ae81ff>%</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Scale Up</span>: <span style=color:#ae81ff>+100% when &gt;70% for 2 minutes</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Scale Down</span>: -<span style=color:#ae81ff>50</span><span style=color:#ae81ff>% when &lt;50% for 15 minutes</span></span></span></code></pre></div><h3 id=api-gateway-scaling>API Gateway Scaling<a class=anchor href=#api-gateway-scaling>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Current Limits</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Rate</span>: <span style=color:#ae81ff>10</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>requests/second</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Burst</span>: <span style=color:#ae81ff>5</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>requests</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Scale Requirements</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>10K users</span>: <span style=color:#ae81ff>100</span> <span style=color:#ae81ff>requests/second average</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>100K users</span>: <span style=color:#ae81ff>1</span>,<span style=color:#ae81ff>000</span> <span style=color:#ae81ff>requests/second average</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#66d9ef>No</span> <span style=color:#ae81ff>action needed - well within limits</span></span></span></code></pre></div><h2 id=performance-optimization>Performance Optimization<a class=anchor href=#performance-optimization>#</a></h2><h3 id=database-query-optimization>Database Query Optimization<a class=anchor href=#database-query-optimization>#</a></h3><h4 id=current-performance>Current Performance<a class=anchor href=#current-performance>#</a></h4><pre tabindex=0><code>Single Item Queries: &lt;50ms (p95)
 GSI Queries: &lt;100ms (p95)
-Complex Filters: &lt;200ms (p95)</code></pre><h4 id="scaling-optimizations">Scaling Optimizations<a class="anchor" href="#scaling-optimizations">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Caching Strategy</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Master Ingredients</span>: <span style="color:#ae81ff">In-memory cache (Lambda)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">User Profiles</span>: <span style="color:#ae81ff">5</span>-<span style="color:#ae81ff">minute TTL</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Popular Recipes</span>: <span style="color:#ae81ff">1</span>-<span style="color:#ae81ff">hour TTL</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">AI Responses</span>: <span style="color:#ae81ff">24</span>-<span style="color:#ae81ff">hour TTL</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Query Patterns</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Batch Operations</span>: <span style="color:#ae81ff">Reduce API calls by 70%</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Projection Expressions</span>: <span style="color:#ae81ff">Return only needed fields</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Parallel Queries</span>: <span style="color:#ae81ff">Use Promise.all for independent queries</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Connection Pooling</span>: <span style="color:#ae81ff">Reuse DynamoDB connections</span></span></span></code></pre></div><h3 id="ai-response-optimization">AI Response Optimization<a class="anchor" href="#ai-response-optimization">#</a></h3>
-<h4 id="current-ai-flow">Current AI Flow<a class="anchor" href="#current-ai-flow">#</a></h4>
-<pre tabindex="0"><code>1. User Request → 2. Validate → 3. Query DB → 4. Generate AI → 5. Return
-Average Time: 3-5 seconds</code></pre><h4 id="optimized-ai-flow">Optimized AI Flow<a class="anchor" href="#optimized-ai-flow">#</a></h4>
-<pre tabindex="0"><code>1. User Request → 2. Validate (cached) → 3. Query DB (parallel) → 
+Complex Filters: &lt;200ms (p95)</code></pre><h4 id=scaling-optimizations>Scaling Optimizations<a class=anchor href=#scaling-optimizations>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Caching Strategy</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Master Ingredients</span>: <span style=color:#ae81ff>In-memory cache (Lambda)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>User Profiles</span>: <span style=color:#ae81ff>5</span>-<span style=color:#ae81ff>minute TTL</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Popular Recipes</span>: <span style=color:#ae81ff>1</span>-<span style=color:#ae81ff>hour TTL</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>AI Responses</span>: <span style=color:#ae81ff>24</span>-<span style=color:#ae81ff>hour TTL</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Query Patterns</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Batch Operations</span>: <span style=color:#ae81ff>Reduce API calls by 70%</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Projection Expressions</span>: <span style=color:#ae81ff>Return only needed fields</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Parallel Queries</span>: <span style=color:#ae81ff>Use Promise.all for independent queries</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Connection Pooling</span>: <span style=color:#ae81ff>Reuse DynamoDB connections</span></span></span></code></pre></div><h3 id=ai-response-optimization>AI Response Optimization<a class=anchor href=#ai-response-optimization>#</a></h3><h4 id=current-ai-flow>Current AI Flow<a class=anchor href=#current-ai-flow>#</a></h4><pre tabindex=0><code>1. User Request → 2. Validate → 3. Query DB → 4. Generate AI → 5. Return
+Average Time: 3-5 seconds</code></pre><h4 id=optimized-ai-flow>Optimized AI Flow<a class=anchor href=#optimized-ai-flow>#</a></h4><pre tabindex=0><code>1. User Request → 2. Validate (cached) → 3. Query DB (parallel) → 
 4. Generate AI (if needed) → 5. Return (cached)
-Target Time: 1-2 seconds</code></pre><h4 id="caching-strategy">Caching Strategy<a class="anchor" href="#caching-strategy">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Recipe Cache</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Key</span>: <span style="color:#ae81ff">hash(ingredients + preferences)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TTL</span>: <span style="color:#ae81ff">24</span> <span style="color:#ae81ff">hours</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Hit Rate Target</span>: <span style="color:#ae81ff">40</span><span style="color:#ae81ff">% (Month 6), 70% (Month 12)</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Ingredient Validation Cache</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Key</span>: <span style="color:#ae81ff">normalized_ingredient_name</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">TTL</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">days (ingredients don&#39;t change often)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Hit Rate Target</span>: <span style="color:#ae81ff">90</span><span style="color:#ae81ff">%+</span></span></span></code></pre></div><h2 id="-geographic-scaling">🌍 Geographic Scaling<a class="anchor" href="#-geographic-scaling">#</a></h2>
-<h3 id="current-architecture">Current Architecture<a class="anchor" href="#current-architecture">#</a></h3>
-<ul>
-<li><strong>Primary Region</strong>: us-east-1 (N. Virginia)</li>
-<li><strong>CDN</strong>: CloudFront (global)</li>
-<li><strong>Latency</strong>: 200-300ms (Vietnam to us-east-1)</li>
-</ul>
-<h3 id="multi-region-strategy-year-2">Multi-Region Strategy (Year 2)<a class="anchor" href="#multi-region-strategy-year-2">#</a></h3>
-<h4 id="phase-1-read-replicas">Phase 1: Read Replicas<a class="anchor" href="#phase-1-read-replicas">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Primary</span>: <span style="color:#ae81ff">us-east-1 (read/write)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Replica</span>: <span style="color:#ae81ff">ap-southeast-1 (Singapore) - read only</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Benefits</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Reduced latency for Asian users (300ms → 50ms)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Disaster recovery capability</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Load distribution</span></span></span></code></pre></div><h4 id="phase-2-active-active-year-3">Phase 2: Active-Active (Year 3)<a class="anchor" href="#phase-2-active-active-year-3">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Regions</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">us-east-1</span>: <span style="color:#ae81ff">Americas</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">eu-west-1</span>: <span style="color:#ae81ff">Europe</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">ap-southeast-1</span>: <span style="color:#ae81ff">Asia-Pacific</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">DynamoDB Global Tables</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Automatic multi-region replication</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Eventually consistent reads</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Conflict resolution</span>: <span style="color:#ae81ff">Last writer wins</span></span></span></code></pre></div><h2 id="data-scaling-strategy">Data Scaling Strategy<a class="anchor" href="#data-scaling-strategy">#</a></h2>
-<h3 id="current-data-volume-1000-users">Current Data Volume (1,000 users)<a class="anchor" href="#current-data-volume-1000-users">#</a></h3>
-<pre tabindex="0"><code>Users: 1MB
+Target Time: 1-2 seconds</code></pre><h4 id=caching-strategy>Caching Strategy<a class=anchor href=#caching-strategy>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Recipe Cache</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Key</span>: <span style=color:#ae81ff>hash(ingredients + preferences)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>TTL</span>: <span style=color:#ae81ff>24</span> <span style=color:#ae81ff>hours</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Hit Rate Target</span>: <span style=color:#ae81ff>40</span><span style=color:#ae81ff>% (Month 6), 70% (Month 12)</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>Ingredient Validation Cache</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Key</span>: <span style=color:#ae81ff>normalized_ingredient_name</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>TTL</span>: <span style=color:#ae81ff>7</span> <span style=color:#ae81ff>days (ingredients don&#39;t change often)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Hit Rate Target</span>: <span style=color:#ae81ff>90</span><span style=color:#ae81ff>%+</span></span></span></code></pre></div><h2 id=-geographic-scaling>🌍 Geographic Scaling<a class=anchor href=#-geographic-scaling>#</a></h2><h3 id=current-architecture>Current Architecture<a class=anchor href=#current-architecture>#</a></h3><ul><li><strong>Primary Region</strong>: us-east-1 (N. Virginia)</li><li><strong>CDN</strong>: CloudFront (global)</li><li><strong>Latency</strong>: 200-300ms (Vietnam to us-east-1)</li></ul><h3 id=multi-region-strategy-year-2>Multi-Region Strategy (Year 2)<a class=anchor href=#multi-region-strategy-year-2>#</a></h3><h4 id=phase-1-read-replicas>Phase 1: Read Replicas<a class=anchor href=#phase-1-read-replicas>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Primary</span>: <span style=color:#ae81ff>us-east-1 (read/write)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Replica</span>: <span style=color:#ae81ff>ap-southeast-1 (Singapore) - read only</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Benefits</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Reduced latency for Asian users (300ms → 50ms)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Disaster recovery capability</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Load distribution</span></span></span></code></pre></div><h4 id=phase-2-active-active-year-3>Phase 2: Active-Active (Year 3)<a class=anchor href=#phase-2-active-active-year-3>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Regions</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>us-east-1</span>: <span style=color:#ae81ff>Americas</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>eu-west-1</span>: <span style=color:#ae81ff>Europe</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>ap-southeast-1</span>: <span style=color:#ae81ff>Asia-Pacific</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>DynamoDB Global Tables</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Automatic multi-region replication</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Eventually consistent reads</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Conflict resolution</span>: <span style=color:#ae81ff>Last writer wins</span></span></span></code></pre></div><h2 id=data-scaling-strategy>Data Scaling Strategy<a class=anchor href=#data-scaling-strategy>#</a></h2><h3 id=current-data-volume-1000-users>Current Data Volume (1,000 users)<a class=anchor href=#current-data-volume-1000-users>#</a></h3><pre tabindex=0><code>Users: 1MB
 Recipes: 50MB
 Cooking History: 20MB
 AI Suggestions: 25MB
 Social Data: 30MB
-Total: ~125MB</code></pre><h3 id="projected-growth">Projected Growth<a class="anchor" href="#projected-growth">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">10,000 users (Month 12)</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Total Data</span>: <span style="color:#ae81ff">~1.2GB</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Monthly Growth</span>: <span style="color:#ae81ff">~100MB</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">100,000 users (Year 2)</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Total Data</span>: <span style="color:#ae81ff">~12GB</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Monthly Growth</span>: <span style="color:#ae81ff">~1GB</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">1,000,000 users (Year 3)</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Total Data</span>: <span style="color:#ae81ff">~120GB</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Monthly Growth</span>: <span style="color:#ae81ff">~10GB</span></span></span></code></pre></div><h3 id="data-lifecycle-management">Data Lifecycle Management<a class="anchor" href="#data-lifecycle-management">#</a></h3>
-<h4 id="ttl-policies">TTL Policies<a class="anchor" href="#ttl-policies">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">AI Suggestions</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">90</span> <span style="color:#ae81ff">days</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Cleanup</span>: <span style="color:#ae81ff">Automatic (DynamoDB TTL)</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Cooking History</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">2</span> <span style="color:#ae81ff">years</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Archive</span>: <span style="color:#ae81ff">S3 after 1 year</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Notifications</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">30</span> <span style="color:#ae81ff">days</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Cleanup</span>: <span style="color:#ae81ff">Automatic</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Activity Logs</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Retention</span>: <span style="color:#ae81ff">7</span> <span style="color:#ae81ff">days (CloudWatch)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Long-term</span>: <span style="color:#ae81ff">S3 (if needed for analytics)</span></span></span></code></pre></div><h4 id="storage-optimization">Storage Optimization<a class="anchor" href="#storage-optimization">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">DynamoDB</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Compression</span>: <span style="color:#ae81ff">JSON field compression (30% savings)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Archiving</span>: <span style="color:#ae81ff">Move old data to S3 (90% cost reduction)</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">S3</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Lifecycle Policies</span>:
-</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Standard</span>: <span style="color:#ae81ff">0-30</span> <span style="color:#ae81ff">days</span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">IA</span>: <span style="color:#ae81ff">30-90</span> <span style="color:#ae81ff">days  </span>
-</span></span><span style="display:flex;"><span>    - <span style="color:#f92672">Glacier</span>: <span style="color:#ae81ff">90</span><span style="color:#ae81ff">+ days</span>
-</span></span><span style="display:flex;"><span>  
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Images</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Format</span>: <span style="color:#ae81ff">WebP (30% smaller than JPEG)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">Compression</span>: <span style="color:#ae81ff">Aggressive for thumbnails</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">CDN</span>: <span style="color:#ae81ff">CloudFront caching</span></span></span></code></pre></div><h2 id="infrastructure-scaling">Infrastructure Scaling<a class="anchor" href="#infrastructure-scaling">#</a></h2>
-<h3 id="serverless-scaling-advantages">Serverless Scaling Advantages<a class="anchor" href="#serverless-scaling-advantages">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Automatic Benefits</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">✅ Zero server management</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">✅ Pay-per-use pricing</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">✅ Built-in high availability</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">✅ Automatic security updates</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">✅ Global edge distribution (CloudFront)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Manual Optimizations Needed</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">⚠️ Lambda memory/timeout tuning</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">⚠️ DynamoDB capacity planning</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">⚠️ API Gateway rate limiting</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">⚠️ Cost monitoring and alerts</span></span></span></code></pre></div><h3 id="monitoring--alerting-at-scale">Monitoring &amp; Alerting at Scale<a class="anchor" href="#monitoring--alerting-at-scale">#</a></h3>
-<h4 id="key-metrics-to-track">Key Metrics to Track<a class="anchor" href="#key-metrics-to-track">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Performance</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API response time (p95 &lt; 500ms)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda duration (p95 &lt; 5s for non-AI)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB latency (p95 &lt; 100ms)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Error rate (&lt; 1%)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Business</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Daily/Monthly Active Users</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI suggestion usage rate</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Recipe approval rate (target</span>: <span style="color:#ae81ff">40</span><span style="color:#ae81ff">%+)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Cost per user (target</span>: <span style="color:#ae81ff">decreasing)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Technical</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda cold start rate (&lt; 5%)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB throttling (0 events)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI API success rate (&gt; 99%)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#f92672">Cache hit rates (ingredient: 90%, recipe</span>: <span style="color:#ae81ff">70</span><span style="color:#ae81ff">%)</span></span></span></code></pre></div><h4 id="scaling-alerts">Scaling Alerts<a class="anchor" href="#scaling-alerts">#</a></h4>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Traffic Alerts</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API requests &gt; 1000/minute (scale up)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda errors &gt; 10/minute (investigate)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB throttling &gt; 0 (scale up)</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Cost Alerts</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Daily cost &gt; $20 (MVP), $100 (Scale)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI cost &gt; 50% of total (optimize mix)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Unusual spending patterns</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Performance Alerts</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API latency &gt; 1s (p95)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda timeout rate &gt; 1%</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Database query time &gt; 200ms (p95)</span></span></span></code></pre></div><h2 id="scaling-milestones">Scaling Milestones<a class="anchor" href="#scaling-milestones">#</a></h2>
-<h3 id="month-3-1000-users">Month 3 (1,000 users)<a class="anchor" href="#month-3-1000-users">#</a></h3>
-<ul>
-<li>✅ Basic auto-scaling working</li>
-<li>✅ Cost under $160/month</li>
-<li>✅ API response time &lt; 500ms</li>
-<li>✅ 30% DB coverage achieved</li>
-</ul>
-<h3 id="month-6-5000-users">Month 6 (5,000 users)<a class="anchor" href="#month-6-5000-users">#</a></h3>
-<ul>
-<li>✅ Provisioned concurrency for AI function</li>
-<li>✅ Recipe caching implemented</li>
-<li>✅ Cost per user &lt; $0.10</li>
-<li>✅ 60% DB coverage achieved</li>
-</ul>
-<h3 id="month-12-10000-users">Month 12 (10,000 users)<a class="anchor" href="#month-12-10000-users">#</a></h3>
-<ul>
-<li>✅ Multi-AZ deployment</li>
-<li>✅ Advanced monitoring dashboard</li>
-<li>✅ Cost per user &lt; $0.05</li>
-<li>✅ 80% DB coverage achieved</li>
-</ul>
-<h3 id="year-2-100000-users">Year 2 (100,000 users)<a class="anchor" href="#year-2-100000-users">#</a></h3>
-<ul>
-<li>✅ Multi-region read replicas</li>
-<li>✅ Advanced caching layer</li>
-<li>✅ Cost per user &lt; $0.03</li>
-<li>✅ 90% DB coverage achieved</li>
-</ul>
-<h2 id="migration-strategies">Migration Strategies<a class="anchor" href="#migration-strategies">#</a></h2>
-<h3 id="dynamodb-on-demand--provisioned">DynamoDB On-Demand → Provisioned<a class="anchor" href="#dynamodb-on-demand--provisioned">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Trigger</span>: <span style="color:#ae81ff">Consistent high usage (&gt;$200/month DDB cost)</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Process</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. Analyze usage patterns (1 week)</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Calculate optimal provisioned capacity</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Enable auto-scaling</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. Migrate during low-traffic window</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. Monitor for 48 hours</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Expected Savings</span>: <span style="color:#ae81ff">20-40</span><span style="color:#ae81ff">%</span></span></span></code></pre></div><h3 id="single-region--multi-region">Single Region → Multi-Region<a class="anchor" href="#single-region--multi-region">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Trigger</span>: <span style="color:#ae81ff">&gt;50% international users</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Process</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">1</span><span style="color:#ae81ff">. Setup DynamoDB Global Tables</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">2</span><span style="color:#ae81ff">. Deploy Lambda functions to new region</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">3</span><span style="color:#ae81ff">. Configure Route 53 geo-routing</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">4</span><span style="color:#ae81ff">. Test failover scenarios</span>
-</span></span><span style="display:flex;"><span>  <span style="color:#ae81ff">5</span><span style="color:#ae81ff">. Gradual traffic migration</span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Expected Improvement</span>: <span style="color:#ae81ff">70</span><span style="color:#ae81ff">% latency reduction for international users</span></span></span></code></pre></div><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
-<ul>
-<li><a href="30-cost-analysis.md">30 - Cost Analysis</a></li>
-<li><a href="32-monitoring.md">32 - Monitoring</a></li>
-<li><a href="10-architecture.md">10 - Architecture</a></li>
-</ul>
-</article>
- 
-      
-
-      <footer class="book-footer">
-        
-  <div class="flex flex-wrap justify-between">
-
-<div>
-
-</div>
-
-<div>
-
-</div>
-
-</div>
-
-
-
-
-
-  
-  
-  
-  <div class="flex flex-wrap justify-between">
-    <span>
-    
-      <a href="/docs/summary/30-cost-analysis/" class="flex align-center">
-        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="30 - Cost Analysis" />
-        <span>30 - Cost Analysis</span>
-      </a>
-    
-    </span>
-    <span>
-    
-      <a href="/docs/summary/32-monitoring/" class="flex align-center">
-        <span>32 - Monitoring &amp; Observability</span>
-        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="32 - Monitoring &amp; Observability" />
-      </a>
-    
-    </span>
-  </div>
-  
-
-
-
-
-  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
-
-
- 
-        
-  
-  <div class="book-comments">
-
-</div>
-  
- 
-        
-        
-
- 
-      </footer>
-
-      <label for="menu-control" class="hidden book-menu-overlay"></label>
-    </div>
-
-    
-
-<aside class="book-toc">
-  <div class="book-toc-content">
-    
-  
-<nav id="TableOfContents">
-  <ul>
-    <li><a href="#scaling-overview">Scaling Overview</a>
-      <ul>
-        <li><a href="#growth-trajectory">Growth Trajectory</a></li>
-        <li><a href="#scaling-principles">Scaling Principles</a></li>
-      </ul>
-    </li>
-    <li><a href="#capacity-planning">Capacity Planning</a>
-      <ul>
-        <li><a href="#current-capacity-mvp---1000-users">Current Capacity (MVP - 1,000 users)</a></li>
-        <li><a href="#scaling-bottlenecks--solutions">Scaling Bottlenecks &amp; Solutions</a></li>
-      </ul>
-    </li>
-    <li><a href="#auto-scaling-configuration">Auto-Scaling Configuration</a>
-      <ul>
-        <li><a href="#lambda-scaling">Lambda Scaling</a></li>
-        <li><a href="#dynamodb-scaling">DynamoDB Scaling</a></li>
-        <li><a href="#api-gateway-scaling">API Gateway Scaling</a></li>
-      </ul>
-    </li>
-    <li><a href="#performance-optimization">Performance Optimization</a>
-      <ul>
-        <li><a href="#database-query-optimization">Database Query Optimization</a></li>
-        <li><a href="#ai-response-optimization">AI Response Optimization</a></li>
-      </ul>
-    </li>
-    <li><a href="#-geographic-scaling">🌍 Geographic Scaling</a>
-      <ul>
-        <li><a href="#current-architecture">Current Architecture</a></li>
-        <li><a href="#multi-region-strategy-year-2">Multi-Region Strategy (Year 2)</a></li>
-      </ul>
-    </li>
-    <li><a href="#data-scaling-strategy">Data Scaling Strategy</a>
-      <ul>
-        <li><a href="#current-data-volume-1000-users">Current Data Volume (1,000 users)</a></li>
-        <li><a href="#projected-growth">Projected Growth</a></li>
-        <li><a href="#data-lifecycle-management">Data Lifecycle Management</a></li>
-      </ul>
-    </li>
-    <li><a href="#infrastructure-scaling">Infrastructure Scaling</a>
-      <ul>
-        <li><a href="#serverless-scaling-advantages">Serverless Scaling Advantages</a></li>
-        <li><a href="#monitoring--alerting-at-scale">Monitoring &amp; Alerting at Scale</a></li>
-      </ul>
-    </li>
-    <li><a href="#scaling-milestones">Scaling Milestones</a>
-      <ul>
-        <li><a href="#month-3-1000-users">Month 3 (1,000 users)</a></li>
-        <li><a href="#month-6-5000-users">Month 6 (5,000 users)</a></li>
-        <li><a href="#month-12-10000-users">Month 12 (10,000 users)</a></li>
-        <li><a href="#year-2-100000-users">Year 2 (100,000 users)</a></li>
-      </ul>
-    </li>
-    <li><a href="#migration-strategies">Migration Strategies</a>
-      <ul>
-        <li><a href="#dynamodb-on-demand--provisioned">DynamoDB On-Demand → Provisioned</a></li>
-        <li><a href="#single-region--multi-region">Single Region → Multi-Region</a></li>
-      </ul>
-    </li>
-    <li><a href="#related-documents">Related Documents</a></li>
-  </ul>
-</nav>
-
-
-
-  </div>
-</aside>
-
- 
-  </main>
-
-  
-</body>
-</html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Total: ~125MB</code></pre><h3 id=projected-growth>Projected Growth<a class=anchor href=#projected-growth>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>10,000 users (Month 12)</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Total Data</span>: <span style=color:#ae81ff>~1.2GB</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Monthly Growth</span>: <span style=color:#ae81ff>~100MB</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>100,000 users (Year 2)</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Total Data</span>: <span style=color:#ae81ff>~12GB</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Monthly Growth</span>: <span style=color:#ae81ff>~1GB</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>1,000,000 users (Year 3)</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Total Data</span>: <span style=color:#ae81ff>~120GB</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Monthly Growth</span>: <span style=color:#ae81ff>~10GB</span></span></span></code></pre></div><h3 id=data-lifecycle-management>Data Lifecycle Management<a class=anchor href=#data-lifecycle-management>#</a></h3><h4 id=ttl-policies>TTL Policies<a class=anchor href=#ttl-policies>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>AI Suggestions</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Retention</span>: <span style=color:#ae81ff>90</span> <span style=color:#ae81ff>days</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Cleanup</span>: <span style=color:#ae81ff>Automatic (DynamoDB TTL)</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>Cooking History</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Retention</span>: <span style=color:#ae81ff>2</span> <span style=color:#ae81ff>years</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Archive</span>: <span style=color:#ae81ff>S3 after 1 year</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>Notifications</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Retention</span>: <span style=color:#ae81ff>30</span> <span style=color:#ae81ff>days</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Cleanup</span>: <span style=color:#ae81ff>Automatic</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>Activity Logs</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Retention</span>: <span style=color:#ae81ff>7</span> <span style=color:#ae81ff>days (CloudWatch)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Long-term</span>: <span style=color:#ae81ff>S3 (if needed for analytics)</span></span></span></code></pre></div><h4 id=storage-optimization>Storage Optimization<a class=anchor href=#storage-optimization>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>DynamoDB</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Compression</span>: <span style=color:#ae81ff>JSON field compression (30% savings)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Archiving</span>: <span style=color:#ae81ff>Move old data to S3 (90% cost reduction)</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>S3</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Lifecycle Policies</span>:
+</span></span><span style=display:flex><span>    - <span style=color:#f92672>Standard</span>: <span style=color:#ae81ff>0-30</span> <span style=color:#ae81ff>days</span>
+</span></span><span style=display:flex><span>    - <span style=color:#f92672>IA</span>: <span style=color:#ae81ff>30-90</span> <span style=color:#ae81ff>days  </span>
+</span></span><span style=display:flex><span>    - <span style=color:#f92672>Glacier</span>: <span style=color:#ae81ff>90</span><span style=color:#ae81ff>+ days</span>
+</span></span><span style=display:flex><span>  
+</span></span><span style=display:flex><span><span style=color:#f92672>Images</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Format</span>: <span style=color:#ae81ff>WebP (30% smaller than JPEG)</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>Compression</span>: <span style=color:#ae81ff>Aggressive for thumbnails</span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>CDN</span>: <span style=color:#ae81ff>CloudFront caching</span></span></span></code></pre></div><h2 id=infrastructure-scaling>Infrastructure Scaling<a class=anchor href=#infrastructure-scaling>#</a></h2><h3 id=serverless-scaling-advantages>Serverless Scaling Advantages<a class=anchor href=#serverless-scaling-advantages>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Automatic Benefits</span>:
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>✅ Zero server management</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>✅ Pay-per-use pricing</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>✅ Built-in high availability</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>✅ Automatic security updates</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>✅ Global edge distribution (CloudFront)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Manual Optimizations Needed</span>:
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>⚠️ Lambda memory/timeout tuning</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>⚠️ DynamoDB capacity planning</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>⚠️ API Gateway rate limiting</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>⚠️ Cost monitoring and alerts</span></span></span></code></pre></div><h3 id=monitoring--alerting-at-scale>Monitoring & Alerting at Scale<a class=anchor href=#monitoring--alerting-at-scale>#</a></h3><h4 id=key-metrics-to-track>Key Metrics to Track<a class=anchor href=#key-metrics-to-track>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Performance</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API response time (p95 &lt; 500ms)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda duration (p95 &lt; 5s for non-AI)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DynamoDB latency (p95 &lt; 100ms)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Error rate (&lt; 1%)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Business</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Daily/Monthly Active Users</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>AI suggestion usage rate</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Recipe approval rate (target</span>: <span style=color:#ae81ff>40</span><span style=color:#ae81ff>%+)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Cost per user (target</span>: <span style=color:#ae81ff>decreasing)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Technical</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda cold start rate (&lt; 5%)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DynamoDB throttling (0 events)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>AI API success rate (&gt; 99%)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#f92672>Cache hit rates (ingredient: 90%, recipe</span>: <span style=color:#ae81ff>70</span><span style=color:#ae81ff>%)</span></span></span></code></pre></div><h4 id=scaling-alerts>Scaling Alerts<a class=anchor href=#scaling-alerts>#</a></h4><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Traffic Alerts</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API requests &gt; 1000/minute (scale up)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda errors &gt; 10/minute (investigate)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DynamoDB throttling &gt; 0 (scale up)</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Cost Alerts</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Daily cost &gt; $20 (MVP), $100 (Scale)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>AI cost &gt; 50% of total (optimize mix)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Unusual spending patterns</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Performance Alerts</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API latency &gt; 1s (p95)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda timeout rate &gt; 1%</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Database query time &gt; 200ms (p95)</span></span></span></code></pre></div><h2 id=scaling-milestones>Scaling Milestones<a class=anchor href=#scaling-milestones>#</a></h2><h3 id=month-3-1000-users>Month 3 (1,000 users)<a class=anchor href=#month-3-1000-users>#</a></h3><ul><li>✅ Basic auto-scaling working</li><li>✅ Cost under $160/month</li><li>✅ API response time &lt; 500ms</li><li>✅ 30% DB coverage achieved</li></ul><h3 id=month-6-5000-users>Month 6 (5,000 users)<a class=anchor href=#month-6-5000-users>#</a></h3><ul><li>✅ Provisioned concurrency for AI function</li><li>✅ Recipe caching implemented</li><li>✅ Cost per user &lt; $0.10</li><li>✅ 60% DB coverage achieved</li></ul><h3 id=month-12-10000-users>Month 12 (10,000 users)<a class=anchor href=#month-12-10000-users>#</a></h3><ul><li>✅ Multi-AZ deployment</li><li>✅ Advanced monitoring dashboard</li><li>✅ Cost per user &lt; $0.05</li><li>✅ 80% DB coverage achieved</li></ul><h3 id=year-2-100000-users>Year 2 (100,000 users)<a class=anchor href=#year-2-100000-users>#</a></h3><ul><li>✅ Multi-region read replicas</li><li>✅ Advanced caching layer</li><li>✅ Cost per user &lt; $0.03</li><li>✅ 90% DB coverage achieved</li></ul><h2 id=migration-strategies>Migration Strategies<a class=anchor href=#migration-strategies>#</a></h2><h3 id=dynamodb-on-demand--provisioned>DynamoDB On-Demand → Provisioned<a class=anchor href=#dynamodb-on-demand--provisioned>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Trigger</span>: <span style=color:#ae81ff>Consistent high usage (&gt;$200/month DDB cost)</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Process</span>:
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>1</span><span style=color:#ae81ff>. Analyze usage patterns (1 week)</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>2</span><span style=color:#ae81ff>. Calculate optimal provisioned capacity</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>3</span><span style=color:#ae81ff>. Enable auto-scaling</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>4</span><span style=color:#ae81ff>. Migrate during low-traffic window</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>5</span><span style=color:#ae81ff>. Monitor for 48 hours</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Expected Savings</span>: <span style=color:#ae81ff>20-40</span><span style=color:#ae81ff>%</span></span></span></code></pre></div><h3 id=single-region--multi-region>Single Region → Multi-Region<a class=anchor href=#single-region--multi-region>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Trigger</span>: <span style=color:#ae81ff>&gt;50% international users</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Process</span>:
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>1</span><span style=color:#ae81ff>. Setup DynamoDB Global Tables</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>2</span><span style=color:#ae81ff>. Deploy Lambda functions to new region</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>3</span><span style=color:#ae81ff>. Configure Route 53 geo-routing</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>4</span><span style=color:#ae81ff>. Test failover scenarios</span>
+</span></span><span style=display:flex><span>  <span style=color:#ae81ff>5</span><span style=color:#ae81ff>. Gradual traffic migration</span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Expected Improvement</span>: <span style=color:#ae81ff>70</span><span style=color:#ae81ff>% latency reduction for international users</span></span></span></code></pre></div><h2 id=related-documents>Related Documents<a class=anchor href=#related-documents>#</a></h2><ul><li><a href=30-cost-analysis.md>30 - Cost Analysis</a></li><li><a href=32-monitoring.md>32 - Monitoring</a></li><li><a href=10-architecture.md>10 - Architecture</a></li></ul></article><footer class=book-footer><div class="flex flex-wrap justify-between"><div></div><div></div></div><div class="flex flex-wrap justify-between"><span><a href=/docs/summary/30-cost-analysis/ class="flex align-center"><img src=/icons/backward.svg class=book-icon alt=Previous title="30 - Cost Analysis">
+<span>30 - Cost Analysis</span>
+</a></span><span><a href=/docs/summary/32-monitoring/ class="flex align-center"><span>32 - Monitoring & Observability</span>
+<img src=/icons/forward.svg class=book-icon alt=Next title="32 - Monitoring & Observability"></a></span></div><script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script><div class=book-comments></div></footer><label for=menu-control class="hidden book-menu-overlay"></label></div><aside class=book-toc><div class=book-toc-content><nav id=TableOfContents><ul><li><a href=#scaling-overview>Scaling Overview</a><ul><li><a href=#growth-trajectory>Growth Trajectory</a></li><li><a href=#scaling-principles>Scaling Principles</a></li></ul></li><li><a href=#capacity-planning>Capacity Planning</a><ul><li><a href=#current-capacity-mvp---1000-users>Current Capacity (MVP - 1,000 users)</a></li><li><a href=#scaling-bottlenecks--solutions>Scaling Bottlenecks & Solutions</a></li></ul></li><li><a href=#auto-scaling-configuration>Auto-Scaling Configuration</a><ul><li><a href=#lambda-scaling>Lambda Scaling</a></li><li><a href=#dynamodb-scaling>DynamoDB Scaling</a></li><li><a href=#api-gateway-scaling>API Gateway Scaling</a></li></ul></li><li><a href=#performance-optimization>Performance Optimization</a><ul><li><a href=#database-query-optimization>Database Query Optimization</a></li><li><a href=#ai-response-optimization>AI Response Optimization</a></li></ul></li><li><a href=#-geographic-scaling>🌍 Geographic Scaling</a><ul><li><a href=#current-architecture>Current Architecture</a></li><li><a href=#multi-region-strategy-year-2>Multi-Region Strategy (Year 2)</a></li></ul></li><li><a href=#data-scaling-strategy>Data Scaling Strategy</a><ul><li><a href=#current-data-volume-1000-users>Current Data Volume (1,000 users)</a></li><li><a href=#projected-growth>Projected Growth</a></li><li><a href=#data-lifecycle-management>Data Lifecycle Management</a></li></ul></li><li><a href=#infrastructure-scaling>Infrastructure Scaling</a><ul><li><a href=#serverless-scaling-advantages>Serverless Scaling Advantages</a></li><li><a href=#monitoring--alerting-at-scale>Monitoring & Alerting at Scale</a></li></ul></li><li><a href=#scaling-milestones>Scaling Milestones</a><ul><li><a href=#month-3-1000-users>Month 3 (1,000 users)</a></li><li><a href=#month-6-5000-users>Month 6 (5,000 users)</a></li><li><a href=#month-12-10000-users>Month 12 (10,000 users)</a></li><li><a href=#year-2-100000-users>Year 2 (100,000 users)</a></li></ul></li><li><a href=#migration-strategies>Migration Strategies</a><ul><li><a href=#dynamodb-on-demand--provisioned>DynamoDB On-Demand → Provisioned</a></li><li><a href=#single-region--multi-region>Single Region → Multi-Region</a></li></ul></li><li><a href=#related-documents>Related Documents</a></li></ul></nav></div></aside></main></body></html>

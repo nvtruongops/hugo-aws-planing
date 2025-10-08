@@ -1,78 +1,68 @@
-<!DOCTYPE html>
-<html lang="en-us" dir="ltr">
-<head>
-  <!--
-Made with Book Theme
-https://github.com/alex-shpak/hugo-book
--->
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="Kiến Trúc Hệ Thống - Smart Cooking App#
+<!doctype html><html lang=en-us dir=ltr><head><meta charset=UTF-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content='Kiến Trúc Hệ Thống - Smart Cooking App#
 Architecture Overview#
 High-Level Architecture#
 graph TB
-    subgraph &#34;Client Layer&#34;
-        Web[Web App&lt;br/&gt;Next.js &#43; React]
-        Mobile[Mobile Web&lt;br/&gt;Responsive]
+    subgraph "Client Layer"
+        Web[Web App<br/>Next.js + React]
+        Mobile[Mobile Web<br/>Responsive]
     end
 
-    subgraph &#34;CDN &amp; Hosting&#34;
-        CF[CloudFront CDN&lt;br/&gt;Global Distribution]
-        S3[S3 Static Hosting&lt;br/&gt;Next.js Build Output]
-        R53[Route 53&lt;br/&gt;Custom Domain]
+    subgraph "CDN & Hosting"
+        CF[CloudFront CDN<br/>Global Distribution]
+        S3[S3 Static Hosting<br/>Next.js Build Output]
+        R53[Route 53<br/>Custom Domain]
     end
 
-    subgraph &#34;API Layer&#34;
-        APIGW[API Gateway&lt;br/&gt;REST API]
+    subgraph "API Layer"
+        APIGW[API Gateway<br/>REST API]
         Auth[Cognito Authorizer]
-        WAF[AWS WAF&lt;br/&gt;Security Rules]
+        WAF[AWS WAF<br/>Security Rules]
     end
 
-    subgraph &#34;Compute Layer - Lambda Functions&#34;
-        L1[Auth Handler&lt;br/&gt;256MB, 10s]
-        L2[Recipe CRUD&lt;br/&gt;512MB, 30s]
-        L3[AI Suggestion&lt;br/&gt;1024MB, 60s]
-        L4[User Profile&lt;br/&gt;256MB, 10s]
-        L5[Social/Friends&lt;br/&gt;256MB, 10s]
-        L6[Posts Handler&lt;br/&gt;512MB, 30s]
-        L7[Notifications&lt;br/&gt;256MB, 10s]
-        L8[Cooking History&lt;br/&gt;256MB, 10s]
-        L9[Rating Handler&lt;br/&gt;256MB, 10s]
-        L10[Ingredient Validator&lt;br/&gt;256MB, 10s]
-        L11[Admin Ops&lt;br/&gt;512MB, 30s]
+    subgraph "Compute Layer - Lambda Functions"
+        L1[Auth Handler<br/>256MB, 10s]
+        L2[Recipe CRUD<br/>512MB, 30s]
+        L3[AI Suggestion<br/>1024MB, 60s]
+        L4[User Profile<br/>256MB, 10s]
+        L5[Social/Friends<br/>256MB, 10s]
+        L6[Posts Handler<br/>512MB, 30s]
+        L7[Notifications<br/>256MB, 10s]
+        L8[Cooking History<br/>256MB, 10s]
+        L9[Rating Handler<br/>256MB, 10s]
+        L10[Ingredient Validator<br/>256MB, 10s]
+        L11[Admin Ops<br/>512MB, 30s]
     end
 
-    subgraph &#34;AI Layer&#34;
-        Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3 Haiku/Sonnet]
+    subgraph "AI Layer"
+        Bedrock[Amazon Bedrock<br/>Claude 3 Haiku/Sonnet]
     end
 
-    subgraph &#34;Data Layer&#34;
-        DDB[(DynamoDB&lt;br/&gt;Single Table Design)]
-        S3[(S3&lt;br/&gt;Images &amp; Assets)]
+    subgraph "Data Layer"
+        DDB[(DynamoDB<br/>Single Table Design)]
+        S3[(S3<br/>Images & Assets)]
     end
 
-    subgraph &#34;Monitoring&#34;
-        CW[CloudWatch&lt;br/&gt;Logs &#43; Metrics]
-        XRay[X-Ray&lt;br/&gt;Distributed Tracing]
+    subgraph "Monitoring"
+        CW[CloudWatch<br/>Logs + Metrics]
+        XRay[X-Ray<br/>Distributed Tracing]
     end
 
-    Web --&gt; CF
-    Mobile --&gt; CF
-    CF --&gt; S3
-    CF --&gt; APIGW
-    R53 --&gt; CF
-    APIGW --&gt; WAF
-    WAF --&gt; Auth
-    Auth --&gt; L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 &amp; L8 &amp; L9 &amp; L10 &amp; L11
+    Web --> CF
+    Mobile --> CF
+    CF --> S3
+    CF --> APIGW
+    R53 --> CF
+    APIGW --> WAF
+    WAF --> Auth
+    Auth --> L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9 & L10 & L11
 
-    L3 --&gt; Bedrock
-    L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 &amp; L8 &amp; L9 &amp; L10 &amp; L11 --&gt; DDB
-    L2 &amp; L6 --&gt; S3
+    L3 --> Bedrock
+    L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9 & L10 & L11 --> DDB
+    L2 & L6 --> S3
 
-    L1 &amp; L2 &amp; L3 &amp; L8 &amp; L9 --&gt; CW
-    APIGW --&gt; XRay
-    L3 --&gt; XRayArchitecture Principles#
+    L1 & L2 & L3 & L8 & L9 --> CW
+    APIGW --> XRay
+    L3 --> XRayArchitecture Principles#
 1. Serverless First#
 
 No server management: Focus on code, not infrastructure
@@ -117,18 +107,18 @@ sequenceDiagram
     participant DynamoDB
     participant CloudWatch
 
-    User-&gt;&gt;CloudFront: HTTPS Request
-    CloudFront-&gt;&gt;APIGateway: Forward (if not cached)
-    APIGateway-&gt;&gt;APIGateway: Validate request schema
-    APIGateway-&gt;&gt;Cognito: Verify JWT token
-    Cognito--&gt;&gt;APIGateway: Token valid
-    APIGateway-&gt;&gt;Lambda: Invoke with context
-    Lambda-&gt;&gt;DynamoDB: Query/Write
-    DynamoDB--&gt;&gt;Lambda: Response
-    Lambda-&gt;&gt;CloudWatch: Log metrics
-    Lambda--&gt;&gt;APIGateway: Return response
-    APIGateway--&gt;&gt;CloudFront: JSON response
-    CloudFront--&gt;&gt;User: Cached response (if applicable)Pattern 2: AI Suggestion Flow (Flexible Mix)#
+    User->>CloudFront: HTTPS Request
+    CloudFront->>APIGateway: Forward (if not cached)
+    APIGateway->>APIGateway: Validate request schema
+    APIGateway->>Cognito: Verify JWT token
+    Cognito-->>APIGateway: Token valid
+    APIGateway->>Lambda: Invoke with context
+    Lambda->>DynamoDB: Query/Write
+    DynamoDB-->>Lambda: Response
+    Lambda->>CloudWatch: Log metrics
+    Lambda-->>APIGateway: Return response
+    APIGateway-->>CloudFront: JSON response
+    CloudFront-->>User: Cached response (if applicable)Pattern 2: AI Suggestion Flow (Flexible Mix)#
 sequenceDiagram
     participant User
     participant Lambda
@@ -136,86 +126,86 @@ sequenceDiagram
     participant Bedrock
     participant CloudWatch
 
-    User-&gt;&gt;Lambda: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}
+    User->>Lambda: POST /ai/suggest<br/>{ingredients, recipe_count: 3}
 
     Note over Lambda: Step 1: Validate Ingredients
-    Lambda-&gt;&gt;DynamoDB: Check master_ingredients
-    DynamoDB--&gt;&gt;Lambda: Validation results
+    Lambda->>DynamoDB: Check master_ingredients
+    DynamoDB-->>Lambda: Validation results
 
     alt Invalid ingredients found
-        Lambda-&gt;&gt;CloudWatch: Log invalid ingredients
-        Lambda-&gt;&gt;DynamoDB: Increment report count
+        Lambda->>CloudWatch: Log invalid ingredients
+        Lambda->>DynamoDB: Increment report count
     end
 
     Note over Lambda: Step 2: Query DB by categories
-    Lambda-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;(match &#43; diverse categories)
-    DynamoDB--&gt;&gt;Lambda: Found: 2 recipes
+    Lambda->>DynamoDB: Query approved recipes<br/>(match + diverse categories)
+    DynamoDB-->>Lambda: Found: 2 recipes
 
-    Note over Lambda: Step 3: Calculate gap&lt;br/&gt;Requested: 3, DB: 2, Gap: 1
+    Note over Lambda: Step 3: Calculate gap<br/>Requested: 3, DB: 2, Gap: 1
 
     Note over Lambda: Step 4: Generate AI recipes
     loop For gap recipes (1 recipe)
-        Lambda-&gt;&gt;Bedrock: Generate with context
-        Bedrock--&gt;&gt;Lambda: AI recipe
+        Lambda->>Bedrock: Generate with context
+        Bedrock-->>Lambda: AI recipe
     end
 
-    Note over Lambda: Step 5: Combine &amp; return
-    Lambda-&gt;&gt;DynamoDB: Save suggestion history
-    Lambda--&gt;&gt;User: 2 DB &#43; 1 AI = 3 recipesPattern 3: Auto-Approval Flow#
+    Note over Lambda: Step 5: Combine & return
+    Lambda->>DynamoDB: Save suggestion history
+    Lambda-->>User: 2 DB + 1 AI = 3 recipesPattern 3: Auto-Approval Flow#
 sequenceDiagram
     participant User
     participant Lambda
     participant DynamoDB
     participant Notification
 
-    User-&gt;&gt;Lambda: Complete cooking
-    Lambda--&gt;&gt;User: Show rating form
+    User->>Lambda: Complete cooking
+    Lambda-->>User: Show rating form
 
-    User-&gt;&gt;Lambda: POST /recipes/{id}/rate&lt;br/&gt;{rating: 5, comment}
+    User->>Lambda: POST /recipes/{id}/rate<br/>{rating: 5, comment}
 
-    Lambda-&gt;&gt;DynamoDB: Save rating
-    Lambda-&gt;&gt;DynamoDB: Link to cooking history
-    Lambda-&gt;&gt;DynamoDB: Query all ratings
+    Lambda->>DynamoDB: Save rating
+    Lambda->>DynamoDB: Link to cooking history
+    Lambda->>DynamoDB: Query all ratings
 
     Note over Lambda: Calculate average rating
-    Lambda-&gt;&gt;Lambda: avg_rating = 4.2
+    Lambda->>Lambda: avg_rating = 4.2
 
-    alt avg_rating &gt;= 4.0
-        Lambda-&gt;&gt;DynamoDB: Set is_approved = true
-        Lambda-&gt;&gt;DynamoDB: Set is_public = true
-        Lambda-&gt;&gt;Notification: Trigger success notification
-        Lambda--&gt;&gt;User: &#34;Recipe approved!&#34;
-    else avg_rating &lt; 4.0
-        Lambda--&gt;&gt;User: &#34;Thanks for rating!&#34;
+    alt avg_rating >= 4.0
+        Lambda->>DynamoDB: Set is_approved = true
+        Lambda->>DynamoDB: Set is_public = true
+        Lambda->>Notification: Trigger success notification
+        Lambda-->>User: "Recipe approved!"
+    else avg_rating < 4.0
+        Lambda-->>User: "Thanks for rating!"
     endPattern 4: Social Feed with Privacy#
 sequenceDiagram
     participant User
     participant Lambda
     participant DynamoDB
 
-    User-&gt;&gt;Lambda: GET /posts/feed
-    Lambda-&gt;&gt;DynamoDB: Get user&#39;s friends list
-    DynamoDB--&gt;&gt;Lambda: [friend_ids]
+    User->>Lambda: GET /posts/feed
+    Lambda->>DynamoDB: Get user&#39;s friends list
+    DynamoDB-->>Lambda: [friend_ids]
 
     loop For each friend
-        Lambda-&gt;&gt;DynamoDB: Get friend&#39;s privacy settings
-        Lambda-&gt;&gt;DynamoDB: Get friend&#39;s posts
+        Lambda->>DynamoDB: Get friend&#39;s privacy settings
+        Lambda->>DynamoDB: Get friend&#39;s posts
         Note over Lambda: Filter by privacy rules
     end
 
-    Lambda-&gt;&gt;Lambda: Aggregate &amp; sort by date
-    Lambda--&gt;&gt;User: Filtered feedComponent Architecture#
+    Lambda->>Lambda: Aggregate & sort by date
+    Lambda-->>User: Filtered feedComponent Architecture#
 Frontend Architecture (Node.js)#
 smart-cooking-webapp/
 ├── src/
 │   ├── routes/
 │   │   ├── index.js             # Landing page
 │   │   ├── auth.js              # Auth routes (login, register, verify)
-│   │   ├── dashboard.js         # Dashboard &amp; ingredients
+│   │   ├── dashboard.js         # Dashboard & ingredients
 │   │   ├── recipes.js           # Recipe routes (detail, search, suggestions)
-│   │   ├── cooking.js           # Cooking history &amp; sessions
+│   │   ├── cooking.js           # Cooking history & sessions
 │   │   ├── social.js            # Social feed, friends, profiles
-│   │   └── settings.js          # Profile &amp; privacy settings
+│   │   └── settings.js          # Profile & privacy settings
 │   ├── views/
 │   │   ├── layouts/
 │   │   │   └── main.ejs         # Main layout template
@@ -285,7 +275,7 @@ lambda-functions/
 │   ├── index.js                 # History CRUD
 │   └── package.json
 ├── rating-handler/
-│   ├── index.js                 # Rating &#43; approval
+│   ├── index.js                 # Rating + approval
 │   ├── auto-approval.js         # Approval logic
 │   └── package.json
 ├── social-friends/
@@ -313,34 +303,34 @@ sequenceDiagram
     participant APIGateway
     participant Lambda
 
-    User-&gt;&gt;WebApp: Enter credentials
-    WebApp-&gt;&gt;Cognito: InitiateAuth
-    Cognito--&gt;&gt;WebApp: JWT tokens (Access &#43; Refresh)
-    WebApp-&gt;&gt;WebApp: Store tokens (localStorage)
+    User->>WebApp: Enter credentials
+    WebApp->>Cognito: InitiateAuth
+    Cognito-->>WebApp: JWT tokens (Access + Refresh)
+    WebApp->>WebApp: Store tokens (localStorage)
 
     Note over User,Lambda: Subsequent API calls
 
-    User-&gt;&gt;WebApp: Click &#34;Get Suggestions&#34;
-    WebApp-&gt;&gt;APIGateway: GET /ai/suggest&lt;br/&gt;Authorization: Bearer {token}
-    APIGateway-&gt;&gt;Cognito: Validate token
-    Cognito--&gt;&gt;APIGateway: Token valid &#43; user_id
-    APIGateway-&gt;&gt;Lambda: Invoke with context
-    Lambda--&gt;&gt;APIGateway: Response
-    APIGateway--&gt;&gt;WebApp: JSON responseAuthorization Layers#
+    User->>WebApp: Click "Get Suggestions"
+    WebApp->>APIGateway: GET /ai/suggest<br/>Authorization: Bearer {token}
+    APIGateway->>Cognito: Validate token
+    Cognito-->>APIGateway: Token valid + user_id
+    APIGateway->>Lambda: Invoke with context
+    Lambda-->>APIGateway: Response
+    APIGateway-->>WebApp: JSON responseAuthorization Layers#
 graph TD
-    A[API Request] --&gt; B{WAF Check}
-    B --&gt;|Block| C[403 Forbidden]
-    B --&gt;|Pass| D{Rate Limit}
-    D --&gt;|Exceed| E[429 Too Many Requests]
-    D --&gt;|Pass| F{JWT Valid?}
-    F --&gt;|No| G[401 Unauthorized]
-    F --&gt;|Yes| H{Schema Valid?}
-    H --&gt;|No| I[400 Bad Request]
-    H --&gt;|Yes| J{User Active?}
-    J --&gt;|No| K[403 Forbidden]
-    J --&gt;|Yes| L{Has Permission?}
-    L --&gt;|No| M[403 Forbidden]
-    L --&gt;|Yes| N[Invoke Lambda]IAM Roles Structure#
+    A[API Request] --> B{WAF Check}
+    B -->|Block| C[403 Forbidden]
+    B -->|Pass| D{Rate Limit}
+    D -->|Exceed| E[429 Too Many Requests]
+    D -->|Pass| F{JWT Valid?}
+    F -->|No| G[401 Unauthorized]
+    F -->|Yes| H{Schema Valid?}
+    H -->|No| I[400 Bad Request]
+    H -->|Yes| J{User Active?}
+    J -->|No| K[403 Forbidden]
+    J -->|Yes| L{Has Permission?}
+    L -->|No| M[403 Forbidden]
+    L -->|Yes| N[Invoke Lambda]IAM Roles Structure#
 Roles:
   LambdaExecutionRole:
     Permissions:
@@ -376,564 +366,12 @@ Roles:
       - dynamodb:BatchWriteItem
       - cognito-idp:AdminDisableUserData Architecture#
 DynamoDB Single-Table Design#
-Table Name: smart-cooking-data">
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#343a40">
-<meta name="color-scheme" content="light dark"><meta property="og:url" content="https://example.org/docs/summary/10-architecture/">
-  <meta property="og:site_name" content="Together">
-  <meta property="og:title" content="10 - Architecture">
-  <meta property="og:description" content="Kiến Trúc Hệ Thống - Smart Cooking App#Architecture Overview#High-Level Architecture#graph TBsubgraph &#34;Client Layer&#34;Web[Web App&lt;br/&gt;Next.js &#43; React]Mobile[Mobile Web&lt;br/&gt;Responsive]endsubgraph &#34;CDN &amp; Hosting&#34;CF[CloudFront CDN&lt;br/&gt;Global Distribution]S3[S3 Static Hosting&lt;br/&gt;Next.js Build Output]R53[Route 53&lt;br/&gt;Custom Domain]endsubgraph &#34;API Layer&#34;APIGW[API Gateway&lt;br/&gt;REST API]Auth[Cognito Authorizer]WAF[AWS WAF&lt;br/&gt;Security Rules]endsubgraph &#34;Compute Layer - Lambda Functions&#34;L1[Auth Handler&lt;br/&gt;256MB, 10s]L2[Recipe CRUD&lt;br/&gt;512MB, 30s]L3[AI Suggestion&lt;br/&gt;1024MB, 60s]L4[User Profile&lt;br/&gt;256MB, 10s]L5[Social/Friends&lt;br/&gt;256MB, 10s]L6[Posts Handler&lt;br/&gt;512MB, 30s]L7[Notifications&lt;br/&gt;256MB, 10s]L8[Cooking History&lt;br/&gt;256MB, 10s]L9[Rating Handler&lt;br/&gt;256MB, 10s]L10[Ingredient Validator&lt;br/&gt;256MB, 10s]L11[Admin Ops&lt;br/&gt;512MB, 30s]endsubgraph &#34;AI Layer&#34;Bedrock[Amazon Bedrock&lt;br/&gt;Claude 3 Haiku/Sonnet]endsubgraph &#34;Data Layer&#34;DDB[(DynamoDB&lt;br/&gt;Single Table Design)]S3[(S3&lt;br/&gt;Images &amp; Assets)]endsubgraph &#34;Monitoring&#34;CW[CloudWatch&lt;br/&gt;Logs &#43; Metrics]XRay[X-Ray&lt;br/&gt;Distributed Tracing]endWeb --&gt; CFMobile --&gt; CFCF --&gt; S3CF --&gt; APIGWR53 --&gt; CFAPIGW --&gt; WAFWAF --&gt; AuthAuth --&gt; L1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 &amp; L8 &amp; L9 &amp; L10 &amp; L11L3 --&gt; BedrockL1 &amp; L2 &amp; L3 &amp; L4 &amp; L5 &amp; L6 &amp; L7 &amp; L8 &amp; L9 &amp; L10 &amp; L11 --&gt; DDBL2 &amp; L6 --&gt; S3L1 &amp; L2 &amp; L3 &amp; L8 &amp; L9 --&gt; CWAPIGW --&gt; XRayL3 --&gt; XRayArchitecture Principles#1. Serverless First#No server management: Focus on code, not infrastructure Auto-scaling: Handle 10 to 10,000 users automatically Pay-per-use: Cost scales with usage High availability: Built-in redundancy 2. Single Responsibility#Each Lambda function has ONE clear purpose Microservices architecture at function level Easy to test, debug, and maintain 3. Event-Driven#Asynchronous processing where possible DynamoDB Streams trigger notifications Loose coupling between components 4. Security by Default#All data encrypted at rest and in transit Least privilege IAM roles WAF protection on all endpoints JWT-based authentication 5. Cost-Optimized#Flexible DB/AI mix to reduce AI costs CloudFront caching to reduce origin hits On-demand DynamoDB pricing Efficient Lambda memory allocation Architecture Patterns#Pattern 1: API Request Flow#sequenceDiagramparticipant Userparticipant CloudFrontparticipant APIGatewayparticipant Cognitoparticipant Lambdaparticipant DynamoDBparticipant CloudWatchUser-&gt;&gt;CloudFront: HTTPS RequestCloudFront-&gt;&gt;APIGateway: Forward (if not cached)APIGateway-&gt;&gt;APIGateway: Validate request schemaAPIGateway-&gt;&gt;Cognito: Verify JWT tokenCognito--&gt;&gt;APIGateway: Token validAPIGateway-&gt;&gt;Lambda: Invoke with contextLambda-&gt;&gt;DynamoDB: Query/WriteDynamoDB--&gt;&gt;Lambda: ResponseLambda-&gt;&gt;CloudWatch: Log metricsLambda--&gt;&gt;APIGateway: Return responseAPIGateway--&gt;&gt;CloudFront: JSON responseCloudFront--&gt;&gt;User: Cached response (if applicable)Pattern 2: AI Suggestion Flow (Flexible Mix)#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBparticipant Bedrockparticipant CloudWatchUser-&gt;&gt;Lambda: POST /ai/suggest&lt;br/&gt;{ingredients, recipe_count: 3}Note over Lambda: Step 1: Validate IngredientsLambda-&gt;&gt;DynamoDB: Check master_ingredientsDynamoDB--&gt;&gt;Lambda: Validation resultsalt Invalid ingredients foundLambda-&gt;&gt;CloudWatch: Log invalid ingredientsLambda-&gt;&gt;DynamoDB: Increment report countendNote over Lambda: Step 2: Query DB by categoriesLambda-&gt;&gt;DynamoDB: Query approved recipes&lt;br/&gt;(match &#43; diverse categories)DynamoDB--&gt;&gt;Lambda: Found: 2 recipesNote over Lambda: Step 3: Calculate gap&lt;br/&gt;Requested: 3, DB: 2, Gap: 1Note over Lambda: Step 4: Generate AI recipesloop For gap recipes (1 recipe)Lambda-&gt;&gt;Bedrock: Generate with contextBedrock--&gt;&gt;Lambda: AI recipeendNote over Lambda: Step 5: Combine &amp; returnLambda-&gt;&gt;DynamoDB: Save suggestion historyLambda--&gt;&gt;User: 2 DB &#43; 1 AI = 3 recipesPattern 3: Auto-Approval Flow#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBparticipant NotificationUser-&gt;&gt;Lambda: Complete cookingLambda--&gt;&gt;User: Show rating formUser-&gt;&gt;Lambda: POST /recipes/{id}/rate&lt;br/&gt;{rating: 5, comment}Lambda-&gt;&gt;DynamoDB: Save ratingLambda-&gt;&gt;DynamoDB: Link to cooking historyLambda-&gt;&gt;DynamoDB: Query all ratingsNote over Lambda: Calculate average ratingLambda-&gt;&gt;Lambda: avg_rating = 4.2alt avg_rating &gt;= 4.0Lambda-&gt;&gt;DynamoDB: Set is_approved = trueLambda-&gt;&gt;DynamoDB: Set is_public = trueLambda-&gt;&gt;Notification: Trigger success notificationLambda--&gt;&gt;User: &#34;Recipe approved!&#34;else avg_rating &lt; 4.0Lambda--&gt;&gt;User: &#34;Thanks for rating!&#34;endPattern 4: Social Feed with Privacy#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBUser-&gt;&gt;Lambda: GET /posts/feedLambda-&gt;&gt;DynamoDB: Get user&#39;s friends listDynamoDB--&gt;&gt;Lambda: [friend_ids]loop For each friendLambda-&gt;&gt;DynamoDB: Get friend&#39;s privacy settingsLambda-&gt;&gt;DynamoDB: Get friend&#39;s postsNote over Lambda: Filter by privacy rulesendLambda-&gt;&gt;Lambda: Aggregate &amp; sort by dateLambda--&gt;&gt;User: Filtered feedComponent Architecture#Frontend Architecture (Node.js)#smart-cooking-webapp/├── src/│ ├── routes/│ │ ├── index.js # Landing page│ │ ├── auth.js # Auth routes (login, register, verify)│ │ ├── dashboard.js # Dashboard &amp; ingredients│ │ ├── recipes.js # Recipe routes (detail, search, suggestions)│ │ ├── cooking.js # Cooking history &amp; sessions│ │ ├── social.js # Social feed, friends, profiles│ │ └── settings.js # Profile &amp; privacy settings│ ├── views/│ │ ├── layouts/│ │ │ └── main.ejs # Main layout template│ │ ├── auth/│ │ │ ├── login.ejs # Login page│ │ │ ├── register.ejs # Registration│ │ │ └── verify.ejs # Email verification│ │ ├── dashboard/│ │ │ ├── index.ejs # User dashboard│ │ │ └── ingredients.ejs # Manage ingredients│ │ ├── recipes/│ │ │ ├── detail.ejs # Recipe detail│ │ │ ├── search.ejs # Recipe search│ │ │ └── suggestions.ejs # AI suggestions│ │ ├── cooking/│ │ │ ├── history.ejs # Cooking history│ │ │ └── session.ejs # Cooking session│ │ ├── social/│ │ │ ├── feed.ejs # Social feed│ │ │ ├── friends.ejs # Friends list│ │ │ └── profile.ejs # User profile│ │ └── settings/│ │ ├── profile.ejs # Profile settings│ │ └── privacy.ejs # Privacy settings│ ├── middleware/│ │ ├── auth.js # Authentication middleware│ │ ├── validation.js # Input validation│ │ └── errorHandler.js # Error handling│ ├── services/│ │ ├── apiClient.js # API client│ │ ├── authService.js # Auth helpers│ │ └── utils.js # Utilities│ └── public/│ ├── css/│ │ └── styles.css # Global styles│ ├── js/│ │ ├── auth.js # Auth frontend logic│ │ ├── recipes.js # Recipe frontend logic│ │ └── ingredients.js # Ingredients frontend logic│ └── images/├── app.js # Express app setup├── server.js # Server entry point└── package.json # DependenciesBackend Architecture (Lambda)#lambda-functions/├── shared/│ ├── dynamodb.js # DynamoDB helpers│ ├── auth.js # Auth utilities│ ├── errors.js # Error handlers│ └── validation.js # Input validation├── auth-handler/│ ├── index.js # Post-authentication│ └── package.json├── recipe-crud/│ ├── index.js # Recipe CRUD│ ├── s3-upload.js # Image upload│ └── package.json├── ai-suggestion/│ ├── index.js # Main handler│ ├── bedrock-client.js # Bedrock API│ ├── ingredient-validator.js # Validation│ ├── recipe-query.js # DB queries│ └── package.json├── user-profile/│ ├── index.js # Profile CRUD│ └── package.json├── cooking-history/│ ├── index.js # History CRUD│ └── package.json├── rating-handler/│ ├── index.js # Rating &#43; approval│ ├── auto-approval.js # Approval logic│ └── package.json├── social-friends/│ ├── index.js # Friends CRUD│ ├── privacy-filter.js # Privacy logic│ └── package.json├── posts-handler/│ ├── index.js # Posts CRUD│ └── package.json├── notifications/│ ├── index.js # Notifications│ └── package.json├── ingredient-validator/│ ├── index.js # Validation│ ├── fuzzy-search.js # Fuzzy matching│ └── package.json└── admin-ops/├── index.js # Admin operations└── package.jsonSecurity Architecture#Authentication Flow#sequenceDiagramparticipant Userparticipant WebAppparticipant Cognitoparticipant APIGatewayparticipant LambdaUser-&gt;&gt;WebApp: Enter credentialsWebApp-&gt;&gt;Cognito: InitiateAuthCognito--&gt;&gt;WebApp: JWT tokens (Access &#43; Refresh)WebApp-&gt;&gt;WebApp: Store tokens (localStorage)Note over User,Lambda: Subsequent API callsUser-&gt;&gt;WebApp: Click &#34;Get Suggestions&#34;WebApp-&gt;&gt;APIGateway: GET /ai/suggest&lt;br/&gt;Authorization: Bearer {token}APIGateway-&gt;&gt;Cognito: Validate tokenCognito--&gt;&gt;APIGateway: Token valid &#43; user_idAPIGateway-&gt;&gt;Lambda: Invoke with contextLambda--&gt;&gt;APIGateway: ResponseAPIGateway--&gt;&gt;WebApp: JSON responseAuthorization Layers#graph TDA[API Request] --&gt; B{WAF Check}B --&gt;|Block| C[403 Forbidden]B --&gt;|Pass| D{Rate Limit}D --&gt;|Exceed| E[429 Too Many Requests]D --&gt;|Pass| F{JWT Valid?}F --&gt;|No| G[401 Unauthorized]F --&gt;|Yes| H{Schema Valid?}H --&gt;|No| I[400 Bad Request]H --&gt;|Yes| J{User Active?}J --&gt;|No| K[403 Forbidden]J --&gt;|Yes| L{Has Permission?}L --&gt;|No| M[403 Forbidden]L --&gt;|Yes| N[Invoke Lambda]IAM Roles Structure#Roles: LambdaExecutionRole: Permissions: - logs:CreateLogGroup - logs:CreateLogStream - logs:PutLogEvents - xray:PutTraceSegments - xray:PutTelemetryRecords AISuggestionRole: Inherits: LambdaExecutionRole Additional: - dynamodb:Query - dynamodb:GetItem - dynamodb:PutItem - bedrock:InvokeModel RecipeCRUDRole: Inherits: LambdaExecutionRole Additional: - dynamodb:Query - dynamodb:GetItem - dynamodb:PutItem - dynamodb:UpdateItem - dynamodb:DeleteItem - s3:PutObject - s3:GetObject AdminRole: Inherits: RecipeCRUDRole Additional: - dynamodb:Scan - dynamodb:BatchWriteItem - cognito-idp:AdminDisableUserData Architecture#DynamoDB Single-Table Design#Table Name: smart-cooking-data">
-  <meta property="og:locale" content="en_us">
-  <meta property="og:type" content="article">
-    <meta property="article:section" content="docs">
-<title>10 - Architecture | Together</title>
-<link rel="icon" href="/favicon.png" >
-<link rel="manifest" href="/manifest.json">
-<link rel="canonical" href="https://example.org/docs/summary/10-architecture/">
-<link rel="stylesheet" href="/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css" integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin="anonymous">
-
-
-  <script defer src="/fuse.min.js"></script>
-  <script defer src="/en.search.min.4656d76cc7891c16a1d2c2fa9ad716c3898691b267f4b29a670a33c605149c45.js" integrity="sha256-RlbXbMeJHBah0sL6mtcWw4mGkbJn9LKaZwozxgUUnEU=" crossorigin="anonymous"></script>
-
-  
-</head>
-<body dir="ltr" class="book-kind-page book-type-docs">
-  <input type="checkbox" class="hidden toggle" id="menu-control" />
-  <input type="checkbox" class="hidden toggle" id="toc-control" />
-  <main class="container flex">
-    
-<aside class="book-menu">
-  <div class="book-menu-content">
-    
-  <nav>
-<h2 class="book-brand">
-  <a class="flex align-center" href="/"><span>Together</span>
-  </a>
-</h2>
-
-
-<div class="book-search hidden">
-  <input type="text" id="book-search-input" placeholder="Search" aria-label="Search" maxlength="64" data-hotkeys="s/" />
-  <div class="book-search-spinner hidden"></div>
-  <ul id="book-search-results"></ul>
-</div>
-<script>document.querySelector(".book-search").classList.remove("hidden")</script>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-  
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <input type="checkbox" id="section-374b40140ba2f693faf52da732bc0005" class="toggle"  />
-    <label for="section-374b40140ba2f693faf52da732bc0005" class="flex">
-      <a href="/docs/ai_dlc/" class="">
-        AI DLC</a>
-      <img src="/icons/chevron-right.svg" class="book-icon" />
-    </label>
-  
-
-          
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/design/" class="">
-      Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/requirements/" class="">
-      Requirements</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/ai_dlc/tasks/" class="">
-      Tasks</a>
-  
-
-        </li>
-      
-    
-  </ul>
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/" class="">
-      Summary</a>
-  
-
-          
-  <ul>
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/00-overview/" class="">
-      00 - Project Overview</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/01-requirements/" class="">
-      01 - Requirements</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/02-constraints/" class="">
-      02 - Constraints</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/10-architecture/" class="active">
-      10 - Architecture</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/11-database/" class="">
-      11 - Database Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/12-api-spec/" class="">
-      12 - API Specification</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/13-security/" class="">
-      13 - Security</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/14-ai-agent/" class="">
-      14 - AI Agent Design</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/20-backend/" class="">
-      20 - Backend Implementation</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/21-frontend/" class="">
-      21 - Frontend Implementation</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/22-devops/" class="">
-      22 - DevOps &amp; Deployment</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/23-tasks/" class="">
-      23 - Implementation Tasks</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/30-cost-analysis/" class="">
-      30 - Cost Analysis</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/31-scaling/" class="">
-      31 - Scaling Strategy</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/32-monitoring/" class="">
-      32 - Monitoring &amp; Observability</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/40-auth/" class="">
-      40 - Authentication &amp; Authorization</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/41-privacy/" class="">
-      41 - Privacy &amp; Data Protection</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/42-compliance/" class="">
-      42 - Compliance &amp; Governance</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/99-glossary/" class="">
-      99 - Glossary</a>
-  
-
-        </li>
-      
-    
-      
-        <li>
-          
-  
-  
-
-  
-    <a href="/docs/summary/99-references/" class="">
-      99 - References</a>
-  
-
-        </li>
-      
-    
-  </ul>
-
-        </li>
-      
-    
-  </ul>
-
-
-
-
-
-
-
-
-
-
-
-
-
-</nav>
-
-
-
-
-  <script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script>
-
-
-
-  </div>
-</aside>
- 
-
-    <div class="book-page">
-      <header class="book-header hidden">
-        
-  <div class="flex align-center justify-between">
-  <label for="menu-control">
-    <img src="/icons/menu.svg" class="book-icon" alt="Menu" />
-  </label>
-
-  <h3>10 - Architecture</h3>
-
-  <label for="toc-control">
-    
-    <img src="/icons/toc.svg" class="book-icon" alt="Table of Contents" />
-    
-  </label>
-</div>
-
-
-  
-  <aside class="hidden clearfix">
-    
-  
-<nav id="TableOfContents">
-  <ul>
-    <li><a href="#architecture-overview">Architecture Overview</a>
-      <ul>
-        <li><a href="#high-level-architecture">High-Level Architecture</a></li>
-      </ul>
-    </li>
-    <li><a href="#architecture-principles">Architecture Principles</a>
-      <ul>
-        <li><a href="#1-serverless-first">1. Serverless First</a></li>
-        <li><a href="#2-single-responsibility">2. Single Responsibility</a></li>
-        <li><a href="#3-event-driven">3. Event-Driven</a></li>
-        <li><a href="#4-security-by-default">4. Security by Default</a></li>
-        <li><a href="#5-cost-optimized">5. Cost-Optimized</a></li>
-      </ul>
-    </li>
-    <li><a href="#architecture-patterns">Architecture Patterns</a>
-      <ul>
-        <li><a href="#pattern-1-api-request-flow">Pattern 1: API Request Flow</a></li>
-        <li><a href="#pattern-2-ai-suggestion-flow-flexible-mix">Pattern 2: AI Suggestion Flow (Flexible Mix)</a></li>
-        <li><a href="#pattern-3-auto-approval-flow">Pattern 3: Auto-Approval Flow</a></li>
-        <li><a href="#pattern-4-social-feed-with-privacy">Pattern 4: Social Feed with Privacy</a></li>
-      </ul>
-    </li>
-    <li><a href="#component-architecture">Component Architecture</a>
-      <ul>
-        <li><a href="#frontend-architecture-nodejs">Frontend Architecture (Node.js)</a></li>
-        <li><a href="#backend-architecture-lambda">Backend Architecture (Lambda)</a></li>
-      </ul>
-    </li>
-    <li><a href="#security-architecture">Security Architecture</a>
-      <ul>
-        <li><a href="#authentication-flow">Authentication Flow</a></li>
-        <li><a href="#authorization-layers">Authorization Layers</a></li>
-        <li><a href="#iam-roles-structure">IAM Roles Structure</a></li>
-      </ul>
-    </li>
-    <li><a href="#data-architecture">Data Architecture</a>
-      <ul>
-        <li><a href="#dynamodb-single-table-design">DynamoDB Single-Table Design</a></li>
-        <li><a href="#indexes-strategy">Indexes Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#network-architecture">Network Architecture</a>
-      <ul>
-        <li><a href="#vpc-configuration-optional-for-mvp">VPC Configuration (Optional for MVP)</a></li>
-        <li><a href="#cdn-strategy">CDN Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#integration-architecture">Integration Architecture</a>
-      <ul>
-        <li><a href="#external-integrations-mvp">External Integrations (MVP)</a></li>
-      </ul>
-    </li>
-    <li><a href="#scalability-architecture">Scalability Architecture</a>
-      <ul>
-        <li><a href="#horizontal-scaling">Horizontal Scaling</a></li>
-        <li><a href="#vertical-scaling">Vertical Scaling</a></li>
-        <li><a href="#caching-strategy">Caching Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#observability-architecture">Observability Architecture</a>
-      <ul>
-        <li><a href="#logging-strategy">Logging Strategy</a></li>
-        <li><a href="#metrics--alarms">Metrics &amp; Alarms</a></li>
-        <li><a href="#distributed-tracing">Distributed Tracing</a></li>
-      </ul>
-    </li>
-    <li><a href="#related-documents">Related Documents</a></li>
-  </ul>
-</nav>
-
-
-
-  </aside>
-  
- 
-      </header>
-
-      
-      
-  <article class="markdown book-article"><h1 id="kiến-trúc-hệ-thống---smart-cooking-app">Kiến Trúc Hệ Thống - Smart Cooking App<a class="anchor" href="#ki%e1%ba%bfn-tr%c3%bac-h%e1%bb%87-th%e1%bb%91ng---smart-cooking-app">#</a></h1>
-<h2 id="architecture-overview">Architecture Overview<a class="anchor" href="#architecture-overview">#</a></h2>
-<h3 id="high-level-architecture">High-Level Architecture<a class="anchor" href="#high-level-architecture">#</a></h3>
-<pre class="mermaid">graph TB
+Table Name: smart-cooking-data'><meta name=theme-color media="(prefers-color-scheme: light)" content="#ffffff"><meta name=theme-color media="(prefers-color-scheme: dark)" content="#343a40"><meta name=color-scheme content="light dark"><meta property="og:url" content="https://example.org/docs/summary/10-architecture/"><meta property="og:site_name" content="Together"><meta property="og:title" content="10 - Architecture"><meta property="og:description" content='Kiến Trúc Hệ Thống - Smart Cooking App#Architecture Overview#High-Level Architecture#graph TBsubgraph "Client Layer"Web[Web App<br/>Next.js + React]Mobile[Mobile Web<br/>Responsive]endsubgraph "CDN & Hosting"CF[CloudFront CDN<br/>Global Distribution]S3[S3 Static Hosting<br/>Next.js Build Output]R53[Route 53<br/>Custom Domain]endsubgraph "API Layer"APIGW[API Gateway<br/>REST API]Auth[Cognito Authorizer]WAF[AWS WAF<br/>Security Rules]endsubgraph "Compute Layer - Lambda Functions"L1[Auth Handler<br/>256MB, 10s]L2[Recipe CRUD<br/>512MB, 30s]L3[AI Suggestion<br/>1024MB, 60s]L4[User Profile<br/>256MB, 10s]L5[Social/Friends<br/>256MB, 10s]L6[Posts Handler<br/>512MB, 30s]L7[Notifications<br/>256MB, 10s]L8[Cooking History<br/>256MB, 10s]L9[Rating Handler<br/>256MB, 10s]L10[Ingredient Validator<br/>256MB, 10s]L11[Admin Ops<br/>512MB, 30s]endsubgraph "AI Layer"Bedrock[Amazon Bedrock<br/>Claude 3 Haiku/Sonnet]endsubgraph "Data Layer"DDB[(DynamoDB<br/>Single Table Design)]S3[(S3<br/>Images & Assets)]endsubgraph "Monitoring"CW[CloudWatch<br/>Logs + Metrics]XRay[X-Ray<br/>Distributed Tracing]endWeb --> CFMobile --> CFCF --> S3CF --> APIGWR53 --> CFAPIGW --> WAFWAF --> AuthAuth --> L1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9 & L10 & L11L3 --> BedrockL1 & L2 & L3 & L4 & L5 & L6 & L7 & L8 & L9 & L10 & L11 --> DDBL2 & L6 --> S3L1 & L2 & L3 & L8 & L9 --> CWAPIGW --> XRayL3 --> XRayArchitecture Principles#1. Serverless First#No server management: Focus on code, not infrastructure Auto-scaling: Handle 10 to 10,000 users automatically Pay-per-use: Cost scales with usage High availability: Built-in redundancy 2. Single Responsibility#Each Lambda function has ONE clear purpose Microservices architecture at function level Easy to test, debug, and maintain 3. Event-Driven#Asynchronous processing where possible DynamoDB Streams trigger notifications Loose coupling between components 4. Security by Default#All data encrypted at rest and in transit Least privilege IAM roles WAF protection on all endpoints JWT-based authentication 5. Cost-Optimized#Flexible DB/AI mix to reduce AI costs CloudFront caching to reduce origin hits On-demand DynamoDB pricing Efficient Lambda memory allocation Architecture Patterns#Pattern 1: API Request Flow#sequenceDiagramparticipant Userparticipant CloudFrontparticipant APIGatewayparticipant Cognitoparticipant Lambdaparticipant DynamoDBparticipant CloudWatchUser->>CloudFront: HTTPS RequestCloudFront->>APIGateway: Forward (if not cached)APIGateway->>APIGateway: Validate request schemaAPIGateway->>Cognito: Verify JWT tokenCognito-->>APIGateway: Token validAPIGateway->>Lambda: Invoke with contextLambda->>DynamoDB: Query/WriteDynamoDB-->>Lambda: ResponseLambda->>CloudWatch: Log metricsLambda-->>APIGateway: Return responseAPIGateway-->>CloudFront: JSON responseCloudFront-->>User: Cached response (if applicable)Pattern 2: AI Suggestion Flow (Flexible Mix)#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBparticipant Bedrockparticipant CloudWatchUser->>Lambda: POST /ai/suggest<br/>{ingredients, recipe_count: 3}Note over Lambda: Step 1: Validate IngredientsLambda->>DynamoDB: Check master_ingredientsDynamoDB-->>Lambda: Validation resultsalt Invalid ingredients foundLambda->>CloudWatch: Log invalid ingredientsLambda->>DynamoDB: Increment report countendNote over Lambda: Step 2: Query DB by categoriesLambda->>DynamoDB: Query approved recipes<br/>(match + diverse categories)DynamoDB-->>Lambda: Found: 2 recipesNote over Lambda: Step 3: Calculate gap<br/>Requested: 3, DB: 2, Gap: 1Note over Lambda: Step 4: Generate AI recipesloop For gap recipes (1 recipe)Lambda->>Bedrock: Generate with contextBedrock-->>Lambda: AI recipeendNote over Lambda: Step 5: Combine & returnLambda->>DynamoDB: Save suggestion historyLambda-->>User: 2 DB + 1 AI = 3 recipesPattern 3: Auto-Approval Flow#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBparticipant NotificationUser->>Lambda: Complete cookingLambda-->>User: Show rating formUser->>Lambda: POST /recipes/{id}/rate<br/>{rating: 5, comment}Lambda->>DynamoDB: Save ratingLambda->>DynamoDB: Link to cooking historyLambda->>DynamoDB: Query all ratingsNote over Lambda: Calculate average ratingLambda->>Lambda: avg_rating = 4.2alt avg_rating >= 4.0Lambda->>DynamoDB: Set is_approved = trueLambda->>DynamoDB: Set is_public = trueLambda->>Notification: Trigger success notificationLambda-->>User: "Recipe approved!"else avg_rating < 4.0Lambda-->>User: "Thanks for rating!"endPattern 4: Social Feed with Privacy#sequenceDiagramparticipant Userparticipant Lambdaparticipant DynamoDBUser->>Lambda: GET /posts/feedLambda->>DynamoDB: Get user&#39;s friends listDynamoDB-->>Lambda: [friend_ids]loop For each friendLambda->>DynamoDB: Get friend&#39;s privacy settingsLambda->>DynamoDB: Get friend&#39;s postsNote over Lambda: Filter by privacy rulesendLambda->>Lambda: Aggregate & sort by dateLambda-->>User: Filtered feedComponent Architecture#Frontend Architecture (Node.js)#smart-cooking-webapp/├── src/│ ├── routes/│ │ ├── index.js # Landing page│ │ ├── auth.js # Auth routes (login, register, verify)│ │ ├── dashboard.js # Dashboard & ingredients│ │ ├── recipes.js # Recipe routes (detail, search, suggestions)│ │ ├── cooking.js # Cooking history & sessions│ │ ├── social.js # Social feed, friends, profiles│ │ └── settings.js # Profile & privacy settings│ ├── views/│ │ ├── layouts/│ │ │ └── main.ejs # Main layout template│ │ ├── auth/│ │ │ ├── login.ejs # Login page│ │ │ ├── register.ejs # Registration│ │ │ └── verify.ejs # Email verification│ │ ├── dashboard/│ │ │ ├── index.ejs # User dashboard│ │ │ └── ingredients.ejs # Manage ingredients│ │ ├── recipes/│ │ │ ├── detail.ejs # Recipe detail│ │ │ ├── search.ejs # Recipe search│ │ │ └── suggestions.ejs # AI suggestions│ │ ├── cooking/│ │ │ ├── history.ejs # Cooking history│ │ │ └── session.ejs # Cooking session│ │ ├── social/│ │ │ ├── feed.ejs # Social feed│ │ │ ├── friends.ejs # Friends list│ │ │ └── profile.ejs # User profile│ │ └── settings/│ │ ├── profile.ejs # Profile settings│ │ └── privacy.ejs # Privacy settings│ ├── middleware/│ │ ├── auth.js # Authentication middleware│ │ ├── validation.js # Input validation│ │ └── errorHandler.js # Error handling│ ├── services/│ │ ├── apiClient.js # API client│ │ ├── authService.js # Auth helpers│ │ └── utils.js # Utilities│ └── public/│ ├── css/│ │ └── styles.css # Global styles│ ├── js/│ │ ├── auth.js # Auth frontend logic│ │ ├── recipes.js # Recipe frontend logic│ │ └── ingredients.js # Ingredients frontend logic│ └── images/├── app.js # Express app setup├── server.js # Server entry point└── package.json # DependenciesBackend Architecture (Lambda)#lambda-functions/├── shared/│ ├── dynamodb.js # DynamoDB helpers│ ├── auth.js # Auth utilities│ ├── errors.js # Error handlers│ └── validation.js # Input validation├── auth-handler/│ ├── index.js # Post-authentication│ └── package.json├── recipe-crud/│ ├── index.js # Recipe CRUD│ ├── s3-upload.js # Image upload│ └── package.json├── ai-suggestion/│ ├── index.js # Main handler│ ├── bedrock-client.js # Bedrock API│ ├── ingredient-validator.js # Validation│ ├── recipe-query.js # DB queries│ └── package.json├── user-profile/│ ├── index.js # Profile CRUD│ └── package.json├── cooking-history/│ ├── index.js # History CRUD│ └── package.json├── rating-handler/│ ├── index.js # Rating + approval│ ├── auto-approval.js # Approval logic│ └── package.json├── social-friends/│ ├── index.js # Friends CRUD│ ├── privacy-filter.js # Privacy logic│ └── package.json├── posts-handler/│ ├── index.js # Posts CRUD│ └── package.json├── notifications/│ ├── index.js # Notifications│ └── package.json├── ingredient-validator/│ ├── index.js # Validation│ ├── fuzzy-search.js # Fuzzy matching│ └── package.json└── admin-ops/├── index.js # Admin operations└── package.jsonSecurity Architecture#Authentication Flow#sequenceDiagramparticipant Userparticipant WebAppparticipant Cognitoparticipant APIGatewayparticipant LambdaUser->>WebApp: Enter credentialsWebApp->>Cognito: InitiateAuthCognito-->>WebApp: JWT tokens (Access + Refresh)WebApp->>WebApp: Store tokens (localStorage)Note over User,Lambda: Subsequent API callsUser->>WebApp: Click "Get Suggestions"WebApp->>APIGateway: GET /ai/suggest<br/>Authorization: Bearer {token}APIGateway->>Cognito: Validate tokenCognito-->>APIGateway: Token valid + user_idAPIGateway->>Lambda: Invoke with contextLambda-->>APIGateway: ResponseAPIGateway-->>WebApp: JSON responseAuthorization Layers#graph TDA[API Request] --> B{WAF Check}B -->|Block| C[403 Forbidden]B -->|Pass| D{Rate Limit}D -->|Exceed| E[429 Too Many Requests]D -->|Pass| F{JWT Valid?}F -->|No| G[401 Unauthorized]F -->|Yes| H{Schema Valid?}H -->|No| I[400 Bad Request]H -->|Yes| J{User Active?}J -->|No| K[403 Forbidden]J -->|Yes| L{Has Permission?}L -->|No| M[403 Forbidden]L -->|Yes| N[Invoke Lambda]IAM Roles Structure#Roles: LambdaExecutionRole: Permissions: - logs:CreateLogGroup - logs:CreateLogStream - logs:PutLogEvents - xray:PutTraceSegments - xray:PutTelemetryRecords AISuggestionRole: Inherits: LambdaExecutionRole Additional: - dynamodb:Query - dynamodb:GetItem - dynamodb:PutItem - bedrock:InvokeModel RecipeCRUDRole: Inherits: LambdaExecutionRole Additional: - dynamodb:Query - dynamodb:GetItem - dynamodb:PutItem - dynamodb:UpdateItem - dynamodb:DeleteItem - s3:PutObject - s3:GetObject AdminRole: Inherits: RecipeCRUDRole Additional: - dynamodb:Scan - dynamodb:BatchWriteItem - cognito-idp:AdminDisableUserData Architecture#DynamoDB Single-Table Design#Table Name: smart-cooking-data'><meta property="og:locale" content="en_us"><meta property="og:type" content="article"><meta property="article:section" content="docs"><title>10 - Architecture | Together</title><link rel=icon href=/favicon.png><link rel=manifest href=/manifest.json><link rel=canonical href=https://example.org/docs/summary/10-architecture/><link rel=stylesheet href=/book.min.d124d6c76b11546b04023ef152f0ca77dd5bfd00e1638c75250d60e274cdc189.css integrity="sha256-0STWx2sRVGsEAj7xUvDKd91b/QDhY4x1JQ1g4nTNwYk=" crossorigin=anonymous><script defer src=/fuse.min.js></script><script defer src=/en.search.min.1cd97aa3612bbc3ad00379394cfef0c108972e1b03e7c0b4d0dbdd517abd5ac2.js integrity="sha256-HNl6o2ErvDrQA3k5TP7wwQiXLhsD58C00NvdUXq9WsI=" crossorigin=anonymous></script></head><body dir=ltr class="book-kind-page book-type-docs"><input type=checkbox class="hidden toggle" id=menu-control>
+<input type=checkbox class="hidden toggle" id=toc-control><main class="container flex"><aside class=book-menu><div class=book-menu-content><nav><h2 class=book-brand><a class="flex align-center" href=/><span>Together</span></a></h2><div class="book-search hidden"><input type=text id=book-search-input placeholder=Search aria-label=Search maxlength=64 data-hotkeys=s/><div class="book-search-spinner hidden"></div><ul id=book-search-results></ul></div><script>document.querySelector(".book-search").classList.remove("hidden")</script><ul><li><input type=checkbox id=section-374b40140ba2f693faf52da732bc0005 class=toggle>
+<label for=section-374b40140ba2f693faf52da732bc0005 class=flex><a href=/docs/ai_dlc/>AI DLC</a>
+<img src=/icons/chevron-right.svg class=book-icon></label><ul><li><a href=/docs/ai_dlc/design/>Design</a></li><li><a href=/docs/ai_dlc/requirements/>Requirements</a></li><li><a href=/docs/ai_dlc/tasks/>Tasks</a></li></ul></li><li><input type=checkbox id=section-d471e36090b604ac7465a018ea0fadb1 class=toggle>
+<label for=section-d471e36090b604ac7465a018ea0fadb1 class=flex><a href=/docs/designer/>Designer</a>
+<img src=/icons/chevron-right.svg class=book-icon></label><ul><li><a href=/docs/designer/design-brief/>Design Brief</a></li></ul></li><li><a href=/docs/summary/>Summary</a><ul><li><a href=/docs/summary/00-overview/>00 - Project Overview</a></li><li><a href=/docs/summary/01-requirements/>01 - Requirements</a></li><li><a href=/docs/summary/02-constraints/>02 - Constraints</a></li><li><a href=/docs/summary/10-architecture/ class=active>10 - Architecture</a></li><li><a href=/docs/summary/11-database/>11 - Database Design</a></li><li><a href=/docs/summary/12-api-spec/>12 - API Specification</a></li><li><a href=/docs/summary/13-security/>13 - Security</a></li><li><a href=/docs/summary/14-ai-agent/>14 - AI Agent Design</a></li><li><a href=/docs/summary/20-backend/>20 - Backend Implementation</a></li><li><a href=/docs/summary/21-frontend/>21 - Frontend Implementation</a></li><li><a href=/docs/summary/22-devops/>22 - DevOps & Deployment</a></li><li><a href=/docs/summary/23-tasks/>23 - Implementation Tasks</a></li><li><a href=/docs/summary/30-cost-analysis/>30 - Cost Analysis</a></li><li><a href=/docs/summary/31-scaling/>31 - Scaling Strategy</a></li><li><a href=/docs/summary/32-monitoring/>32 - Monitoring & Observability</a></li><li><a href=/docs/summary/40-auth/>40 - Authentication & Authorization</a></li><li><a href=/docs/summary/41-privacy/>41 - Privacy & Data Protection</a></li><li><a href=/docs/summary/42-compliance/>42 - Compliance & Governance</a></li><li><a href=/docs/summary/99-glossary/>99 - Glossary</a></li><li><a href=/docs/summary/99-references/>99 - References</a></li></ul></li><li><a href=/docs/kiro/design/>Design</a></li><li><a href=/docs/kiro/requirements/>Requirements</a></li><li><a href=/docs/kiro/tasks/>Tasks</a></li></ul></nav><script>(function(){var e=document.querySelector("aside .book-menu-content");addEventListener("beforeunload",function(){localStorage.setItem("menu.scrollTop",e.scrollTop)}),e.scrollTop=localStorage.getItem("menu.scrollTop")})()</script></div></aside><div class=book-page><header class="book-header hidden"><div class="flex align-center justify-between"><label for=menu-control><img src=/icons/menu.svg class=book-icon alt=Menu></label><h3>10 - Architecture</h3><label for=toc-control><img src=/icons/toc.svg class=book-icon alt="Table of Contents"></label></div><aside class="hidden clearfix"><nav id=TableOfContents><ul><li><a href=#architecture-overview>Architecture Overview</a><ul><li><a href=#high-level-architecture>High-Level Architecture</a></li></ul></li><li><a href=#architecture-principles>Architecture Principles</a><ul><li><a href=#1-serverless-first>1. Serverless First</a></li><li><a href=#2-single-responsibility>2. Single Responsibility</a></li><li><a href=#3-event-driven>3. Event-Driven</a></li><li><a href=#4-security-by-default>4. Security by Default</a></li><li><a href=#5-cost-optimized>5. Cost-Optimized</a></li></ul></li><li><a href=#architecture-patterns>Architecture Patterns</a><ul><li><a href=#pattern-1-api-request-flow>Pattern 1: API Request Flow</a></li><li><a href=#pattern-2-ai-suggestion-flow-flexible-mix>Pattern 2: AI Suggestion Flow (Flexible Mix)</a></li><li><a href=#pattern-3-auto-approval-flow>Pattern 3: Auto-Approval Flow</a></li><li><a href=#pattern-4-social-feed-with-privacy>Pattern 4: Social Feed with Privacy</a></li></ul></li><li><a href=#component-architecture>Component Architecture</a><ul><li><a href=#frontend-architecture-nodejs>Frontend Architecture (Node.js)</a></li><li><a href=#backend-architecture-lambda>Backend Architecture (Lambda)</a></li></ul></li><li><a href=#security-architecture>Security Architecture</a><ul><li><a href=#authentication-flow>Authentication Flow</a></li><li><a href=#authorization-layers>Authorization Layers</a></li><li><a href=#iam-roles-structure>IAM Roles Structure</a></li></ul></li><li><a href=#data-architecture>Data Architecture</a><ul><li><a href=#dynamodb-single-table-design>DynamoDB Single-Table Design</a></li><li><a href=#indexes-strategy>Indexes Strategy</a></li></ul></li><li><a href=#network-architecture>Network Architecture</a><ul><li><a href=#vpc-configuration-optional-for-mvp>VPC Configuration (Optional for MVP)</a></li><li><a href=#cdn-strategy>CDN Strategy</a></li></ul></li><li><a href=#integration-architecture>Integration Architecture</a><ul><li><a href=#external-integrations-mvp>External Integrations (MVP)</a></li></ul></li><li><a href=#scalability-architecture>Scalability Architecture</a><ul><li><a href=#horizontal-scaling>Horizontal Scaling</a></li><li><a href=#vertical-scaling>Vertical Scaling</a></li><li><a href=#caching-strategy>Caching Strategy</a></li></ul></li><li><a href=#observability-architecture>Observability Architecture</a><ul><li><a href=#logging-strategy>Logging Strategy</a></li><li><a href=#metrics--alarms>Metrics & Alarms</a></li><li><a href=#distributed-tracing>Distributed Tracing</a></li></ul></li><li><a href=#related-documents>Related Documents</a></li></ul></nav></aside></header><article class="markdown book-article"><h1 id=kiến-trúc-hệ-thống---smart-cooking-app>Kiến Trúc Hệ Thống - Smart Cooking App<a class=anchor href=#ki%e1%ba%bfn-tr%c3%bac-h%e1%bb%87-th%e1%bb%91ng---smart-cooking-app>#</a></h1><h2 id=architecture-overview>Architecture Overview<a class=anchor href=#architecture-overview>#</a></h2><h3 id=high-level-architecture>High-Level Architecture<a class=anchor href=#high-level-architecture>#</a></h3><pre class=mermaid>graph TB
     subgraph &#34;Client Layer&#34;
         Web[Web App&lt;br/&gt;Next.js + React]
         Mobile[Mobile Web&lt;br/&gt;Responsive]
@@ -994,43 +432,7 @@ Table Name: smart-cooking-data">
 
     L1 &amp; L2 &amp; L3 &amp; L8 &amp; L9 --&gt; CW
     APIGW --&gt; XRay
-    L3 --&gt; XRay</pre><script src="/mermaid.min.js"></script><script>mermaid.initialize({"flowchart":{"useMaxWidth":true},"theme":"default"})</script><h2 id="architecture-principles">Architecture Principles<a class="anchor" href="#architecture-principles">#</a></h2>
-<h3 id="1-serverless-first">1. Serverless First<a class="anchor" href="#1-serverless-first">#</a></h3>
-<ul>
-<li><strong>No server management</strong>: Focus on code, not infrastructure</li>
-<li><strong>Auto-scaling</strong>: Handle 10 to 10,000 users automatically</li>
-<li><strong>Pay-per-use</strong>: Cost scales with usage</li>
-<li><strong>High availability</strong>: Built-in redundancy</li>
-</ul>
-<h3 id="2-single-responsibility">2. Single Responsibility<a class="anchor" href="#2-single-responsibility">#</a></h3>
-<ul>
-<li>Each Lambda function has ONE clear purpose</li>
-<li>Microservices architecture at function level</li>
-<li>Easy to test, debug, and maintain</li>
-</ul>
-<h3 id="3-event-driven">3. Event-Driven<a class="anchor" href="#3-event-driven">#</a></h3>
-<ul>
-<li>Asynchronous processing where possible</li>
-<li>DynamoDB Streams trigger notifications</li>
-<li>Loose coupling between components</li>
-</ul>
-<h3 id="4-security-by-default">4. Security by Default<a class="anchor" href="#4-security-by-default">#</a></h3>
-<ul>
-<li>All data encrypted at rest and in transit</li>
-<li>Least privilege IAM roles</li>
-<li>WAF protection on all endpoints</li>
-<li>JWT-based authentication</li>
-</ul>
-<h3 id="5-cost-optimized">5. Cost-Optimized<a class="anchor" href="#5-cost-optimized">#</a></h3>
-<ul>
-<li>Flexible DB/AI mix to reduce AI costs</li>
-<li>CloudFront caching to reduce origin hits</li>
-<li>On-demand DynamoDB pricing</li>
-<li>Efficient Lambda memory allocation</li>
-</ul>
-<h2 id="architecture-patterns">Architecture Patterns<a class="anchor" href="#architecture-patterns">#</a></h2>
-<h3 id="pattern-1-api-request-flow">Pattern 1: API Request Flow<a class="anchor" href="#pattern-1-api-request-flow">#</a></h3>
-<pre class="mermaid">sequenceDiagram
+    L3 --&gt; XRay</pre><script src=/mermaid.min.js></script><script>mermaid.initialize({flowchart:{useMaxWidth:!0},theme:"default"})</script><h2 id=architecture-principles>Architecture Principles<a class=anchor href=#architecture-principles>#</a></h2><h3 id=1-serverless-first>1. Serverless First<a class=anchor href=#1-serverless-first>#</a></h3><ul><li><strong>No server management</strong>: Focus on code, not infrastructure</li><li><strong>Auto-scaling</strong>: Handle 10 to 10,000 users automatically</li><li><strong>Pay-per-use</strong>: Cost scales with usage</li><li><strong>High availability</strong>: Built-in redundancy</li></ul><h3 id=2-single-responsibility>2. Single Responsibility<a class=anchor href=#2-single-responsibility>#</a></h3><ul><li>Each Lambda function has ONE clear purpose</li><li>Microservices architecture at function level</li><li>Easy to test, debug, and maintain</li></ul><h3 id=3-event-driven>3. Event-Driven<a class=anchor href=#3-event-driven>#</a></h3><ul><li>Asynchronous processing where possible</li><li>DynamoDB Streams trigger notifications</li><li>Loose coupling between components</li></ul><h3 id=4-security-by-default>4. Security by Default<a class=anchor href=#4-security-by-default>#</a></h3><ul><li>All data encrypted at rest and in transit</li><li>Least privilege IAM roles</li><li>WAF protection on all endpoints</li><li>JWT-based authentication</li></ul><h3 id=5-cost-optimized>5. Cost-Optimized<a class=anchor href=#5-cost-optimized>#</a></h3><ul><li>Flexible DB/AI mix to reduce AI costs</li><li>CloudFront caching to reduce origin hits</li><li>On-demand DynamoDB pricing</li><li>Efficient Lambda memory allocation</li></ul><h2 id=architecture-patterns>Architecture Patterns<a class=anchor href=#architecture-patterns>#</a></h2><h3 id=pattern-1-api-request-flow>Pattern 1: API Request Flow<a class=anchor href=#pattern-1-api-request-flow>#</a></h3><pre class=mermaid>sequenceDiagram
     participant User
     participant CloudFront
     participant APIGateway
@@ -1050,8 +452,7 @@ Table Name: smart-cooking-data">
     Lambda-&gt;&gt;CloudWatch: Log metrics
     Lambda--&gt;&gt;APIGateway: Return response
     APIGateway--&gt;&gt;CloudFront: JSON response
-    CloudFront--&gt;&gt;User: Cached response (if applicable)</pre><h3 id="pattern-2-ai-suggestion-flow-flexible-mix">Pattern 2: AI Suggestion Flow (Flexible Mix)<a class="anchor" href="#pattern-2-ai-suggestion-flow-flexible-mix">#</a></h3>
-<pre class="mermaid">sequenceDiagram
+    CloudFront--&gt;&gt;User: Cached response (if applicable)</pre><h3 id=pattern-2-ai-suggestion-flow-flexible-mix>Pattern 2: AI Suggestion Flow (Flexible Mix)<a class=anchor href=#pattern-2-ai-suggestion-flow-flexible-mix>#</a></h3><pre class=mermaid>sequenceDiagram
     participant User
     participant Lambda
     participant DynamoDB
@@ -1083,8 +484,7 @@ Table Name: smart-cooking-data">
 
     Note over Lambda: Step 5: Combine &amp; return
     Lambda-&gt;&gt;DynamoDB: Save suggestion history
-    Lambda--&gt;&gt;User: 2 DB + 1 AI = 3 recipes</pre><h3 id="pattern-3-auto-approval-flow">Pattern 3: Auto-Approval Flow<a class="anchor" href="#pattern-3-auto-approval-flow">#</a></h3>
-<pre class="mermaid">sequenceDiagram
+    Lambda--&gt;&gt;User: 2 DB + 1 AI = 3 recipes</pre><h3 id=pattern-3-auto-approval-flow>Pattern 3: Auto-Approval Flow<a class=anchor href=#pattern-3-auto-approval-flow>#</a></h3><pre class=mermaid>sequenceDiagram
     participant User
     participant Lambda
     participant DynamoDB
@@ -1109,8 +509,7 @@ Table Name: smart-cooking-data">
         Lambda--&gt;&gt;User: &#34;Recipe approved!&#34;
     else avg_rating &lt; 4.0
         Lambda--&gt;&gt;User: &#34;Thanks for rating!&#34;
-    end</pre><h3 id="pattern-4-social-feed-with-privacy">Pattern 4: Social Feed with Privacy<a class="anchor" href="#pattern-4-social-feed-with-privacy">#</a></h3>
-<pre class="mermaid">sequenceDiagram
+    end</pre><h3 id=pattern-4-social-feed-with-privacy>Pattern 4: Social Feed with Privacy<a class=anchor href=#pattern-4-social-feed-with-privacy>#</a></h3><pre class=mermaid>sequenceDiagram
     participant User
     participant Lambda
     participant DynamoDB
@@ -1126,9 +525,7 @@ Table Name: smart-cooking-data">
     end
 
     Lambda-&gt;&gt;Lambda: Aggregate &amp; sort by date
-    Lambda--&gt;&gt;User: Filtered feed</pre><h2 id="component-architecture">Component Architecture<a class="anchor" href="#component-architecture">#</a></h2>
-<h3 id="frontend-architecture-nodejs">Frontend Architecture (Node.js)<a class="anchor" href="#frontend-architecture-nodejs">#</a></h3>
-<pre tabindex="0"><code>smart-cooking-webapp/
+    Lambda--&gt;&gt;User: Filtered feed</pre><h2 id=component-architecture>Component Architecture<a class=anchor href=#component-architecture>#</a></h2><h3 id=frontend-architecture-nodejs>Frontend Architecture (Node.js)<a class=anchor href=#frontend-architecture-nodejs>#</a></h3><pre tabindex=0><code>smart-cooking-webapp/
 ├── src/
 │   ├── routes/
 │   │   ├── index.js             # Landing page
@@ -1180,8 +577,7 @@ Table Name: smart-cooking-data">
 │       └── images/
 ├── app.js                       # Express app setup
 ├── server.js                    # Server entry point
-└── package.json                 # Dependencies</code></pre><h3 id="backend-architecture-lambda">Backend Architecture (Lambda)<a class="anchor" href="#backend-architecture-lambda">#</a></h3>
-<pre tabindex="0"><code>lambda-functions/
+└── package.json                 # Dependencies</code></pre><h3 id=backend-architecture-lambda>Backend Architecture (Lambda)<a class=anchor href=#backend-architecture-lambda>#</a></h3><pre tabindex=0><code>lambda-functions/
 ├── shared/
 │   ├── dynamodb.js              # DynamoDB helpers
 │   ├── auth.js                  # Auth utilities
@@ -1226,9 +622,7 @@ Table Name: smart-cooking-data">
 │   └── package.json
 └── admin-ops/
     ├── index.js                 # Admin operations
-    └── package.json</code></pre><h2 id="security-architecture">Security Architecture<a class="anchor" href="#security-architecture">#</a></h2>
-<h3 id="authentication-flow">Authentication Flow<a class="anchor" href="#authentication-flow">#</a></h3>
-<pre class="mermaid">sequenceDiagram
+    └── package.json</code></pre><h2 id=security-architecture>Security Architecture<a class=anchor href=#security-architecture>#</a></h2><h3 id=authentication-flow>Authentication Flow<a class=anchor href=#authentication-flow>#</a></h3><pre class=mermaid>sequenceDiagram
     participant User
     participant WebApp
     participant Cognito
@@ -1248,8 +642,7 @@ Table Name: smart-cooking-data">
     Cognito--&gt;&gt;APIGateway: Token valid + user_id
     APIGateway-&gt;&gt;Lambda: Invoke with context
     Lambda--&gt;&gt;APIGateway: Response
-    APIGateway--&gt;&gt;WebApp: JSON response</pre><h3 id="authorization-layers">Authorization Layers<a class="anchor" href="#authorization-layers">#</a></h3>
-<pre class="mermaid">graph TD
+    APIGateway--&gt;&gt;WebApp: JSON response</pre><h3 id=authorization-layers>Authorization Layers<a class=anchor href=#authorization-layers>#</a></h3><pre class=mermaid>graph TD
     A[API Request] --&gt; B{WAF Check}
     B --&gt;|Block| C[403 Forbidden]
     B --&gt;|Pass| D{Rate Limit}
@@ -1262,44 +655,40 @@ Table Name: smart-cooking-data">
     J --&gt;|No| K[403 Forbidden]
     J --&gt;|Yes| L{Has Permission?}
     L --&gt;|No| M[403 Forbidden]
-    L --&gt;|Yes| N[Invoke Lambda]</pre><h3 id="iam-roles-structure">IAM Roles Structure<a class="anchor" href="#iam-roles-structure">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Roles</span>:
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">LambdaExecutionRole</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Permissions</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">logs:CreateLogGroup</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">logs:CreateLogStream</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">logs:PutLogEvents</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">xray:PutTraceSegments</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">xray:PutTelemetryRecords</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">AISuggestionRole</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Inherits</span>: <span style="color:#ae81ff">LambdaExecutionRole</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Additional</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:Query</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:GetItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:PutItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">bedrock:InvokeModel</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">RecipeCRUDRole</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Inherits</span>: <span style="color:#ae81ff">LambdaExecutionRole</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Additional</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:Query</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:GetItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:PutItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:UpdateItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:DeleteItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">s3:PutObject</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">s3:GetObject</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span>  <span style="color:#f92672">AdminRole</span>:
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Inherits</span>: <span style="color:#ae81ff">RecipeCRUDRole</span>
-</span></span><span style="display:flex;"><span>    <span style="color:#f92672">Additional</span>:
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:Scan</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">dynamodb:BatchWriteItem</span>
-</span></span><span style="display:flex;"><span>      - <span style="color:#ae81ff">cognito-idp:AdminDisableUser</span></span></span></code></pre></div><h2 id="data-architecture">Data Architecture<a class="anchor" href="#data-architecture">#</a></h2>
-<h3 id="dynamodb-single-table-design">DynamoDB Single-Table Design<a class="anchor" href="#dynamodb-single-table-design">#</a></h3>
-<p><strong>Table Name</strong>: <code>smart-cooking-data</code></p>
-<pre tabindex="0"><code>Access Patterns by Entity:
+    L --&gt;|Yes| N[Invoke Lambda]</pre><h3 id=iam-roles-structure>IAM Roles Structure<a class=anchor href=#iam-roles-structure>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Roles</span>:
+</span></span><span style=display:flex><span>  <span style=color:#f92672>LambdaExecutionRole</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Permissions</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>logs:CreateLogGroup</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>logs:CreateLogStream</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>logs:PutLogEvents</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>xray:PutTraceSegments</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>xray:PutTelemetryRecords</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>AISuggestionRole</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Inherits</span>: <span style=color:#ae81ff>LambdaExecutionRole</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Additional</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:Query</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:GetItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:PutItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>bedrock:InvokeModel</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>RecipeCRUDRole</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Inherits</span>: <span style=color:#ae81ff>LambdaExecutionRole</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Additional</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:Query</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:GetItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:PutItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:UpdateItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:DeleteItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>s3:PutObject</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>s3:GetObject</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span>  <span style=color:#f92672>AdminRole</span>:
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Inherits</span>: <span style=color:#ae81ff>RecipeCRUDRole</span>
+</span></span><span style=display:flex><span>    <span style=color:#f92672>Additional</span>:
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:Scan</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>dynamodb:BatchWriteItem</span>
+</span></span><span style=display:flex><span>      - <span style=color:#ae81ff>cognito-idp:AdminDisableUser</span></span></span></code></pre></div><h2 id=data-architecture>Data Architecture<a class=anchor href=#data-architecture>#</a></h2><h3 id=dynamodb-single-table-design>DynamoDB Single-Table Design<a class=anchor href=#dynamodb-single-table-design>#</a></h3><p><strong>Table Name</strong>: <code>smart-cooking-data</code></p><pre tabindex=0><code>Access Patterns by Entity:
 
 1. Users
    PK: USER#&lt;user_id&gt;
@@ -1345,8 +734,7 @@ Table Name: smart-cooking-data">
 9. Notifications
    PK: USER#&lt;user_id&gt;
    SK: NOTIFICATION#&lt;timestamp&gt;
-   GSI1PK: USER#&lt;user_id&gt;#UNREAD</code></pre><h3 id="indexes-strategy">Indexes Strategy<a class="anchor" href="#indexes-strategy">#</a></h3>
-<pre tabindex="0"><code>Primary Index:
+   GSI1PK: USER#&lt;user_id&gt;#UNREAD</code></pre><h3 id=indexes-strategy>Indexes Strategy<a class=anchor href=#indexes-strategy>#</a></h3><pre tabindex=0><code>Primary Index:
   - PK: Partition Key
   - SK: Sort Key
   - Purpose: Main access pattern
@@ -1364,15 +752,7 @@ GSI2 (Discovery &amp; Search):
 GSI3 (Social Feed):
   - GSI3PK: Feed type
   - GSI3SK: Timestamp
-  - Purpose: Newsfeed, public posts</code></pre><h2 id="network-architecture">Network Architecture<a class="anchor" href="#network-architecture">#</a></h2>
-<h3 id="vpc-configuration-optional-for-mvp">VPC Configuration (Optional for MVP)<a class="anchor" href="#vpc-configuration-optional-for-mvp">#</a></h3>
-<ul>
-<li><strong>MVP</strong>: No VPC (all services are public AWS services)</li>
-<li><strong>Future</strong>: VPC for RDS if needed</li>
-<li><strong>Rationale</strong>: Serverless services don&rsquo;t require VPC</li>
-</ul>
-<h3 id="cdn-strategy">CDN Strategy<a class="anchor" href="#cdn-strategy">#</a></h3>
-<pre tabindex="0"><code>CloudFront Distribution:
+  - Purpose: Newsfeed, public posts</code></pre><h2 id=network-architecture>Network Architecture<a class=anchor href=#network-architecture>#</a></h2><h3 id=vpc-configuration-optional-for-mvp>VPC Configuration (Optional for MVP)<a class=anchor href=#vpc-configuration-optional-for-mvp>#</a></h3><ul><li><strong>MVP</strong>: No VPC (all services are public AWS services)</li><li><strong>Future</strong>: VPC for RDS if needed</li><li><strong>Rationale</strong>: Serverless services don&rsquo;t require VPC</li></ul><h3 id=cdn-strategy>CDN Strategy<a class=anchor href=#cdn-strategy>#</a></h3><pre tabindex=0><code>CloudFront Distribution:
   Origins:
     - S3: Static assets (images, CSS, JS) + Next.js build output
     - API Gateway: API endpoints
@@ -1391,53 +771,7 @@ GSI3 (Social Feed):
   Custom Domain: via Route 53
   Geo-Restrictions: None
   HTTPS: Required
-  HTTP/2: Enabled</code></pre><h2 id="integration-architecture">Integration Architecture<a class="anchor" href="#integration-architecture">#</a></h2>
-<h3 id="external-integrations-mvp">External Integrations (MVP)<a class="anchor" href="#external-integrations-mvp">#</a></h3>
-<ol>
-<li>
-<p><strong>Amazon Cognito</strong></p>
-<ul>
-<li>Purpose: User authentication</li>
-<li>Integration: AWS SDK</li>
-<li>Fallback: N/A (critical service)</li>
-</ul>
-</li>
-<li>
-<p><strong>Amazon Bedrock</strong></p>
-<ul>
-<li>Purpose: AI recipe generation</li>
-<li>Integration: AWS SDK v3</li>
-<li>Fallback: Return DB recipes only</li>
-<li>Timeout: 60 seconds</li>
-<li>Retry: 2 attempts with exponential backoff</li>
-</ul>
-</li>
-<li>
-<p><strong>AWS Services (Internal)</strong></p>
-<ul>
-<li>DynamoDB: Data persistence</li>
-<li>S3: File storage</li>
-<li>CloudWatch: Logging &amp; monitoring</li>
-<li>X-Ray: Distributed tracing</li>
-</ul>
-</li>
-</ol>
-<h2 id="scalability-architecture">Scalability Architecture<a class="anchor" href="#scalability-architecture">#</a></h2>
-<h3 id="horizontal-scaling">Horizontal Scaling<a class="anchor" href="#horizontal-scaling">#</a></h3>
-<ul>
-<li><strong>Lambda</strong>: Auto-scales to 1,000 concurrent (default)</li>
-<li><strong>DynamoDB</strong>: On-demand mode (auto-scales)</li>
-<li><strong>S3</strong>: Unlimited scaling</li>
-<li><strong>CloudFront</strong>: Global edge network</li>
-</ul>
-<h3 id="vertical-scaling">Vertical Scaling<a class="anchor" href="#vertical-scaling">#</a></h3>
-<ul>
-<li><strong>Lambda Memory</strong>: 256MB → 1024MB</li>
-<li><strong>DynamoDB</strong>: On-demand → Provisioned</li>
-<li><strong>Reserved Concurrency</strong>: Add for critical functions</li>
-</ul>
-<h3 id="caching-strategy">Caching Strategy<a class="anchor" href="#caching-strategy">#</a></h3>
-<pre tabindex="0"><code>Layer 1: CloudFront (Edge)
+  HTTP/2: Enabled</code></pre><h2 id=integration-architecture>Integration Architecture<a class=anchor href=#integration-architecture>#</a></h2><h3 id=external-integrations-mvp>External Integrations (MVP)<a class=anchor href=#external-integrations-mvp>#</a></h3><ol><li><p><strong>Amazon Cognito</strong></p><ul><li>Purpose: User authentication</li><li>Integration: AWS SDK</li><li>Fallback: N/A (critical service)</li></ul></li><li><p><strong>Amazon Bedrock</strong></p><ul><li>Purpose: AI recipe generation</li><li>Integration: AWS SDK v3</li><li>Fallback: Return DB recipes only</li><li>Timeout: 60 seconds</li><li>Retry: 2 attempts with exponential backoff</li></ul></li><li><p><strong>AWS Services (Internal)</strong></p><ul><li>DynamoDB: Data persistence</li><li>S3: File storage</li><li>CloudWatch: Logging & monitoring</li><li>X-Ray: Distributed tracing</li></ul></li></ol><h2 id=scalability-architecture>Scalability Architecture<a class=anchor href=#scalability-architecture>#</a></h2><h3 id=horizontal-scaling>Horizontal Scaling<a class=anchor href=#horizontal-scaling>#</a></h3><ul><li><strong>Lambda</strong>: Auto-scales to 1,000 concurrent (default)</li><li><strong>DynamoDB</strong>: On-demand mode (auto-scales)</li><li><strong>S3</strong>: Unlimited scaling</li><li><strong>CloudFront</strong>: Global edge network</li></ul><h3 id=vertical-scaling>Vertical Scaling<a class=anchor href=#vertical-scaling>#</a></h3><ul><li><strong>Lambda Memory</strong>: 256MB → 1024MB</li><li><strong>DynamoDB</strong>: On-demand → Provisioned</li><li><strong>Reserved Concurrency</strong>: Add for critical functions</li></ul><h3 id=caching-strategy>Caching Strategy<a class=anchor href=#caching-strategy>#</a></h3><pre tabindex=0><code>Layer 1: CloudFront (Edge)
   - Static assets: 24 hours
   - Web pages: 1 hour
 
@@ -1451,9 +785,7 @@ Layer 3: Lambda (In-Memory)
 
 Layer 4: DynamoDB
   - DAX (DynamoDB Accelerator): Post-MVP
-  - Reduces read latency to microseconds</code></pre><h2 id="observability-architecture">Observability Architecture<a class="anchor" href="#observability-architecture">#</a></h2>
-<h3 id="logging-strategy">Logging Strategy<a class="anchor" href="#logging-strategy">#</a></h3>
-<pre tabindex="0"><code>CloudWatch Log Groups:
+  - Reduces read latency to microseconds</code></pre><h2 id=observability-architecture>Observability Architecture<a class=anchor href=#observability-architecture>#</a></h2><h3 id=logging-strategy>Logging Strategy<a class=anchor href=#logging-strategy>#</a></h3><pre tabindex=0><code>CloudWatch Log Groups:
   /aws/lambda/auth-handler
   /aws/lambda/recipe-crud
   /aws/lambda/ai-suggestion      # Most important
@@ -1473,29 +805,27 @@ Log Format (JSON):
     &#34;metadata&#34;: {...}
   }
 
-Retention: 7 days (cost optimization)</code></pre><h3 id="metrics--alarms">Metrics &amp; Alarms<a class="anchor" href="#metrics--alarms">#</a></h3>
-<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-yaml" data-lang="yaml"><span style="display:flex;"><span><span style="color:#f92672">Critical Alarms</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda errors &gt; 1%</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API Gateway 5xx &gt; 10 requests/5min</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB throttled requests &gt; 0</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">AI generation timeout &gt; 10%</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Monthly cost &gt; $170</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Warning Alarms</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda duration &gt; 5s (p95)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API latency &gt; 500ms (p95)</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Invalid ingredients &gt; 10/hour</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Monthly cost &gt; $140</span>
-</span></span><span style="display:flex;"><span>
-</span></span><span style="display:flex;"><span><span style="color:#f92672">Metrics to Track</span>:
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">API request count</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Lambda invocations</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DynamoDB read/write capacity</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Bedrock API calls</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">S3 storage size</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">Cost per user</span>
-</span></span><span style="display:flex;"><span>  - <span style="color:#ae81ff">DB vs AI mix ratio</span></span></span></code></pre></div><h3 id="distributed-tracing">Distributed Tracing<a class="anchor" href="#distributed-tracing">#</a></h3>
-<pre tabindex="0"><code>X-Ray Configuration:
+Retention: 7 days (cost optimization)</code></pre><h3 id=metrics--alarms>Metrics & Alarms<a class=anchor href=#metrics--alarms>#</a></h3><div class=highlight><pre tabindex=0 style=color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4><code class=language-yaml data-lang=yaml><span style=display:flex><span><span style=color:#f92672>Critical Alarms</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda errors &gt; 1%</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API Gateway 5xx &gt; 10 requests/5min</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DynamoDB throttled requests &gt; 0</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>AI generation timeout &gt; 10%</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Monthly cost &gt; $170</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Warning Alarms</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda duration &gt; 5s (p95)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API latency &gt; 500ms (p95)</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Invalid ingredients &gt; 10/hour</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Monthly cost &gt; $140</span>
+</span></span><span style=display:flex><span>
+</span></span><span style=display:flex><span><span style=color:#f92672>Metrics to Track</span>:
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>API request count</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Lambda invocations</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DynamoDB read/write capacity</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Bedrock API calls</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>S3 storage size</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>Cost per user</span>
+</span></span><span style=display:flex><span>  - <span style=color:#ae81ff>DB vs AI mix ratio</span></span></span></code></pre></div><h3 id=distributed-tracing>Distributed Tracing<a class=anchor href=#distributed-tracing>#</a></h3><pre tabindex=0><code>X-Ray Configuration:
   Services:
     - API Gateway (100% sampling)
     - Lambda AI Suggestion (100%)
@@ -1513,186 +843,7 @@ Retention: 7 days (cost optimization)</code></pre><h3 id="metrics--alarms">Metri
     - user_id
     - recipe_count
     - db_recipes_count
-    - ai_recipes_count</code></pre><h2 id="related-documents">Related Documents<a class="anchor" href="#related-documents">#</a></h2>
-<ul>
-<li><a href="00-overview.md">00 - Overview</a></li>
-<li><a href="11-database.md">11 - Database</a></li>
-<li><a href="12-api-spec.md">12 - API Spec</a></li>
-<li><a href="13-security.md">13 - Security</a></li>
-<li><a href="14-ai-agent.md">14 - AI Agent</a></li>
-</ul>
-</article>
- 
-      
-
-      <footer class="book-footer">
-        
-  <div class="flex flex-wrap justify-between">
-
-<div>
-
-</div>
-
-<div>
-
-</div>
-
-</div>
-
-
-
-
-
-  
-  
-  
-  <div class="flex flex-wrap justify-between">
-    <span>
-    
-      <a href="/docs/summary/02-constraints/" class="flex align-center">
-        <img src="/icons/backward.svg" class="book-icon" alt="Previous" title="02 - Constraints" />
-        <span>02 - Constraints</span>
-      </a>
-    
-    </span>
-    <span>
-    
-      <a href="/docs/summary/11-database/" class="flex align-center">
-        <span>11 - Database Design</span>
-        <img src="/icons/forward.svg" class="book-icon" alt="Next" title="11 - Database Design" />
-      </a>
-    
-    </span>
-  </div>
-  
-
-
-
-
-  <script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script>
-
-
- 
-        
-  
-  <div class="book-comments">
-
-</div>
-  
- 
-        
-        
-
- 
-      </footer>
-
-      <label for="menu-control" class="hidden book-menu-overlay"></label>
-    </div>
-
-    
-
-<aside class="book-toc">
-  <div class="book-toc-content">
-    
-  
-<nav id="TableOfContents">
-  <ul>
-    <li><a href="#architecture-overview">Architecture Overview</a>
-      <ul>
-        <li><a href="#high-level-architecture">High-Level Architecture</a></li>
-      </ul>
-    </li>
-    <li><a href="#architecture-principles">Architecture Principles</a>
-      <ul>
-        <li><a href="#1-serverless-first">1. Serverless First</a></li>
-        <li><a href="#2-single-responsibility">2. Single Responsibility</a></li>
-        <li><a href="#3-event-driven">3. Event-Driven</a></li>
-        <li><a href="#4-security-by-default">4. Security by Default</a></li>
-        <li><a href="#5-cost-optimized">5. Cost-Optimized</a></li>
-      </ul>
-    </li>
-    <li><a href="#architecture-patterns">Architecture Patterns</a>
-      <ul>
-        <li><a href="#pattern-1-api-request-flow">Pattern 1: API Request Flow</a></li>
-        <li><a href="#pattern-2-ai-suggestion-flow-flexible-mix">Pattern 2: AI Suggestion Flow (Flexible Mix)</a></li>
-        <li><a href="#pattern-3-auto-approval-flow">Pattern 3: Auto-Approval Flow</a></li>
-        <li><a href="#pattern-4-social-feed-with-privacy">Pattern 4: Social Feed with Privacy</a></li>
-      </ul>
-    </li>
-    <li><a href="#component-architecture">Component Architecture</a>
-      <ul>
-        <li><a href="#frontend-architecture-nodejs">Frontend Architecture (Node.js)</a></li>
-        <li><a href="#backend-architecture-lambda">Backend Architecture (Lambda)</a></li>
-      </ul>
-    </li>
-    <li><a href="#security-architecture">Security Architecture</a>
-      <ul>
-        <li><a href="#authentication-flow">Authentication Flow</a></li>
-        <li><a href="#authorization-layers">Authorization Layers</a></li>
-        <li><a href="#iam-roles-structure">IAM Roles Structure</a></li>
-      </ul>
-    </li>
-    <li><a href="#data-architecture">Data Architecture</a>
-      <ul>
-        <li><a href="#dynamodb-single-table-design">DynamoDB Single-Table Design</a></li>
-        <li><a href="#indexes-strategy">Indexes Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#network-architecture">Network Architecture</a>
-      <ul>
-        <li><a href="#vpc-configuration-optional-for-mvp">VPC Configuration (Optional for MVP)</a></li>
-        <li><a href="#cdn-strategy">CDN Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#integration-architecture">Integration Architecture</a>
-      <ul>
-        <li><a href="#external-integrations-mvp">External Integrations (MVP)</a></li>
-      </ul>
-    </li>
-    <li><a href="#scalability-architecture">Scalability Architecture</a>
-      <ul>
-        <li><a href="#horizontal-scaling">Horizontal Scaling</a></li>
-        <li><a href="#vertical-scaling">Vertical Scaling</a></li>
-        <li><a href="#caching-strategy">Caching Strategy</a></li>
-      </ul>
-    </li>
-    <li><a href="#observability-architecture">Observability Architecture</a>
-      <ul>
-        <li><a href="#logging-strategy">Logging Strategy</a></li>
-        <li><a href="#metrics--alarms">Metrics &amp; Alarms</a></li>
-        <li><a href="#distributed-tracing">Distributed Tracing</a></li>
-      </ul>
-    </li>
-    <li><a href="#related-documents">Related Documents</a></li>
-  </ul>
-</nav>
-
-
-
-  </div>
-</aside>
-
- 
-  </main>
-
-  
-</body>
-</html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    - ai_recipes_count</code></pre><h2 id=related-documents>Related Documents<a class=anchor href=#related-documents>#</a></h2><ul><li><a href=00-overview.md>00 - Overview</a></li><li><a href=11-database.md>11 - Database</a></li><li><a href=12-api-spec.md>12 - API Spec</a></li><li><a href=13-security.md>13 - Security</a></li><li><a href=14-ai-agent.md>14 - AI Agent</a></li></ul></article><footer class=book-footer><div class="flex flex-wrap justify-between"><div></div><div></div></div><div class="flex flex-wrap justify-between"><span><a href=/docs/summary/02-constraints/ class="flex align-center"><img src=/icons/backward.svg class=book-icon alt=Previous title="02 - Constraints">
+<span>02 - Constraints</span>
+</a></span><span><a href=/docs/summary/11-database/ class="flex align-center"><span>11 - Database Design</span>
+<img src=/icons/forward.svg class=book-icon alt=Next title="11 - Database Design"></a></span></div><script>(function(){function e(e){const t=window.getSelection(),n=document.createRange();n.selectNodeContents(e),t.removeAllRanges(),t.addRange(n)}document.querySelectorAll("pre code").forEach(t=>{t.addEventListener("click",function(){if(window.getSelection().toString())return;e(t.parentElement),navigator.clipboard&&navigator.clipboard.writeText(t.parentElement.textContent)})})})()</script><div class=book-comments></div></footer><label for=menu-control class="hidden book-menu-overlay"></label></div><aside class=book-toc><div class=book-toc-content><nav id=TableOfContents><ul><li><a href=#architecture-overview>Architecture Overview</a><ul><li><a href=#high-level-architecture>High-Level Architecture</a></li></ul></li><li><a href=#architecture-principles>Architecture Principles</a><ul><li><a href=#1-serverless-first>1. Serverless First</a></li><li><a href=#2-single-responsibility>2. Single Responsibility</a></li><li><a href=#3-event-driven>3. Event-Driven</a></li><li><a href=#4-security-by-default>4. Security by Default</a></li><li><a href=#5-cost-optimized>5. Cost-Optimized</a></li></ul></li><li><a href=#architecture-patterns>Architecture Patterns</a><ul><li><a href=#pattern-1-api-request-flow>Pattern 1: API Request Flow</a></li><li><a href=#pattern-2-ai-suggestion-flow-flexible-mix>Pattern 2: AI Suggestion Flow (Flexible Mix)</a></li><li><a href=#pattern-3-auto-approval-flow>Pattern 3: Auto-Approval Flow</a></li><li><a href=#pattern-4-social-feed-with-privacy>Pattern 4: Social Feed with Privacy</a></li></ul></li><li><a href=#component-architecture>Component Architecture</a><ul><li><a href=#frontend-architecture-nodejs>Frontend Architecture (Node.js)</a></li><li><a href=#backend-architecture-lambda>Backend Architecture (Lambda)</a></li></ul></li><li><a href=#security-architecture>Security Architecture</a><ul><li><a href=#authentication-flow>Authentication Flow</a></li><li><a href=#authorization-layers>Authorization Layers</a></li><li><a href=#iam-roles-structure>IAM Roles Structure</a></li></ul></li><li><a href=#data-architecture>Data Architecture</a><ul><li><a href=#dynamodb-single-table-design>DynamoDB Single-Table Design</a></li><li><a href=#indexes-strategy>Indexes Strategy</a></li></ul></li><li><a href=#network-architecture>Network Architecture</a><ul><li><a href=#vpc-configuration-optional-for-mvp>VPC Configuration (Optional for MVP)</a></li><li><a href=#cdn-strategy>CDN Strategy</a></li></ul></li><li><a href=#integration-architecture>Integration Architecture</a><ul><li><a href=#external-integrations-mvp>External Integrations (MVP)</a></li></ul></li><li><a href=#scalability-architecture>Scalability Architecture</a><ul><li><a href=#horizontal-scaling>Horizontal Scaling</a></li><li><a href=#vertical-scaling>Vertical Scaling</a></li><li><a href=#caching-strategy>Caching Strategy</a></li></ul></li><li><a href=#observability-architecture>Observability Architecture</a><ul><li><a href=#logging-strategy>Logging Strategy</a></li><li><a href=#metrics--alarms>Metrics & Alarms</a></li><li><a href=#distributed-tracing>Distributed Tracing</a></li></ul></li><li><a href=#related-documents>Related Documents</a></li></ul></nav></div></aside></main></body></html>

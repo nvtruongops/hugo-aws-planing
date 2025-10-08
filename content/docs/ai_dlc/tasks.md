@@ -526,4 +526,4 @@ menu:
     - Test critical user flows: registration, login, AI suggestions, rating
     - Enable production monitoring alerts and dashboards
     - Announce go-live to users and stakeholders
-    - _Requirements: 8.2, 9.1, All requirements_
+    - _Requirements: 8.2, 9.1, All requirements
