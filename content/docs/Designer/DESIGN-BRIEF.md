@@ -36,59 +36,27 @@ menu:
 ### Target Users
 - **Primary**: Người nội trợ, người yêu thích nấu ăn (18-45 tuổi)
 - **Secondary**: Sinh viên, người mới học nấu ăn
-- **Admin**: Quản trị viên hệ thống
+- **Tertiary**: Admin quản trị hệ thống
 
-### Tech Stack
-- **Frontend**: Next.js 15 + React 19 + TypeScript + Tailwind CSS 4
-- **Backend**: AWS Lambda (Node.js 20)
-- **Database**: DynamoDB
-- **AI**: Amazon Bedrock (Claude 3 Haiku)
-- **Auth**: AWS Cognito
-- **Hosting**: S3 + CloudFront
+### User Personas
 
----
+#### Persona 1: Mai - Busy Mom (32 tuổi)
+- **Goal**: Nấu ăn nhanh với nguyên liệu có sẵn
+- **Pain Point**: Không biết nấu gì với nguyên liệu thừa
+- **Tech Savvy**: Trung bình
+- **Devices**: Smartphone chính, tablet khi nấu ăn
 
-## 🏗️ Kiến trúc hệ thống
+#### Persona 2: Minh - Student (22 tuổi)
+- **Goal**: Học nấu ăn tiết kiệm
+- **Pain Point**: Thiếu kinh nghiệm, dễ lãng phí thực phẩm
+- **Tech Savvy**: Cao
+- **Devices**: Smartphone
 
-### Frontend Architecture
-```
-frontend/
-├── app/                    # Next.js App Router
-│   ├── page.tsx           # Landing page
-│   ├── layout.tsx         # Root layout
-│   ├── login/             # Login page
-│   ├── register/          # Registration page
-│   ├── dashboard/         # User dashboard
-│   ├── profile/           # User profile
-│   ├── ingredients/       # Ingredient management
-│   ├── ai-suggestions/    # AI recipe suggestions
-│   ├── recipes/           # Recipe browsing
-│   ├── cooking/           # Cooking mode
-│   ├── history/           # Cooking history
-│   ├── friends/           # Friend management (Phase 2)
-│   ├── feed/              # Social feed (Phase 2)
-│   └── admin/             # Admin dashboard
-├── components/            # React components
-├── contexts/              # React contexts (Auth)
-├── services/              # API services
-├── types/                 # TypeScript types
-└── lib/                   # Utilities
-```
-
-### API Endpoints Structure
-```
-/api/
-├── /auth/*               # Authentication
-├── /user/profile         # User profile CRUD
-├── /user/preferences     # User preferences
-├── /ingredients/*        # Ingredient management
-├── /ai/suggest           # AI suggestions
-├── /recipes/*            # Recipe CRUD
-├── /cooking/*            # Cooking sessions
-├── /ratings/*            # Recipe ratings
-├── /friends/*            # Friend management (Phase 2)
-└── /posts/*              # Social posts (Phase 2)
-```
+#### Persona 3: Lan - Food Enthusiast (28 tuổi)
+- **Goal**: Khám phá công thức mới, chia sẻ kinh nghiệm
+- **Pain Point**: Khó tìm công thức phù hợp sở thích
+- **Tech Savvy**: Cao
+- **Devices**: Desktop + mobile
 
 ---
 
